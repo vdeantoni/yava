@@ -1,5 +1,11 @@
 import { useAppStore } from "@/store.tsx";
-import { PropsWithChildren, useCallback, useRef, useState } from "react";
+import {
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { cn, secondsToDuration } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { fetchFile } from "@ffmpeg/util";
@@ -31,6 +37,9 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
 
   const [open, setOpen] = useState(false);
 
+  const [exporting, setExporting] = useState(false);
+  const [outputVideoUrl, setOutputVideoUrl] = useState("");
+
   const [log, setLog] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
   const [time, setTime] = useState(0);
@@ -43,13 +52,21 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     }, []),
   );
 
-  const exportHandler = async () => {
-    // Make sure FFmpeg is loaded
-    await load();
+  useEffect(() => {
+    const video = outputRef.current;
+    if (!video) {
+      return;
+    }
 
-    const { name } = file!;
-    await ffmpeg.writeFile(name, await fetchFile(file));
-    const filename = `output_${new Date().getTime()}.mp4`;
+    if (!outputVideoUrl) {
+      URL.revokeObjectURL(outputVideoUrl);
+    }
+
+    video.src = outputVideoUrl;
+  }, [outputVideoUrl]);
+
+  const exportHandler = async () => {
+    setExporting(true);
 
     const logCb = ({ message }: LogEvent) => {
       setLog((log) => log.concat(message));
@@ -63,38 +80,52 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     ffmpeg.on("log", logCb);
     ffmpeg.on("progress", progressCb);
 
-    await ffmpeg.exec(
-      [
-        "-i",
-        name,
-        "-ss",
-        String(cursorStart),
-        "-to",
-        String(cursorEnd),
-        // for some reason this is needed to make multithreading work in chrome
-        multithreading && "-c:a",
-        multithreading && "copy",
-        filename,
-      ].filter(Boolean) as string[],
-    );
-    const data = (await ffmpeg.readFile(filename)) as Uint8Array;
+    try {
+      // Make sure FFmpeg is loaded
+      await load();
 
-    const video = outputRef.current!;
-    video.src = URL.createObjectURL(
-      new Blob([data.buffer], { type: "video/mp4" }),
-    );
+      const { name } = file!;
+      await ffmpeg.writeFile(name, await fetchFile(file));
+      const filename = `output_${new Date().getTime()}.mp4`;
 
-    ffmpeg.off("log", logCb);
-    ffmpeg.off("progress", progressCb);
+      await ffmpeg.exec(
+        [
+          "-i",
+          name,
+          "-ss",
+          String(cursorStart),
+          "-to",
+          String(cursorEnd),
+          // for some reason this is needed to make multithreading work in chrome
+          multithreading && "-c:a",
+          multithreading && "copy",
+          filename,
+        ].filter(Boolean) as string[],
+      );
+
+      const data = (await ffmpeg.readFile(filename)) as Uint8Array;
+      setOutputVideoUrl(
+        URL.createObjectURL(new Blob([data.buffer], { type: "video/mp4" })),
+      );
+    } finally {
+      ffmpeg.off("log", logCb);
+      ffmpeg.off("progress", progressCb);
+
+      setExporting(false);
+    }
   };
 
   const onOpenChange = (open: boolean) => {
     if (!open) {
+      setOutputVideoUrl("");
+
       setLog([]);
       setProgress(0);
       setTime(0);
 
-      ffmpeg.terminate();
+      if (exporting) {
+        ffmpeg.terminate();
+      }
     }
 
     setOpen(open);
@@ -135,15 +166,17 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                     <span>{`${secondsToDuration(Math.round(time / 1000000))} elapsed`}</span>
                   </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <span className={"text-primary"}>Output</span>
-                  <video
-                    ref={outputRef}
-                    className={cn("w-full shadow")}
-                    controls
-                    playsInline
-                  ></video>
-                </div>
+                {outputVideoUrl && (
+                  <div className="flex flex-col gap-1">
+                    <span className={"text-primary"}>Output</span>
+                    <video
+                      ref={outputRef}
+                      className={cn("w-full shadow")}
+                      controls
+                      playsInline
+                    ></video>
+                  </div>
+                )}
                 <div className="flex flex-col gap-1 max-w-full overflow-hidden">
                   <span className={"text-primary"}>Log</span>
                   <Collapsible>
@@ -168,10 +201,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={exportHandler}
-              disabled={progress > 0 && progress < 100}
-            >
+            <Button onClick={exportHandler} disabled={exporting}>
               Export
             </Button>
           </DialogFooter>
