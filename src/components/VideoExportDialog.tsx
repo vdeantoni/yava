@@ -166,7 +166,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                       <span className={"text-primary"}>Progress</span>
                       <Progress
                         value={Math.round(progress * 100)}
-                        indeterminate={progress === 0}
+                        indeterminate={exporting && progress === 0}
                       />
                       <div className="flex justify-between">
                         <span>{`${Math.round(progress * 100)}%`}</span>
