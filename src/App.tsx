@@ -5,6 +5,7 @@ import { Clapperboard, Download, Upload } from "lucide-react";
 import VideoExportDialog from "@/components/VideoExportDialog.tsx";
 import FileUpload from "./components/FileUpload";
 import { Button } from "@/components/ui/button.tsx";
+import { Analytics } from "@vercel/analytics/react";
 
 function App() {
   const { file, reset, video } = useAppStore();
@@ -56,6 +57,7 @@ function App() {
           )}
         </div>
       </main>
+      <Analytics />
     </div>
   );
 }
