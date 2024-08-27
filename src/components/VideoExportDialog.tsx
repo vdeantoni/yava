@@ -59,7 +59,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     }
 
     if (!outputVideoUrl) {
-      URL.revokeObjectURL(outputVideoUrl);
+      URL.revokeObjectURL(video.src);
     }
 
     video.src = outputVideoUrl;

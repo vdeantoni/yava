@@ -28,13 +28,17 @@ const FileUpload = () => {
   });
 
   return (
-    <div className="relative h-full flex flex-col items-center gap-20">
+    <div className="relative h-full flex flex-col items-center">
       <div className="flex flex-col items-center mt-10">
         <h1 className="flex gap-4 items-center text-8xl">
           <Clapperboard width={128} height={128} />
           yava
         </h1>
         <h2 className="self-end text-sm -mt-6 mr-0.5">yet another video app</h2>
+      </div>
+      <div className="mt-16 mb-10">
+        Trim, cut and export video files directly from your browser, no upload
+        needed.
       </div>
       <div
         className={cn(
