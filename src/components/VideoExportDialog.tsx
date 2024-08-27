@@ -115,6 +115,16 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     }
   };
 
+  const downloadHandler = () => {
+    const name = `${file!.name}_${new Date().getTime()}.mp4`;
+    const link = document.createElement("a");
+    link.download = name;
+    link.href = outputVideoUrl;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const onOpenChange = (open: boolean) => {
     if (!open) {
       setOutputVideoUrl("");
@@ -188,25 +198,29 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                   </div>
                 )}
 
-                <div className="flex flex-col gap-1 max-w-full overflow-hidden">
-                  <span className={"text-primary"}>Log</span>
-                  <Collapsible>
-                    <CollapsibleTrigger>
-                      <pre className="text-xs text-secondary-foreground whitespace-pre-wrap">
-                        {log
-                          .reverse()
-                          .find((l) => !l.toLowerCase().includes("aborted()"))}
-                      </pre>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <ScrollArea className={"h-[200px]"}>
+                {!!log.length && (
+                  <div className="flex flex-col gap-1 max-w-full overflow-hidden">
+                    <span className={"text-primary"}>Log</span>
+                    <Collapsible>
+                      <CollapsibleTrigger>
                         <pre className="text-xs text-secondary-foreground whitespace-pre-wrap">
-                          {log.join("\n")}
+                          {log
+                            .reverse()
+                            .find(
+                              (l) => !l.toLowerCase().includes("aborted()"),
+                            )}
                         </pre>
-                      </ScrollArea>
-                    </CollapsibleContent>
-                  </Collapsible>
-                </div>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <ScrollArea className={"h-[200px]"}>
+                          <pre className="text-xs text-secondary-foreground whitespace-pre-wrap">
+                            {log.join("\n")}
+                          </pre>
+                        </ScrollArea>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
+                )}
               </div>
             </DialogDescription>
           </DialogHeader>
@@ -214,8 +228,18 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button onClick={exportHandler} disabled={exporting}>
+            <Button
+              onClick={exportHandler}
+              className={cn(outputVideoUrl && "hidden")}
+              disabled={exporting}
+            >
               Export
+            </Button>
+            <Button
+              onClick={downloadHandler}
+              className={cn(!outputVideoUrl && "hidden")}
+            >
+              Download
             </Button>
           </DialogFooter>
         </DialogContent>
