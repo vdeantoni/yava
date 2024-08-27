@@ -9,7 +9,7 @@ import {
 } from "react";
 import VideoThumbnails from "@/components/VideoThumbnails.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
-import { cn, secondsToDuration } from "@/lib/utils.ts";
+import { cn, isMobile, secondsToDuration } from "@/lib/utils.ts";
 import {
   Card,
   CardContent,
@@ -129,7 +129,7 @@ const VideoTimeline = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-6 cursor-default">
+          <div className="flex flex-col cursor-default">
             <div
               className="flex flex-col gap-2"
               onClick={(e) => {
@@ -149,7 +149,9 @@ const VideoTimeline = () => {
                           "absolute top-0 left-0 transform -translate-x-[50%]"
                         }
                       >
-                        {i && marks[i] ? secondsToDuration(marks[i]) : ""}
+                        {i && marks[i]
+                          ? secondsToDuration(marks[i], isMobile)
+                          : ""}
                       </span>
                     </span>
                     <span className={"mt-2"}>{"."}</span>

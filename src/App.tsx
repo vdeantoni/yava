@@ -1,19 +1,26 @@
 import VideoTimeline from "@/components/VideoTimeline.tsx";
 import { useAppStore } from "@/store.tsx";
 import VideoPlayer from "@/components/VideoPlayer.tsx";
-import { Clapperboard, Download, Upload } from "lucide-react";
+import { Clapperboard, Download, TriangleAlert, Upload } from "lucide-react";
 import VideoExportDialog from "@/components/VideoExportDialog.tsx";
 import FileUpload from "./components/FileUpload";
 import { Button } from "@/components/ui/button.tsx";
 import { Analytics } from "@vercel/analytics/react";
 import MadeBy from "@/components/MadeBy.tsx";
+import { isMobile } from "@/lib/utils.ts";
 
 function App() {
   const { file, reset, video } = useAppStore();
 
   return (
     <>
-      <div className="flex min-h-screen w-full flex-col">
+      <div className="flex min-h-[100svh] flex-col">
+        {isMobile && (
+          <div className="flex flex-row items-center justify-center gap-1 text-xs bg-amber-200 text-nowrap">
+            <TriangleAlert width={14} />
+            Mobile isn't fully supported yet, some files might crash the app
+          </div>
+        )}
         {file && (
           <header className="flex h-12 items-center justify-between gap-4 border-b bg-background px-2 md:px-4">
             <nav className="flex flex-row gap-2 text-lg font-medium items-center">
@@ -47,8 +54,8 @@ function App() {
             </div>
           </header>
         )}
-        <main className="flex min-h-[calc(100vh_-_theme(spacing.16))] flex-1 flex-col bg-muted/40 p-2 md:p-4">
-          <div className="grid max-w-8xl w-full max-w-8xl items-start grid-cols-[1fr] gap-6">
+        <main className="flex flex-1 flex-col p-2 md:p-4">
+          <div className="grid w-full max-w-8xl items-start grid-cols-[1fr] gap-6">
             {!file && <FileUpload />}
 
             {file && (
@@ -59,8 +66,10 @@ function App() {
             )}
           </div>
         </main>
+        <footer className="flex items-center justify-end pr-3 pb-4">
+          <MadeBy />
+        </footer>
       </div>
-      <MadeBy />
       <Analytics />
     </>
   );

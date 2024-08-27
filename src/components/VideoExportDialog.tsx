@@ -144,28 +144,38 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
             <DialogTitle>Export video</DialogTitle>
             <DialogDescription asChild>
               <div className="flex flex-col gap-6 py-4">
-                <div className="flex justify-between">
-                  <div className="flex flex-col">
-                    <span className={"text-primary"}>Start</span>
-                    <span>{secondsToDuration(cursorStart)}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className={"text-primary"}>End</span>
-                    <span>{secondsToDuration(cursorEnd)}</span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className={"text-primary"}>Duration</span>
-                    <span>{secondsToDuration(cursorEnd - cursorStart)}</span>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className={"text-primary"}>Progress</span>
-                  <Progress value={Math.round(progress * 100)} />
-                  <div className="flex justify-between">
-                    <span>{`${Math.round(progress * 100)}%`}</span>
-                    <span>{`${secondsToDuration(Math.round(time / 1000000))} elapsed`}</span>
-                  </div>
-                </div>
+                {!outputVideoUrl && (
+                  <>
+                    <div className="flex justify-between">
+                      <div className="flex flex-col">
+                        <span className={"text-primary"}>Start</span>
+                        <span>{secondsToDuration(cursorStart)}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className={"text-primary"}>End</span>
+                        <span>{secondsToDuration(cursorEnd)}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className={"text-primary"}>Duration</span>
+                        <span>
+                          {secondsToDuration(cursorEnd - cursorStart)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className={"text-primary"}>Progress</span>
+                      <Progress
+                        value={Math.round(progress * 100)}
+                        indeterminate={progress === 0}
+                      />
+                      <div className="flex justify-between">
+                        <span>{`${Math.round(progress * 100)}%`}</span>
+                        <span>{`${secondsToDuration(Math.round(time / 1000000))} elapsed`}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 {outputVideoUrl && (
                   <div className="flex flex-col gap-1">
                     <span className={"text-primary"}>Output</span>
@@ -177,12 +187,15 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                     ></video>
                   </div>
                 )}
+
                 <div className="flex flex-col gap-1 max-w-full overflow-hidden">
                   <span className={"text-primary"}>Log</span>
                   <Collapsible>
                     <CollapsibleTrigger>
                       <pre className="text-xs text-secondary-foreground whitespace-pre-wrap">
-                        {log[log.length - 1]}
+                        {log
+                          .reverse()
+                          .find((l) => !l.toLowerCase().includes("aborted()"))}
                       </pre>
                     </CollapsibleTrigger>
                     <CollapsibleContent>

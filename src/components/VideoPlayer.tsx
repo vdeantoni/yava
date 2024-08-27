@@ -51,7 +51,10 @@ const VideoPlayer = () => {
       <div className="flex flex-col gap-4 relative">
         <video
           ref={videoRef}
-          className={cn("max-h-[50vh] shadow", processing && "invisible")}
+          className={cn(
+            "max-h-[35vh] sm:max-h-[50vh] shadow",
+            processing && "invisible",
+          )}
           onLoadedMetadata={videoMetadataHandler}
           onTimeUpdate={videoTimeUpdateHandler}
           onPlaying={() => setPlaying(true)}

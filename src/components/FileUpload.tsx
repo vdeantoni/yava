@@ -29,20 +29,22 @@ const FileUpload = () => {
 
   return (
     <div className="relative h-full flex flex-col items-center">
-      <div className="flex flex-col items-center mt-10">
+      <div className="flex flex-col items-center mt-4 sm:mt-10">
         <h1 className="flex gap-4 items-center text-8xl">
           <Clapperboard width={128} height={128} />
           yava
         </h1>
         <h2 className="self-end text-sm -mt-6 mr-0.5">yet another video app</h2>
       </div>
-      <div className="mt-16 mb-10">
-        Trim, cut and export video files directly from your browser, no upload
-        needed.
+      <div className="mt-8 sm:mt-16 mb-6 sm:mb-10 text-center">
+        Trim, cut and export video files{" "}
+        <span className="underline">directly from your browser</span>,{" "}
+        <span className="font-bold">no upload needed</span>.
       </div>
+
       <div
         className={cn(
-          "w-full sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] h-[50vh] bg-secondary border-2 border-dashed rounded flex flex-col items-center justify-center",
+          "w-full sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] h-[40vh] sm:h-[50vh] bg-secondary border-2 border-dashed rounded flex flex-col items-center justify-center",
           isDragActive && "border-primary",
         )}
         {...getRootProps()}
