@@ -190,6 +190,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
+        className="max-h-full overflow-scroll"
       >
         <DialogHeader>
           <DialogTitle>Export</DialogTitle>
@@ -319,20 +320,22 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
               {outputUrl && (
                 <div className="flex flex-col gap-1">
                   <span className={"text-primary"}>Output</span>
-                  {format === "gif" && (
-                    <img
-                      ref={outputImageRef}
-                      className={cn("w-full aspect-video shadow")}
-                    ></img>
-                  )}
-                  {format === "mp4" && (
-                    <video
-                      ref={outputVideoRef}
-                      className={cn("w-full shadow")}
-                      controls
-                      playsInline
-                    ></video>
-                  )}
+                  <div className="max-h-[35vh] flex justify-center">
+                    {format === "gif" && (
+                      <img
+                        ref={outputImageRef}
+                        className={cn("h-full shadow")}
+                      ></img>
+                    )}
+                    {format === "mp4" && (
+                      <video
+                        ref={outputVideoRef}
+                        className={cn("h-full shadow")}
+                        controls
+                        playsInline
+                      ></video>
+                    )}
+                  </div>
                   <Button onClick={downloadHandler}>Download</Button>
                 </div>
               )}
