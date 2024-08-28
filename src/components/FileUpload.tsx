@@ -39,7 +39,7 @@ const FileUpload = () => {
       <div className="mt-8 sm:mt-16 mb-6 sm:mb-10 text-center">
         Trim, cut and export video files{" "}
         <span className="underline">directly from your browser</span>,{" "}
-        <span className="font-bold">no upload needed</span>.
+        <span className="font-bold">no data leaves your device</span>.
       </div>
 
       <div

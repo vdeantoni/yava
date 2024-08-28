@@ -53,8 +53,8 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
 
   const [format, setFormat] = useState<string>("mp4");
   const [frameRate, setFrameRate] = useState<number>(30);
-  const [width, setWidth] = useState<number>(video.videoWidth);
-  const [height, setHeight] = useState<number>(video.videoHeight);
+  const [width, setWidth] = useState<string>(String(video.videoWidth));
+  const [height, setHeight] = useState<string>(String(video.videoHeight));
   const [noAudio, setNoAudio] = useState<boolean | "indeterminate">(false);
 
   const [exporting, setExporting] = useState(false);
@@ -170,8 +170,8 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
 
       setFormat("mp4");
       setFrameRate(30);
-      setWidth(video.videoWidth);
-      setHeight(video.videoHeight);
+      setWidth(String(video.videoWidth));
+      setHeight(String(video.videoHeight));
       setNoAudio(false);
 
       if (exporting) {
@@ -183,105 +183,102 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
   };
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogTrigger asChild>{children}</DialogTrigger>
-        <DialogContent
-          onEscapeKeyDown={(e) => e.preventDefault()}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle>Export</DialogTitle>
-            <DialogDescription asChild>
-              <div className="flex flex-col gap-6 py-4">
-                {!outputUrl && (
-                  <>
-                    <div className="grid grid-cols-3 w-full gap-y-4 gap-x-4">
-                      <div className="flex flex-col">
-                        <span className={"text-primary"}>Start</span>
-                        <span>{secondsToDuration(cursorStart)}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className={"text-primary"}>End</span>
-                        <span>{secondsToDuration(cursorEnd)}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className={"text-primary"}>Duration</span>
-                        <span>
-                          {secondsToDuration(cursorEnd - cursorStart)}
-                        </span>
-                      </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <DialogHeader>
+          <DialogTitle>Export</DialogTitle>
+          <DialogDescription asChild>
+            <div className="flex flex-col gap-6 py-4">
+              {!outputUrl && (
+                <>
+                  <div className="grid grid-cols-3 w-full gap-y-4 gap-x-4">
+                    <div className="flex flex-col">
+                      <span className={"text-primary"}>Start</span>
+                      <span>{secondsToDuration(cursorStart)}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className={"text-primary"}>End</span>
+                      <span>{secondsToDuration(cursorEnd)}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className={"text-primary"}>Duration</span>
+                      <span>{secondsToDuration(cursorEnd - cursorStart)}</span>
+                    </div>
 
-                      <div className="flex flex-col gap-1">
-                        <span className={"text-primary"}>Format</span>
-                        <RadioGroup value={format} onValueChange={setFormat}>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="mp4" id="option-mp4" />
-                            <Label htmlFor="option-mp4">mp4</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="gif" id="option-gif" />
-                            <Label htmlFor="option-gif">gif</Label>
-                          </div>
-                        </RadioGroup>
-                      </div>
+                    <div className="flex flex-col gap-1">
+                      <span className={"text-primary"}>Format</span>
+                      <RadioGroup value={format} onValueChange={setFormat}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="mp4" id="option-mp4" />
+                          <Label htmlFor="option-mp4">mp4</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="gif" id="option-gif" />
+                          <Label htmlFor="option-gif">gif</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
 
-                      <div className="col-span-1 flex flex-col gap-1">
-                        <span
-                          className={"flex items-center gap-1 text-primary"}
-                        >
-                          Dimensions
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <HelpCircle width={14} />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>To auto-calculate enter 0</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </span>
-                        <div className="flex flex-row gap-1">
-                          <Input
-                            type="text"
-                            value={width}
-                            onChange={(e) => setWidth(+e.currentTarget.value)}
-                          />
-                          <Input
-                            type="text"
-                            value={height}
-                            onChange={(e) => setHeight(+e.currentTarget.value)}
-                          />
-                        </div>
+                    <div className="col-span-2 flex flex-col gap-1">
+                      <span className={"flex items-center gap-1 text-primary"}>
+                        Dimensions (w x h)
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <HelpCircle width={14} />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>
+                                For original value, or to auto-calulate ratio
+                                leave either field blank
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </span>
+                      <div className="flex flex-row gap-1 items-center">
+                        <Input
+                          type="text"
+                          value={width}
+                          onChange={(e) => setWidth(e.currentTarget.value)}
+                        />
+                        x
+                        <Input
+                          type="text"
+                          value={height}
+                          onChange={(e) => setHeight(e.currentTarget.value)}
+                        />
                       </div>
+                    </div>
+
+                    <div className="col-span-2 flex flex-col gap-1">
+                      <span className={"flex items-center gap-1 text-primary"}>
+                        Frame rate
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <HelpCircle width={14} />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>For original value enter 0</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </span>
                       <div className="flex flex-col gap-1">
-                        <span
-                          className={"flex items-center gap-1 text-primary"}
-                        >
-                          Frame rate
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <HelpCircle width={14} />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>For original value enter 0</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </span>
-                        <div className="flex flex-col gap-1">
-                          <Slider
-                            value={[frameRate]}
-                            max={60}
-                            step={1}
-                            onValueChange={([value]) => setFrameRate(value)}
-                          />
-                          <span className="self-end">{`${frameRate} fps`}</span>
-                        </div>
+                        <Slider
+                          value={[frameRate]}
+                          max={60}
+                          step={1}
+                          onValueChange={([value]) => setFrameRate(value)}
+                        />
+                        <span className="self-end">{`${frameRate} fps`}</span>
                       </div>
                     </div>
 
@@ -294,96 +291,97 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                             checked={noAudio}
                             onCheckedChange={setNoAudio}
                           />
-                          <label htmlFor="no-audio" className="text-sm">
+                          <label
+                            htmlFor="no-audio"
+                            className="text-sm text-nowrap"
+                          >
                             Remove audio
                           </label>
                         </div>
                       </div>
                     )}
-                  </>
-                )}
-
-                {exporting && (
-                  <div className="flex flex-col gap-1">
-                    <span className={"text-primary"}>Progress</span>
-                    <Progress
-                      value={Math.round(progress * 100)}
-                      indeterminate={
-                        exporting && (progress === 0 || progress > 1)
-                      }
-                    />
                   </div>
-                )}
+                </>
+              )}
 
-                {outputUrl && (
-                  <div className="flex flex-col gap-1">
-                    <span className={"text-primary"}>Output</span>
-                    {format === "gif" && (
-                      <img
-                        ref={outputImageRef}
-                        className={cn("w-full aspect-video shadow")}
-                      ></img>
-                    )}
-                    {format === "mp4" && (
-                      <video
-                        ref={outputVideoRef}
-                        className={cn("w-full shadow")}
-                        controls
-                        playsInline
-                      ></video>
-                    )}
-                    <Button onClick={downloadHandler}>Download</Button>
-                  </div>
-                )}
+              {exporting && (
+                <div className="flex flex-col gap-1">
+                  <span className={"text-primary"}>Progress</span>
+                  <Progress
+                    value={Math.round(progress * 100)}
+                    indeterminate={
+                      exporting && (progress < 0.1 || progress > 1)
+                    }
+                  />
+                </div>
+              )}
 
-                {!!log.length && (
-                  <div className="flex flex-col gap-1 max-w-full overflow-hidden">
-                    <span className={"text-primary"}>Log</span>
-                    <Collapsible>
-                      <CollapsibleTrigger>
+              {outputUrl && (
+                <div className="flex flex-col gap-1">
+                  <span className={"text-primary"}>Output</span>
+                  {format === "gif" && (
+                    <img
+                      ref={outputImageRef}
+                      className={cn("w-full aspect-video shadow")}
+                    ></img>
+                  )}
+                  {format === "mp4" && (
+                    <video
+                      ref={outputVideoRef}
+                      className={cn("w-full shadow")}
+                      controls
+                      playsInline
+                    ></video>
+                  )}
+                  <Button onClick={downloadHandler}>Download</Button>
+                </div>
+              )}
+
+              {!!log.length && (
+                <div className="flex flex-col gap-1 max-w-full overflow-hidden">
+                  <span className={"text-primary"}>Log</span>
+                  <Collapsible>
+                    <CollapsibleTrigger>
+                      <pre className="text-xs text-secondary-foreground whitespace-pre-wrap">
+                        {log
+                          .reverse()
+                          .find((l) => !l.toLowerCase().includes("aborted()"))}
+                      </pre>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <ScrollArea className={"h-[200px]"}>
                         <pre className="text-xs text-secondary-foreground whitespace-pre-wrap">
-                          {log
-                            .reverse()
-                            .find(
-                              (l) => !l.toLowerCase().includes("aborted()"),
-                            )}
+                          {log.join("\n")}
                         </pre>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <ScrollArea className={"h-[200px]"}>
-                          <pre className="text-xs text-secondary-foreground whitespace-pre-wrap">
-                            {log.join("\n")}
-                          </pre>
-                        </ScrollArea>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  </div>
-                )}
-              </div>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={exportHandler}
-              className={cn(outputUrl && "hidden")}
-              disabled={exporting}
-            >
-              Export
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={reset}
-              className={cn(!outputUrl && "hidden")}
-            >
-              Start over
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+                      </ScrollArea>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              )}
+            </div>
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={exportHandler}
+            className={cn(outputUrl && "hidden")}
+            disabled={exporting}
+          >
+            Export
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={reset}
+            className={cn(!outputUrl && "hidden")}
+          >
+            Start over
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 
