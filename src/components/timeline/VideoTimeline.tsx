@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import VideoThumbnails from "@/components/VideoThumbnails.tsx";
+import VideoThumbnails from "@/components/timeline/VideoThumbnails.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 import { cn, isMobile, secondsToDuration } from "@/lib/utils.ts";
 import {

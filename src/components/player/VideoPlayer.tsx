@@ -1,9 +1,35 @@
 import { useAppStore } from "@/store.tsx";
-import { useEffect, useRef, useState } from "react";
-import { STEP_SIZE } from "@/components/VideoTimeline.tsx";
-import VideoControls from "@/components/VideoControls.tsx";
+import { RefObject, useEffect, useRef, useState } from "react";
+import { STEP_SIZE } from "@/components/timeline/VideoTimeline.tsx";
+import VideoControls from "@/components/player/VideoControls.tsx";
 import { cn } from "@/lib/utils.ts";
 import { LoaderCircle } from "lucide-react";
+import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
+
+const VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME = 200;
+
+const useVideoResizeObserver = (ref: RefObject<HTMLVideoElement>) => {
+  const [{ width, height }, setSize] = useState({
+    width: 0,
+    height: 0,
+  });
+
+  const onResize = useDebounceCallback(({ width, height }) => {
+    if (!width || !height) {
+      return;
+    }
+
+    setSize({ width, height });
+  }, VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME);
+
+  useResizeObserver({
+    ref,
+    onResize,
+    box: "border-box",
+  });
+
+  return [width, height];
+};
 
 const VideoPlayer = () => {
   const {
@@ -18,6 +44,9 @@ const VideoPlayer = () => {
   const [playing, setPlaying] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoWidth, videoHeight] = useVideoResizeObserver(videoRef);
+
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const videoMetadataHandler = () => {
     setVideo(videoRef.current!);
@@ -65,6 +94,13 @@ const VideoPlayer = () => {
         >
           <source src={URL.createObjectURL(file!)} />
         </video>
+
+        <canvas
+          ref={canvasRef}
+          className="absolute top-0 left-0 cursor-crosshair"
+          width={videoWidth}
+          height={videoHeight}
+        />
 
         {processing && (
           <div className="absolute top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[50%]">

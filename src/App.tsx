@@ -1,8 +1,8 @@
-import VideoTimeline from "@/components/VideoTimeline.tsx";
+import VideoTimeline from "@/components/timeline/VideoTimeline.tsx";
 import { useAppStore } from "@/store.tsx";
-import VideoPlayer from "@/components/VideoPlayer.tsx";
+import VideoPlayer from "@/components/player/VideoPlayer.tsx";
 import { Clapperboard, Download, TriangleAlert, Upload } from "lucide-react";
-import VideoExportDialog from "@/components/VideoExportDialog.tsx";
+import VideoExportDialog from "@/components/export/VideoExportDialog.tsx";
 import FileUpload from "./components/FileUpload";
 import { Button } from "@/components/ui/button.tsx";
 import { Analytics } from "@vercel/analytics/react";
@@ -41,7 +41,7 @@ function App() {
                 }}
               >
                 <Upload width={18} className="mr-2" />
-                New video file
+                New file
               </Button>
               {video && (
                 <VideoExportDialog>
