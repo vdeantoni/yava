@@ -159,7 +159,7 @@ const VideoTimeline = () => {
                 ))}
               </div>
 
-              <div ref={trackRef} className="relative h-14">
+              <div ref={trackRef} className="relative h-16">
                 {(cursorStart > 0 ||
                   +cursorEnd.toFixed(1) < +video.duration.toFixed(1)) && (
                   <div
@@ -167,13 +167,13 @@ const VideoTimeline = () => {
                     style={{
                       left:
                         (cursorStart / video.duration) * trackWidth -
-                        (cursorStart / video.duration) * 8,
+                        (cursorStart / video.duration) * 16,
                       width:
                         (cursorEnd / video.duration -
                           cursorStart / video.duration) *
                           trackWidth +
-                        (1 - cursorEnd / video.duration) * 8 +
-                        (cursorStart / video.duration) * 8,
+                        (1 - cursorEnd / video.duration) * 16 +
+                        (cursorStart / video.duration) * 16,
                     }}
                   ></div>
                 )}

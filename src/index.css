@@ -89,7 +89,7 @@
     }
 
     .slider-thumb::-webkit-slider-thumb {
-        @apply appearance-none pointer-events-auto cursor-grab w-2 h-14 bg-amber-400 shadow
+        @apply appearance-none pointer-events-auto cursor-grab w-4 h-14 bg-amber-400 shadow
     }
 
     .slider-thumb-left {
@@ -97,7 +97,7 @@
     }
 
     .slider-thumb-left::-webkit-slider-thumb {
-        @apply transform -translate-x-1.5
+        @apply transform -translate-x-2.5
     }
 
     .slider-thumb-right {
@@ -105,7 +105,7 @@
     }
 
     .slider-thumb-right::-webkit-slider-thumb {
-        @apply transform translate-x-1.5
+        @apply transform translate-x-2.5
     }
 
     .slider-thumb-current {
@@ -113,7 +113,7 @@
     }
 
     .slider-thumb-current::-webkit-slider-thumb {
-        @apply bg-secondary w-2 h-14 transform origin-center -scale-x-[50%]
+        @apply bg-secondary w-3 h-14 transform origin-center -scale-x-[50%]
     }
 
     .timeline-marks {
