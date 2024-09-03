@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
+import { CropRectangle } from "./components/player/VideoCanvas";
 
 interface AppState {
   ffmpeg: FFmpeg;
@@ -11,6 +12,7 @@ interface AppState {
   cursorCurrent: number;
   cursorStart: number;
   cursorEnd: number;
+  cropRectangle: CropRectangle;
 
   processing: boolean;
 }
@@ -24,6 +26,7 @@ interface AppActions {
   setCursorCurrent: (cursorCurrent: number) => void;
   setCursorStart: (cursorStart: number) => void;
   setCursorEnd: (cursorEnd: number) => void;
+  setCropRectangle: (cropRectangle: CropRectangle) => void;
 
   setProcessing: (processing: boolean) => void;
 
@@ -40,6 +43,14 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
   cursorCurrent: 0,
   cursorStart: 0,
   cursorEnd: 0,
+  cropRectangle: {
+    x: 0,
+    y: 0,
+    w: 0,
+    h: 0,
+    vw: 0,
+    vh: 0,
+  },
 
   processing: true,
 
@@ -52,13 +63,13 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
   setCursorCurrent: (cursorCurrent) => set(() => ({ cursorCurrent })),
   setCursorStart: (cursorStart) => set(() => ({ cursorStart })),
   setCursorEnd: (cursorEnd) => set(() => ({ cursorEnd })),
+  setCropRectangle: (cropRectangle) => set(() => ({ cropRectangle })),
 
   setProcessing: (processing) => set(() => ({ processing })),
 
   reset: () =>
     set(() => ({
-      // ffmpeg: new FFmpeg(),
-      // multithreading: false,
+      multithreading: false,
 
       file: undefined!,
       video: undefined!,
@@ -66,6 +77,14 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       cursorCurrent: 0,
       cursorStart: 0,
       cursorEnd: 0,
+      cropRectangle: {
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+        vw: 0,
+        vh: 0,
+      },
 
       processing: true,
     })),

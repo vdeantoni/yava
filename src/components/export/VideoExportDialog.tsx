@@ -43,8 +43,15 @@ import { HelpCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 
 const VideoExportDialog = ({ children }: PropsWithChildren) => {
-  const { file, video, ffmpeg, multithreading, cursorStart, cursorEnd } =
-    useAppStore();
+  const {
+    file,
+    video,
+    ffmpeg,
+    multithreading,
+    cursorStart,
+    cursorEnd,
+    cropRectangle,
+  } = useAppStore();
 
   const outputVideoRef = useRef<HTMLVideoElement>(null);
   const outputImageRef = useRef<HTMLImageElement>(null);
@@ -110,6 +117,21 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
       await ffmpeg.writeFile(name, await fetchFile(file));
       const filename = `output_${new Date().getTime()}.${format}`;
 
+      const videoFilters = [`scale=${width || -1}:${height || -1}:`];
+      if (cropRectangle.w && cropRectangle.h) {
+        const px = video.videoWidth / cropRectangle.vw;
+        const py = video.videoHeight / cropRectangle.vh;
+
+        const x = Math.round(cropRectangle.x * px);
+        const y = Math.round(cropRectangle.y * py);
+        const w = Math.round(cropRectangle.w * px);
+        const h = Math.round(cropRectangle.h * py);
+
+        videoFilters.push(`crop=${w}:${h}:${x}:${y}`);
+      }
+
+      console.log(videoFilters);
+
       await ffmpeg.exec(
         [
           "-i",
@@ -121,7 +143,8 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
           frameRate && "-r",
           frameRate && String(frameRate),
           "-vf",
-          `scale=${width || -1}:${height || -1}:`,
+          videoFilters.join(","),
+
           noAudio && "-an",
 
           // for some reason this is needed to make multithreading work in chrome

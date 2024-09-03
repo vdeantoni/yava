@@ -128,7 +128,7 @@ const VideoTimeline = () => {
             </span>
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className={"pt-0"}>
           <div className="flex flex-col cursor-default">
             <div
               className="flex flex-col gap-2"

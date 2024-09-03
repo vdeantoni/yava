@@ -1,35 +1,11 @@
 import { useAppStore } from "@/store.tsx";
-import { RefObject, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { STEP_SIZE } from "@/components/timeline/VideoTimeline.tsx";
 import VideoControls from "@/components/player/VideoControls.tsx";
 import { cn } from "@/lib/utils.ts";
 import { LoaderCircle } from "lucide-react";
-import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
-
-const VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME = 200;
-
-const useVideoResizeObserver = (ref: RefObject<HTMLVideoElement>) => {
-  const [{ width, height }, setSize] = useState({
-    width: 0,
-    height: 0,
-  });
-
-  const onResize = useDebounceCallback(({ width, height }) => {
-    if (!width || !height) {
-      return;
-    }
-
-    setSize({ width, height });
-  }, VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME);
-
-  useResizeObserver({
-    ref,
-    onResize,
-    box: "border-box",
-  });
-
-  return [width, height];
-};
+import VideoCanvas from "./VideoCanvas";
+import VideoExportOptions from "../export/VideoExportOptions";
 
 const VideoPlayer = () => {
   const {
@@ -44,9 +20,6 @@ const VideoPlayer = () => {
   const [playing, setPlaying] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoWidth, videoHeight] = useVideoResizeObserver(videoRef);
-
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const videoMetadataHandler = () => {
     setVideo(videoRef.current!);
@@ -76,8 +49,9 @@ const VideoPlayer = () => {
   }, [cursorCurrent, processing]);
 
   return (
-    <div className="flex flex-col items-center justify-center">
-      <div className="flex flex-col gap-4 relative">
+    <div className="grid grid-cols-[180px_1fr_180px] gap-x-6 mx-auto">
+      <div />
+      <div className="flex flex-col gap-4 relative w-max">
         <video
           ref={videoRef}
           className={cn(
@@ -95,12 +69,7 @@ const VideoPlayer = () => {
           <source src={URL.createObjectURL(file!)} />
         </video>
 
-        <canvas
-          ref={canvasRef}
-          className="absolute top-0 left-0 cursor-crosshair"
-          width={videoWidth}
-          height={videoHeight}
-        />
+        <VideoCanvas videoRef={videoRef} />
 
         {processing && (
           <div className="absolute top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[50%]">
@@ -111,6 +80,9 @@ const VideoPlayer = () => {
         <div className="mx-auto bg-secondary rounded">
           <VideoControls playing={playing} />
         </div>
+      </div>
+      <div>
+        <VideoExportOptions />
       </div>
     </div>
   );

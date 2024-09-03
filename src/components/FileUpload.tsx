@@ -37,9 +37,10 @@ const FileUpload = () => {
         <h2 className="self-end text-sm -mt-6 mr-0.5">yet another video app</h2>
       </div>
       <div className="mt-8 sm:mt-16 mb-6 sm:mb-10 text-center">
-        Trim, cut and export video files{" "}
-        <span className="underline">directly from your browser</span>,{" "}
-        <span className="font-bold">no data leaves your device</span>.
+        Trim, cut, crop and export video files{" "}
+        <span className="underline">directly from your browser</span>.{" "}
+        Everything is processed locally,{" "}
+        <span className="font-bold">nothing leaves your device</span>!
       </div>
 
       <div
