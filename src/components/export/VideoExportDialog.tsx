@@ -224,15 +224,21 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                   <div className="grid grid-cols-3 w-full gap-y-4 gap-x-4">
                     <div className="flex flex-col">
                       <span className={"text-primary"}>Start</span>
-                      <span>{secondsToDuration(cursorStart)}</span>
+                      <span>
+                        {secondsToDuration(cursorStart, { ms: true })}
+                      </span>
                     </div>
                     <div className="flex flex-col">
                       <span className={"text-primary"}>End</span>
-                      <span>{secondsToDuration(cursorEnd)}</span>
+                      <span>{secondsToDuration(cursorEnd, { ms: true })}</span>
                     </div>
                     <div className="flex flex-col">
                       <span className={"text-primary"}>Duration</span>
-                      <span>{secondsToDuration(cursorEnd - cursorStart)}</span>
+                      <span>
+                        {secondsToDuration(cursorEnd - cursorStart, {
+                          ms: true,
+                        })}
+                      </span>
                     </div>
 
                     <div className="flex flex-col gap-1">
@@ -250,35 +256,60 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                     </div>
 
                     <div className="col-span-2 flex flex-col gap-1">
-                      <span className={"flex items-center gap-1 text-primary"}>
-                        Dimensions (w x h)
-                        <TooltipProvider delayDuration={0}>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <HelpCircle width={14} />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>
-                                For original value, or to auto-calulate ratio
-                                leave either field blank
-                              </p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </span>
-                      <div className="flex flex-row gap-1 items-center">
-                        <Input
-                          type="text"
-                          value={width}
-                          onChange={(e) => setWidth(e.currentTarget.value)}
-                        />
-                        x
-                        <Input
-                          type="text"
-                          value={height}
-                          onChange={(e) => setHeight(e.currentTarget.value)}
-                        />
-                      </div>
+                      {cropRectangle.w && cropRectangle.h ? (
+                        <>
+                          <span
+                            className={"flex items-center gap-1 text-primary"}
+                          >
+                            Crop area (w x h)
+                          </span>
+                          <span>
+                            {Math.round(
+                              (cropRectangle.w * video.videoWidth) /
+                                cropRectangle.vw,
+                            )}{" "}
+                            x{" "}
+                            {Math.round(
+                              (cropRectangle.h * video.videoHeight) /
+                                cropRectangle.vh,
+                            )}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span
+                            className={"flex items-center gap-1 text-primary"}
+                          >
+                            Dimensions (w x h)
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <HelpCircle width={14} />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>
+                                    For original value, or to auto-calulate
+                                    ratio leave either field blank
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </span>
+                          <div className="flex flex-row gap-1 items-center">
+                            <Input
+                              type="text"
+                              value={width}
+                              onChange={(e) => setWidth(e.currentTarget.value)}
+                            />
+                            x
+                            <Input
+                              type="text"
+                              value={height}
+                              onChange={(e) => setHeight(e.currentTarget.value)}
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     <div className="col-span-2 flex flex-col gap-1">

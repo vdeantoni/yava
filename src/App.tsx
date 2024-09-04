@@ -9,8 +9,10 @@ import { Analytics } from "@vercel/analytics/react";
 import MadeBy from "@/components/MadeBy.tsx";
 import { isMobile } from "@/lib/utils.ts";
 import * as Sentry from "@sentry/react";
+import VideoExportOptions from "./components/export/VideoExportOptions";
 
 Sentry.init({
+  enabled: process.env.NODE_ENV !== "development",
   dsn: "https://7ecb9144de14ea899c8af041bdb68045@o428318.ingest.us.sentry.io/4507867732377600",
   integrations: [
     Sentry.browserTracingIntegration(),
@@ -76,6 +78,7 @@ function App() {
               <>
                 <VideoPlayer />
                 {video && <VideoTimeline />}
+                {video && <VideoExportOptions />}
               </>
             )}
           </div>

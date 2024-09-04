@@ -83,7 +83,7 @@ const VideoTimeline = () => {
     if (cursorCurrent > cursorEnd) {
       setCursorCurrent(cursorEnd);
     }
-  }, [cursorStart, cursorEnd, cursorCurrent, trackWidth]);
+  }, [cursorStart, cursorEnd, cursorCurrent]);
 
   const marks = useMemo(() => {
     let markLength = MARK_OPTIONS[0];
@@ -111,18 +111,19 @@ const VideoTimeline = () => {
           <CardDescription>
             <span className={cn("flex items-center justify-center")}>
               <span className="duration-start mr-1">
-                {secondsToDuration(video.currentTime || 0)}
+                {secondsToDuration(video.currentTime || 0, { ms: true })}
               </span>
               <span className="duration-end">
                 /{" "}
                 {secondsToDuration(
                   cursorEnd < video.duration ? cursorEnd : video.duration,
+                  { ms: true },
                 )}
               </span>
               {cursorStart > 0 && (
                 <span className="duration-trim ml-1">
                   {" "}
-                  ({secondsToDuration(cursorEnd - cursorStart)})
+                  ({secondsToDuration(cursorEnd - cursorStart, { ms: true })})
                 </span>
               )}
             </span>
@@ -150,7 +151,7 @@ const VideoTimeline = () => {
                         }
                       >
                         {i && marks[i]
-                          ? secondsToDuration(marks[i], isMobile)
+                          ? secondsToDuration(marks[i], { trimLeft: isMobile })
                           : ""}
                       </span>
                     </span>

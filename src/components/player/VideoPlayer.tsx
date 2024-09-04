@@ -1,11 +1,9 @@
 import { useAppStore } from "@/store.tsx";
 import { useEffect, useRef, useState } from "react";
-import { STEP_SIZE } from "@/components/timeline/VideoTimeline.tsx";
 import VideoControls from "@/components/player/VideoControls.tsx";
 import { cn } from "@/lib/utils.ts";
 import { LoaderCircle } from "lucide-react";
 import VideoCanvas from "./VideoCanvas";
-import VideoExportOptions from "../export/VideoExportOptions";
 
 const VideoPlayer = () => {
   const {
@@ -43,14 +41,13 @@ const VideoPlayer = () => {
       return;
     }
 
-    if (Math.abs(videoRef.current.currentTime - cursorCurrent) > STEP_SIZE) {
+    if (Math.abs(videoRef.current.currentTime - cursorCurrent) >= 0.01) {
       videoRef.current.currentTime = cursorCurrent;
     }
   }, [cursorCurrent, processing]);
 
   return (
-    <div className="grid grid-cols-[180px_1fr_180px] gap-x-6 mx-auto">
-      <div />
+    <div className="grid mx-auto">
       <div className="flex flex-col gap-4 relative w-max">
         <video
           ref={videoRef}
@@ -80,9 +77,6 @@ const VideoPlayer = () => {
         <div className="mx-auto bg-secondary rounded">
           <VideoControls playing={playing} />
         </div>
-      </div>
-      <div>
-        <VideoExportOptions />
       </div>
     </div>
   );

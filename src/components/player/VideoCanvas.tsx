@@ -104,6 +104,13 @@ const VideoCanvas = ({ videoRef }: VideoCanvasProps) => {
 
   const onDrag = (x: number, y: number) => {
     if (isDragging.current) {
+      const newX = x - cropRectangle.x;
+      const newY = y - cropRectangle.y;
+
+      if (newX <= 0 || newY <= 0) {
+        return;
+      }
+
       setCropRectangle({
         ...cropRectangle,
         w: x - cropRectangle.x,
@@ -203,6 +210,7 @@ const VideoCanvas = ({ videoRef }: VideoCanvasProps) => {
       )}
       width={videoWidth}
       height={videoHeight}
+      title="Draw rectangle to crop video"
     />
   );
 };
