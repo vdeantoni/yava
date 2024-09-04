@@ -33,7 +33,7 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
     const w = Math.round(h * ratio);
     let [dx, dy, dw, dh] = [0, 0, w, h];
 
-    const step = Math.round(video.duration / (trackWidth / w));
+    const step = video.duration / (trackWidth / w);
 
     const takeScreenshot = () => {
       requestAnimationFrame(() => {

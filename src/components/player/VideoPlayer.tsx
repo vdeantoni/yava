@@ -52,7 +52,7 @@ const VideoPlayer = () => {
         <video
           ref={videoRef}
           className={cn(
-            "max-h-[35vh] sm:max-h-[50vh] shadow",
+            "w-full h-full max-h-[35vh] sm:max-h-[50vh] shadow",
             processing && "invisible",
           )}
           onLoadedMetadata={videoMetadataHandler}

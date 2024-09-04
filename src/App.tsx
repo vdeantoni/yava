@@ -1,9 +1,9 @@
 import VideoTimeline from "@/components/timeline/VideoTimeline.tsx";
 import { useAppStore } from "@/store.tsx";
 import VideoPlayer from "@/components/player/VideoPlayer.tsx";
-import { Clapperboard, Download, TriangleAlert, Upload } from "lucide-react";
+import { Clapperboard, Download, TriangleAlert, Video } from "lucide-react";
 import VideoExportDialog from "@/components/export/VideoExportDialog.tsx";
-import FileUpload from "./components/FileUpload";
+import NewVideo from "./components/NewVideo";
 import { Button } from "@/components/ui/button.tsx";
 import { Analytics } from "@vercel/analytics/react";
 import MadeBy from "@/components/MadeBy.tsx";
@@ -56,8 +56,8 @@ function App() {
                   reset();
                 }}
               >
-                <Upload width={18} className="mr-2" />
-                New file
+                <Video width={18} className="mr-2" />
+                New video
               </Button>
               {video && (
                 <VideoExportDialog>
@@ -72,7 +72,7 @@ function App() {
         )}
         <main className="flex flex-1 flex-col p-2 md:p-4">
           <div className="grid w-full max-w-8xl items-start grid-cols-[1fr] gap-6">
-            {!file && <FileUpload />}
+            {!file && <NewVideo />}
 
             {file && (
               <>

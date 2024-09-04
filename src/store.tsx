@@ -6,7 +6,7 @@ interface AppState {
   ffmpeg: FFmpeg;
   multithreading: boolean;
 
-  file?: File;
+  file?: Blob;
   video: HTMLVideoElement;
 
   cursorCurrent: number;
@@ -21,7 +21,7 @@ interface AppActions {
   setMultithreading: (multithreading: boolean) => void;
 
   setVideo: (video: HTMLVideoElement) => void;
-  setFile: (file: File) => void;
+  setFile: (file: Blob) => void;
 
   setCursorCurrent: (cursorCurrent: number) => void;
   setCursorStart: (cursorStart: number) => void;
@@ -52,7 +52,7 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
     vh: 0,
   },
 
-  processing: true,
+  processing: false,
 
   setMultithreading: (multithreading: boolean) =>
     set(() => ({ multithreading })),

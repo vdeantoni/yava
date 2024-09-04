@@ -2,13 +2,18 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 import path from "path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), sentryVitePlugin({
-    org: "vdeantoni",
-    project: "yava"
-  })],
+  plugins: [
+    react(),
+    basicSsl(),
+    sentryVitePlugin({
+      org: "vdeantoni",
+      project: "yava",
+    }),
+  ],
 
   server: {
     port: 3000,
@@ -29,6 +34,6 @@ export default defineConfig({
   },
 
   build: {
-    sourcemap: true
-  }
+    sourcemap: true,
+  },
 });

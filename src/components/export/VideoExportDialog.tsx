@@ -113,7 +113,8 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
       // Make sure FFmpeg is loaded
       await load();
 
-      const { name } = file!;
+      const name = "video_file";
+
       await ffmpeg.writeFile(name, await fetchFile(file));
       const filename = `output_${new Date().getTime()}.${format}`;
 
@@ -129,8 +130,6 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
 
         videoFilters.push(`crop=${w}:${h}:${x}:${y}`);
       }
-
-      console.log(videoFilters);
 
       await ffmpeg.exec(
         [
@@ -171,7 +170,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
   };
 
   const downloadHandler = () => {
-    const name = `yava_${new Date().getTime()}_${file!.name}.${format}`;
+    const name = `yava_${new Date().getTime()}.${format}`;
     const link = document.createElement("a");
     link.download = name;
     link.href = outputUrl;
