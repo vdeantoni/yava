@@ -56,7 +56,7 @@ const VideoExportOptions = () => {
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-1">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-2">
               <div className="flex flex-col gap-1">
                 <span
                   className={"flex items-center gap-1 text-primary text-sm"}
