@@ -106,7 +106,7 @@ const VideoTimeline = () => {
 
   return (
     <>
-      <Card className={"border-0"}>
+      <Card className={"border-0 overflow-hidden"}>
         <CardHeader>
           <CardDescription>
             <span className={cn("flex items-center justify-center")}>

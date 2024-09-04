@@ -9,7 +9,7 @@ import { Analytics } from "@vercel/analytics/react";
 import MadeBy from "@/components/MadeBy.tsx";
 import { isMobile } from "@/lib/utils.ts";
 import * as Sentry from "@sentry/react";
-import VideoExportOptions from "./components/export/VideoExportOptions";
+import VideoExportOptions from "@/components/export/VideoExportOptions";
 
 Sentry.init({
   enabled: process.env.NODE_ENV !== "development",
