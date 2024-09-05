@@ -117,10 +117,11 @@ const NewVideo = () => {
           </div>
         )}
         {(mode === "video" || mode === "screen") && (
-          <div className="flex flex-col gap-2 items-center justify-center">
+          <div className="flex flex-col gap-2 justify-center">
             <video ref={videoRef} className="w-full h-full" autoPlay controls />
 
             <Button
+              variant="destructive"
               onClick={async () => {
                 const source = mode === "video" ? video : screen;
                 source.stopRecording();
