@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Clapperboard, ScreenShare, Webcam } from "lucide-react";
-import { cn } from "@/lib/utils.ts";
+import { cn, isMobile } from "@/lib/utils.ts";
 import { useReactMediaRecorder } from "react-media-recorder";
 
 const NewVideo = () => {
@@ -40,8 +40,9 @@ const NewVideo = () => {
     onStop,
     mediaRecorderOptions: { mimeType: "video/mp4" },
   });
+
   const screen = useReactMediaRecorder({
-    screen: true,
+    screen: !isMobile,
     onStart: () => setMode("screen"),
     onStop,
     selfBrowserSurface: "exclude",
