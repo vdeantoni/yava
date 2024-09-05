@@ -19,7 +19,7 @@ const VideoPlayer = () => {
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  const videoMetadataHandler = () => {
+  const videoLoadedDataHandler = () => {
     setVideo(videoRef.current!);
   };
 
@@ -55,7 +55,7 @@ const VideoPlayer = () => {
             "w-full h-full max-h-[50vh] shadow",
             processing && "invisible",
           )}
-          onLoadedMetadata={videoMetadataHandler}
+          onLoadedData={videoLoadedDataHandler}
           onTimeUpdate={videoTimeUpdateHandler}
           onPlaying={() => setPlaying(true)}
           onPause={() => setPlaying(false)}

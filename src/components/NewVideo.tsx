@@ -1,16 +1,24 @@
 import { useAppStore } from "@/store.tsx";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import { Clapperboard, ScreenShare, Webcam } from "lucide-react";
-import { cn, isMobile } from "@/lib/utils.ts";
-import { useReactMediaRecorder } from "react-media-recorder";
+import { cn } from "@/lib/utils.ts";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import ScreenRecorder from "./ScreenRecorder";
+import CameraRecorder from "./CameraRecorder";
 
 const NewVideo = () => {
   const { setFile } = useAppStore();
 
-  const [mode, setMode] = useState<"file" | "video" | "screen">("file");
+  const [mode, setMode] = useState<"file" | "camera" | "screen">("file");
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (!acceptedFiles?.length) {
@@ -29,33 +37,6 @@ const NewVideo = () => {
     noClick: true,
     noKeyboard: true,
   });
-
-  const onStop = async (_blobUrl: string, blob: Blob) => {
-    setFile(blob);
-  };
-
-  const video = useReactMediaRecorder({
-    video: true,
-    onStart: () => setMode("video"),
-    onStop,
-    mediaRecorderOptions: { mimeType: "video/mp4" },
-  });
-
-  const screen = useReactMediaRecorder({
-    screen: !isMobile,
-    onStart: () => setMode("screen"),
-    onStop,
-    selfBrowserSurface: "exclude",
-    mediaRecorderOptions: { mimeType: "video/mp4" },
-  });
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    if (videoRef.current && video.previewStream) {
-      videoRef.current.srcObject = video.previewStream;
-    }
-  }, [video.previewStream]);
 
   return (
     <div className="flex-1 flex flex-col items-center">
@@ -77,7 +58,7 @@ const NewVideo = () => {
         {mode === "file" && (
           <div
             className={cn(
-              "flex-1 bg-secondary border-2 border-dashed rounded flex flex-col items-center justify-center gap-8 md:gap-12 lg:gap-20 p-2 md:p-4 lg:p-10",
+              "flex-1 flex flex-col items-center justify-center bg-secondary border-2 border-dashed rounded gap-8 md:gap-12 lg:gap-20 p-2 md:p-4 lg:p-10",
               isDragActive && "border-primary",
             )}
             {...getRootProps()}
@@ -95,42 +76,61 @@ const NewVideo = () => {
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1 mx-1"
-                onClick={() => {
-                  screen.startRecording();
+                className="gap-1 mx-2"
+                onClick={async () => {
+                  setMode("camera");
                 }}
               >
-                <ScreenShare width={12} height={12} /> screen
+                <Webcam width={12} height={12} /> camera
               </Button>
-              or your
+              or share a
               <Button
                 variant="outline"
                 size="sm"
-                className="gap-1 mx-2"
+                className="gap-1 mx-1"
                 onClick={() => {
-                  video.startRecording();
+                  setMode("screen");
                 }}
               >
-                <Webcam width={12} height={12} /> webcam
+                <ScreenShare width={12} height={12} /> screen
               </Button>
               if your device supports it.
             </div>
           </div>
         )}
-        {(mode === "video" || mode === "screen") && (
-          <div className="flex flex-col gap-2 justify-center">
-            <video ref={videoRef} className="w-full h-full" autoPlay controls />
-
-            <Button
-              variant="destructive"
-              onClick={async () => {
-                const source = mode === "video" ? video : screen;
-                source.stopRecording();
-              }}
+        {(mode === "screen" || mode === "camera") && (
+          <Dialog open={true}>
+            <DialogContent
+              onEscapeKeyDown={(e) => e.preventDefault()}
+              onPointerDownOutside={(e) => e.preventDefault()}
+              onInteractOutside={(e) => e.preventDefault()}
+              onOpenAutoFocus={(e) => e.preventDefault()}
+              className="max-h-full overflow-scroll"
             >
-              Stop Recording
-            </Button>
-          </div>
+              <DialogHeader>
+                <DialogTitle></DialogTitle>
+                <DialogDescription></DialogDescription>
+              </DialogHeader>
+              <DialogContent>
+                {mode === "screen" && (
+                  <ScreenRecorder
+                    onDone={(file) => {
+                      setFile(file);
+                      setMode("file");
+                    }}
+                  />
+                )}
+                {mode === "camera" && (
+                  <CameraRecorder
+                    onDone={(file) => {
+                      setFile(file);
+                      setMode("file");
+                    }}
+                  />
+                )}
+              </DialogContent>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </div>
