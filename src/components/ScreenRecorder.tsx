@@ -11,8 +11,8 @@ interface ScreenRecorderProps {
 const ScreenRecorder = ({ onDone }: ScreenRecorderProps) => {
   const screen = useReactMediaRecorder({
     screen: !isMobile,
+    video: { displaySurface: "window" },
     onStop: (_, blob) => onDone(blob),
-    selfBrowserSurface: "exclude",
     mediaRecorderOptions: { mimeType: "video/mp4" },
   });
 
