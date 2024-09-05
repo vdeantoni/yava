@@ -48,10 +48,22 @@ const NewVideo = () => {
         <h2 className="self-end text-sm -mt-6 mr-0.5">yet another video app</h2>
       </div>
       <div className="mt-8 sm:mt-16 mb-6 sm:mb-10 md:mb-16 text-center">
-        Trim, cut, crop, resize and export video files{" "}
-        <span className="underline">directly from your browser</span>.{" "}
+        Trim, cut, crop, resize and export video files. You can select a file
+        from your{" "}
+        <button className="underline" onClick={open}>
+          device
+        </button>
+        , record your{" "}
+        <button className="underline" onClick={() => setMode("camera")}>
+          camera
+        </button>
+        , and even capture your{" "}
+        <button className="underline" onClick={() => setMode("screen")}>
+          screen
+        </button>
+        . <br />
         Everything is processed locally,{" "}
-        <span className="font-bold">nothing leaves your device</span>!
+        <span className="font-bold">no data is collected</span>.
       </div>
 
       <div className="w-full sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] h-[40vh] sm:h-[50vh] flex justify-center">
@@ -77,7 +89,7 @@ const NewVideo = () => {
                 variant="outline"
                 size="sm"
                 className="gap-1 mx-2"
-                onClick={async () => {
+                onClick={() => {
                   setMode("camera");
                 }}
               >
