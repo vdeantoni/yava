@@ -70,18 +70,16 @@ function App() {
             </div>
           </header>
         )}
-        <main className="flex flex-1 flex-col p-2 md:p-4">
-          <div className="grid w-full max-w-8xl items-start grid-cols-[1fr] gap-6">
-            {!file && <NewVideo />}
+        <main className="flex flex-1 flex-col p-2 md:p-4 max-w-8xl">
+          {!file && <NewVideo />}
 
-            {file && (
-              <>
-                <VideoPlayer />
-                {video && <VideoTimeline />}
-                {video && <VideoExportOptions />}
-              </>
-            )}
-          </div>
+          {file && (
+            <div className="flex flex-col gap-6">
+              <VideoPlayer />
+              {video && <VideoTimeline />}
+              {video && <VideoExportOptions />}
+            </div>
+          )}
         </main>
         <footer className="flex items-center justify-end pr-3 pb-4">
           <MadeBy />

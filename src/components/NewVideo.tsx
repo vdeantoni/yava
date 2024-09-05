@@ -58,7 +58,7 @@ const NewVideo = () => {
   }, [video.previewStream]);
 
   return (
-    <div className="h-full flex flex-col items-center">
+    <div className="flex-1 flex flex-col items-center">
       <div className="flex flex-col items-center mt-4 sm:mt-10">
         <h1 className="flex gap-4 items-center text-8xl">
           <Clapperboard width={128} height={128} />
@@ -77,7 +77,7 @@ const NewVideo = () => {
         {mode === "file" && (
           <div
             className={cn(
-              "flex-1 bg-secondary border-2 border-dashed rounded flex flex-col items-center justify-center gap-10 md:gap-20 p-10",
+              "flex-1 bg-secondary border-2 border-dashed rounded flex flex-col items-center justify-center gap-8 md:gap-12 lg:gap-20 p-2 md:p-4 lg:p-10",
               isDragActive && "border-primary",
             )}
             {...getRootProps()}

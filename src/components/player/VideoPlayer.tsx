@@ -47,12 +47,12 @@ const VideoPlayer = () => {
   }, [cursorCurrent, processing]);
 
   return (
-    <div className="grid mx-auto">
-      <div className="flex flex-col gap-4 relative w-max">
+    <div className="mx-auto">
+      <div className="flex flex-col gap-4 relative">
         <video
           ref={videoRef}
           className={cn(
-            "w-full h-full max-h-[35vh] sm:max-h-[50vh] shadow",
+            "w-full h-full max-h-[50vh] shadow",
             processing && "invisible",
           )}
           onLoadedMetadata={videoMetadataHandler}

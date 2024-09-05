@@ -30,7 +30,7 @@ const useVideoResizeObserver = (ref: RefObject<HTMLVideoElement>) => {
       return;
     }
 
-    setSize({ width, height });
+    setSize({ width: Math.ceil(width), height: Math.ceil(height) });
   }, VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME);
 
   useResizeObserver({
