@@ -26,18 +26,18 @@ const CameraRecorder = ({ onDone }: CameraRecorderProps) => {
 
   const [selectedVideoDeviceId, setSelectedVideoDeviceId] = useState<string>();
 
-  const [running, setRunning] = useState(false);
+  const [recording, setRecording] = useState(false);
 
   const switchingDevices = useRef(false);
 
   const video = useReactMediaRecorder({
     video: { deviceId: selectedVideoDeviceId },
     onStart: () => {
-      setRunning(true);
+      setRecording(true);
       switchingDevices.current = false;
     },
     onStop: (_: string, blob: Blob) => {
-      setRunning(false);
+      setRecording(false);
       return !switchingDevices.current ? onDone(blob) : noop();
     },
     mediaRecorderOptions: { mimeType: "video/mp4" },
@@ -61,7 +61,7 @@ const CameraRecorder = ({ onDone }: CameraRecorderProps) => {
   }, [video.previewStream]);
 
   useEffect(() => {
-    if (videoDevices.length > 1) {
+    if (!recording || videoDevices.length) {
       return;
     }
 
@@ -69,17 +69,18 @@ const CameraRecorder = ({ onDone }: CameraRecorderProps) => {
       const mediaDevices = await navigator.mediaDevices.enumerateDevices();
 
       const videoDevices = mediaDevices
-        .filter((device) => device.kind === "videoinput")
+        .filter((device) => device.kind === "videoinput" && device.deviceId)
         .map((device) => ({
           deviceId: device.deviceId,
           label: device.label,
         }));
+
       setVideoDevices(videoDevices);
       setSelectedVideoDeviceId(videoDevices[0].deviceId);
     };
 
     enumerateDevices();
-  }, [video.previewStream]);
+  }, [recording, videoDevices]);
 
   return (
     <div className="flex-1 flex flex-col gap-2">
@@ -106,8 +107,8 @@ const CameraRecorder = ({ onDone }: CameraRecorderProps) => {
       <div className={cn("flex flex-col gap-2 justify-center relative")}>
         <Video
           className={cn(
-            "absolute top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[50%] h-20 w-20 text-primary",
-            running && "hidden",
+            "absolute top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[80%] h-20 w-20 text-primary",
+            recording && "hidden",
           )}
         />
 
@@ -119,7 +120,7 @@ const CameraRecorder = ({ onDone }: CameraRecorderProps) => {
           muted
         />
 
-        {!running && (
+        {!recording && (
           <div className="flex gap-2 justify-end">
             <Button
               variant="secondary"
@@ -141,7 +142,7 @@ const CameraRecorder = ({ onDone }: CameraRecorderProps) => {
           </div>
         )}
 
-        {running && (
+        {recording && (
           <Button
             variant="destructive"
             onClick={async () => {

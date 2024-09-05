@@ -95,7 +95,7 @@ const NewVideo = () => {
               >
                 <Webcam width={12} height={12} /> camera
               </Button>
-              or share a
+              or capture a
               <Button
                 variant="outline"
                 size="sm"
@@ -120,10 +120,12 @@ const NewVideo = () => {
               className="max-h-full overflow-scroll"
             >
               <DialogHeader>
-                <DialogTitle></DialogTitle>
+                <DialogTitle>
+                  Record {mode === "camera" ? "Camera" : "Screen"}
+                </DialogTitle>
                 <DialogDescription></DialogDescription>
               </DialogHeader>
-              <DialogContent>
+              <div>
                 {mode === "screen" && (
                   <ScreenRecorder
                     onDone={(file) => {
@@ -140,7 +142,7 @@ const NewVideo = () => {
                     }}
                   />
                 )}
-              </DialogContent>
+              </div>
             </DialogContent>
           </Dialog>
         )}

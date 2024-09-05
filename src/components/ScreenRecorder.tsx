@@ -28,7 +28,7 @@ const ScreenRecorder = ({ onDone }: ScreenRecorderProps) => {
     <div className="flex flex-col gap-4 justify-center relative">
       <Video
         className={cn(
-          "absolute top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[50%] h-20 w-20 text-primary",
+          "absolute top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[80%] h-20 w-20 text-primary",
           screen.status === "recording" && "hidden",
         )}
       />
