@@ -1,7 +1,13 @@
 import VideoTimeline from "@/components/timeline/VideoTimeline.tsx";
 import { useAppStore } from "@/store.tsx";
 import VideoPlayer from "@/components/player/VideoPlayer.tsx";
-import { Clapperboard, Download, TriangleAlert, Video } from "lucide-react";
+import {
+  Clapperboard,
+  Download,
+  Github,
+  TriangleAlert,
+  Video,
+} from "lucide-react";
 import VideoExportDialog from "@/components/export/VideoExportDialog.tsx";
 import NewVideo from "./components/NewVideo";
 import { Button } from "@/components/ui/button.tsx";
@@ -81,7 +87,14 @@ function App() {
             </div>
           )}
         </main>
-        <footer className="flex items-center justify-end pr-3 pb-4">
+        <footer className="flex items-end justify-between px-3 pb-4 duration opacity-75 hover:opacity-100">
+          <a
+            href="https://github.com/vdeantoni/yava"
+            className="flex items-center gap-1"
+          >
+            <Github className="w-6" />
+            <span className="text-xs">vdeantoni/yava</span>
+          </a>
           <MadeBy />
         </footer>
       </div>
