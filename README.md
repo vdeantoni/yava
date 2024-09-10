@@ -1,50 +1,23 @@
-# React + TypeScript + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# yava (yet another video app)
 
-Currently, two official plugins are available:
+yava is a web app that lets you edit video files, as well as record videos with your camera and capture your screen. It uses a [wasm port](https://github.com/ffmpegwasm/ffmpeg.wasm) of the amazing [FFmpeg](https://www.ffmpeg.org/) to process video files in your browser, no upload needed.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Check it out: [yetanothervideo.app](yetanothervideo.app)
 
-## Expanding the ESLint configuration
+![yava.png](public/yava.png)
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+## Features
 
-- Configure the top-level `parserOptions` property like this:
+* Import video files from your file system
+* Record video streams from your camera
+* Capture a windows and screens (if your device supports it)
+* Trim, cut, crop and resize.
+* Lossless conversion to mp4
+* Export as a gif 
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## Contribution
+Pull requests, bug reports and feature requests are welcome.
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
-
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
-
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+## Author
+Vinicius De Antoni - [vdeantoni.com](vdeantoni.com)
