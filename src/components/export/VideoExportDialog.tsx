@@ -10,7 +10,7 @@ import { cn, secondsToDuration } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { fetchFile } from "@ffmpeg/util";
 import { Progress } from "@/components/ui/progress.tsx";
-// @ts-ignore
+// @ts-expect-error no type declarations available
 import { LogEvent, ProgressEvent } from "@ffmpeg/ffmpeg/dist/esm/types";
 import {
   Dialog,
@@ -39,7 +39,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { HelpCircle } from "lucide-react";
+import { CircleHelp } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 
 const VideoExportDialog = ({ children }: PropsWithChildren) => {
@@ -153,10 +153,12 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         ].filter(Boolean) as string[],
       );
 
-      const data = (await ffmpeg.readFile(filename)) as Uint8Array;
+      const data = (await ffmpeg.readFile(
+        filename,
+      )) as Uint8Array<ArrayBuffer>;
       setOutputUrl(
         URL.createObjectURL(
-          new Blob([data.buffer], {
+          new Blob([data], {
             type: format === "gif" ? "image/gif" : "video/mp4",
           }),
         ),
@@ -283,7 +285,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                             <TooltipProvider delayDuration={0}>
                               <Tooltip>
                                 <TooltipTrigger>
-                                  <HelpCircle width={14} />
+                                  <CircleHelp width={14} />
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>
@@ -317,7 +319,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                         <TooltipProvider delayDuration={0}>
                           <Tooltip>
                             <TooltipTrigger>
-                              <HelpCircle width={14} />
+                              <CircleHelp width={14} />
                             </TooltipTrigger>
                             <TooltipContent>
                               <p>For original value enter 0</p>
@@ -399,9 +401,9 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                   <Collapsible>
                     <CollapsibleTrigger>
                       <pre className="text-xs text-secondary-foreground whitespace-pre-wrap">
-                        {log
-                          .reverse()
-                          .find((l) => !l.toLowerCase().includes("aborted()"))}
+                        {log.findLast(
+                          (l) => !l.toLowerCase().includes("aborted()"),
+                        )}
                       </pre>
                     </CollapsibleTrigger>
                     <CollapsibleContent>

@@ -31,7 +31,10 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
 
     const h = THUMBNAIL_HEIGHT;
     const w = Math.round(h * ratio);
-    let [dx, dy, dw, dh] = [0, 0, w, h];
+    let dx = 0;
+    const dy = 0;
+    const dw = w;
+    const dh = h;
 
     const step = video.duration / (trackWidth / w);
 

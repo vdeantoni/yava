@@ -30,7 +30,7 @@ const MARK_OPTIONS = [
 
 const TRACK_RESIZE_OBSERVER_DEBOUNCE_TIME = 200;
 
-const useTrackResizeObserver = (ref: RefObject<HTMLDivElement>) => {
+const useTrackResizeObserver = (ref: RefObject<HTMLDivElement | null>) => {
   const [{ width }, setSize] = useState({
     width: 0,
   });
@@ -44,7 +44,7 @@ const useTrackResizeObserver = (ref: RefObject<HTMLDivElement>) => {
   }, TRACK_RESIZE_OBSERVER_DEBOUNCE_TIME);
 
   useResizeObserver({
-    ref,
+    ref: ref as RefObject<HTMLDivElement>,
     onResize,
     box: "border-box",
   });

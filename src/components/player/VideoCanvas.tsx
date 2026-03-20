@@ -19,7 +19,7 @@ export type CropRectangle = {
 
 const VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME = 200;
 
-const useVideoResizeObserver = (ref: RefObject<HTMLVideoElement>) => {
+const useVideoResizeObserver = (ref: RefObject<HTMLVideoElement | null>) => {
   const [{ width, height }, setSize] = useState({
     width: 0,
     height: 0,
@@ -34,7 +34,7 @@ const useVideoResizeObserver = (ref: RefObject<HTMLVideoElement>) => {
   }, VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME);
 
   useResizeObserver({
-    ref,
+    ref: ref as RefObject<HTMLVideoElement>,
     onResize,
     box: "border-box",
   });
@@ -43,7 +43,7 @@ const useVideoResizeObserver = (ref: RefObject<HTMLVideoElement>) => {
 };
 
 interface VideoCanvasProps {
-  videoRef: RefObject<HTMLVideoElement>;
+  videoRef: RefObject<HTMLVideoElement | null>;
 }
 
 const VideoCanvas = ({ videoRef }: VideoCanvasProps) => {
