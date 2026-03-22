@@ -48,7 +48,7 @@ const VideoPlayer = () => {
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
-      <div className="flex flex-1 items-center justify-center min-h-0 bg-background">
+      <div className="flex flex-1 justify-center min-h-0 bg-background">
         <div className="relative max-w-full max-h-full">
           <video
             ref={videoRef}

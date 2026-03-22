@@ -1,7 +1,7 @@
 import VideoTimeline from "@/components/timeline/VideoTimeline.tsx";
 import { useAppStore } from "@/store.tsx";
 import VideoPlayer from "@/components/player/VideoPlayer.tsx";
-import { Clapperboard, Github, Plus, Upload } from "lucide-react";
+import { Clapperboard, Github, Upload } from "lucide-react";
 import NewVideo from "./components/NewVideo";
 import { Button } from "@/components/ui/button.tsx";
 import { Analytics } from "@vercel/analytics/react";
@@ -49,9 +49,9 @@ function App() {
         )}
 
         {file && (
-          <main className="flex flex-1 flex-col min-h-0">
+          <main className="flex flex-col min-h-0">
             {/* Three-column layout on lg+, stacked on mobile */}
-            <div className="flex flex-1 min-h-0 flex-col lg:flex-row">
+            <div className="flex flex-1 min-h-[400px] flex-col lg:flex-row">
               {/* Left sidebar — Trim (sidebar on lg+, inline on mobile) */}
               {video && (
                 <aside className="lg:w-[200px] shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-card overflow-y-auto order-2 lg:order-1">
@@ -66,7 +66,7 @@ function App() {
 
               {/* Right sidebar — Export (sidebar on lg+, inline on mobile) */}
               {video && (
-                <aside className="lg:w-[240px] shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-card overflow-y-auto order-3">
+                <aside className="lg:w-[200px] shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-card overflow-y-auto order-3">
                   <ExportPanel />
                 </aside>
               )}

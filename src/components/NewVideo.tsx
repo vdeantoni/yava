@@ -1,5 +1,5 @@
 import { useAppStore } from "@/store.tsx";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
@@ -38,10 +38,59 @@ const NewVideo = () => {
     noKeyboard: true,
   });
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData;
+      if (!items) return;
+
+      // Check for pasted video files
+      const files = Array.from(items.files);
+      const videoFile = files.find((f) => f.type.startsWith("video/"));
+      if (videoFile) {
+        e.preventDefault();
+        setFile(videoFile);
+        return;
+      }
+
+      // Check for pasted text (URL)
+      const text = items.getData("text/plain").trim();
+      if (!text) return;
+
+      // Only attempt fetch for valid URLs
+      try {
+        new URL(text);
+      } catch {
+        return;
+      }
+
+      e.preventDefault();
+      try {
+        const response = await fetch(text, {
+          signal: controller.signal,
+        });
+        if (!response.ok) return;
+        const blob = await response.blob();
+        if (blob.type.startsWith("video/")) {
+          setFile(blob);
+        }
+      } catch {
+        // Fetch failed (CORS, network, abort, etc.) — ignore silently
+      }
+    };
+
+    document.addEventListener("paste", handlePaste);
+    return () => {
+      document.removeEventListener("paste", handlePaste);
+      controller.abort();
+    };
+  }, [setFile]);
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-hidden relative">
       {/* Title + description — positioned above the box */}
-      <div className="absolute left-0 right-0 bottom-[calc(50%+28vh)] flex flex-col items-center gap-8">
+      <div className="absolute left-0 right-0 bottom-[min(calc(50%+28vh),calc(100%-12rem))] flex flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-1">
           <h1 className="flex gap-3 items-center text-5xl sm:text-7xl font-bold tracking-tight">
             <Clapperboard className="h-12 w-12 sm:h-16 sm:w-16 text-primary" />
@@ -56,17 +105,17 @@ const NewVideo = () => {
           Trim, crop, resize and export video files. Everything is processed
           locally,{" "}
           <span className="text-foreground font-medium">
-            no data is collected
+            no files leave your device
           </span>
           .
         </p>
       </div>
 
       {/* Upload box — truly centered */}
-      <div className="w-full max-w-2xl mt-8">
+      <div className="w-full max-w-2xl">
         <div
           className={cn(
-            "w-full h-[40vh] flex flex-col items-center justify-center gap-6 rounded-lg border-2 border-dashed border-border bg-card/30 transition-colors",
+            "w-full h-[40vh] min-h-[200px] flex flex-col items-center justify-center gap-6 rounded-lg border-2 border-dashed border-border bg-card/30 transition-colors",
             isDragActive && "border-primary bg-primary/5",
           )}
           {...getRootProps()}
