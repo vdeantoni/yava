@@ -7,6 +7,15 @@ import { Button } from "@/components/ui/button.tsx";
 import { Analytics } from "@vercel/analytics/react";
 import TrimPanel from "@/components/panels/TrimPanel.tsx";
 import ExportPanel from "@/components/panels/ExportPanel.tsx";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion.tsx";
+
+const triggerClass =
+  "px-4 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground hover:no-underline";
 
 function App() {
   const { file, reset, video } = useAppStore();
@@ -50,24 +59,37 @@ function App() {
 
         {file && (
           <main className="flex flex-col min-h-0">
-            {/* Three-column layout on lg+, stacked on mobile */}
             <div className="flex flex-1 min-h-[400px] flex-col lg:flex-row">
-              {/* Left sidebar — Trim (sidebar on lg+, inline on mobile) */}
-              {video && (
-                <aside className="lg:w-[200px] shrink-0 border-b lg:border-b-0 lg:border-r border-border bg-card overflow-y-auto order-2 lg:order-1">
-                  <TrimPanel />
-                </aside>
-              )}
-
-              {/* Center — Video Player */}
-              <div className="flex flex-1 flex-col min-w-0 min-h-0 order-1 lg:order-2">
+              {/* Video Player */}
+              <div className="flex flex-1 flex-col min-w-0 min-h-0">
                 <VideoPlayer />
               </div>
 
-              {/* Right sidebar — Export (sidebar on lg+, inline on mobile) */}
+              {/* Sidebar — Trim + Export */}
               {video && (
-                <aside className="lg:w-[200px] shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-card overflow-y-auto order-3">
-                  <ExportPanel />
+                <aside className="lg:w-[260px] shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-card overflow-y-auto">
+                  <Accordion
+                    type="multiple"
+                    defaultValue={["trim", "export"]}
+                    className="grid grid-cols-2 lg:block"
+                  >
+                    <AccordionItem value="trim" className="border-r lg:border-r-0">
+                      <AccordionTrigger className={triggerClass}>
+                        Trim
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <TrimPanel />
+                      </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="export">
+                      <AccordionTrigger className={triggerClass}>
+                        Crop & Export
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <ExportPanel />
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 </aside>
               )}
             </div>
