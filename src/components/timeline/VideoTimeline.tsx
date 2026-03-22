@@ -1,21 +1,8 @@
 import { useAppStore } from "@/store.tsx";
-import {
-  Fragment,
-  RefObject,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { Fragment, RefObject, useEffect, useMemo, useRef, useState } from "react";
 import VideoThumbnails from "@/components/timeline/VideoThumbnails.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
-import { cn, isMobile, secondsToDuration } from "@/lib/utils.ts";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-} from "@/components/ui/card.tsx";
+import { isMobile, secondsToDuration } from "@/lib/utils.ts";
 import { range } from "lodash";
 
 export const STEP_SIZE = 0.1;
@@ -105,139 +92,111 @@ const VideoTimeline = () => {
   }, [video.duration]);
 
   return (
-    <>
-      <Card className={"border-0 overflow-hidden"}>
-        <CardHeader>
-          <CardDescription>
-            <span className={cn("flex items-center justify-center")}>
-              <span className="duration-start mr-1">
-                {secondsToDuration(video.currentTime || 0, { ms: true })}
-              </span>
-              <span className="duration-end">
-                /{" "}
-                {secondsToDuration(
-                  cursorEnd < video.duration ? cursorEnd : video.duration,
-                  { ms: true },
-                )}
-              </span>
-              {cursorStart > 0 && (
-                <span className="duration-trim ml-1">
-                  {" "}
-                  ({secondsToDuration(cursorEnd - cursorStart, { ms: true })})
+    <div className="border-t border-border bg-card px-2 lg:px-4 py-1">
+      <div className="flex flex-col cursor-default">
+        <div
+          className="flex flex-col gap-1"
+          onClick={(e) => {
+            const { width, left } = e.currentTarget.getBoundingClientRect();
+            const percentage = (e.clientX - left) / width;
+            const time = percentage * video.duration;
+
+            setCursorCurrent(time);
+          }}
+        >
+          <div className="grid grid-flow-col timeline-marks w-full overflow-hidden">
+            {range(TICKS).map((i) => (
+              <Fragment key={i}>
+                <span className="relative">
+                  <span
+                    className="absolute top-0 left-0 transform -translate-x-[50%]"
+                  >
+                    {i && marks[i]
+                      ? secondsToDuration(marks[i], { trimLeft: isMobile })
+                      : ""}
+                  </span>
                 </span>
-              )}
-            </span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent className={"pt-0"}>
-          <div className="flex flex-col cursor-default">
-            <div
-              className="flex flex-col gap-2"
-              onClick={(e) => {
-                const { width, left } = e.currentTarget.getBoundingClientRect();
-                const percentage = (e.clientX - left) / width;
-                const time = percentage * video.duration;
-
-                setCursorCurrent(time);
-              }}
-            >
-              <div className="grid grid-flow-col timeline-marks w-full overflow-hidden">
-                {range(TICKS).map((i) => (
-                  <Fragment key={i}>
-                    <span className="relative">
-                      <span
-                        className={
-                          "absolute top-0 left-0 transform -translate-x-[50%]"
-                        }
-                      >
-                        {i && marks[i]
-                          ? secondsToDuration(marks[i], { trimLeft: isMobile })
-                          : ""}
-                      </span>
-                    </span>
-                    <span className={"mt-2"}>{"."}</span>
-                  </Fragment>
-                ))}
-              </div>
-
-              <div ref={trackRef} className="relative h-16">
-                {(cursorStart > 0 ||
-                  +cursorEnd.toFixed(1) < +video.duration.toFixed(1)) && (
-                  <div
-                    className="pointer-events-none absolute trim-area"
-                    style={{
-                      left:
-                        (cursorStart / video.duration) * trackWidth -
-                        (cursorStart / video.duration) * 16,
-                      width:
-                        (cursorEnd / video.duration -
-                          cursorStart / video.duration) *
-                          trackWidth +
-                        (1 - cursorEnd / video.duration) * 16 +
-                        (cursorStart / video.duration) * 16,
-                    }}
-                  ></div>
-                )}
-
-                <VideoThumbnails trackWidth={trackWidth} />
-
-                <input
-                  ref={leftThumb}
-                  className="slider-thumb-left"
-                  type="range"
-                  min="0"
-                  max={video.duration}
-                  step={STEP_SIZE}
-                  value={cursorStart}
-                  onClick={(e) => e.stopPropagation()}
-                  onInput={(e) => {
-                    const value = +e.currentTarget.value;
-                    if (value < cursorEnd - 1) {
-                      setCursorStart(+e.currentTarget.value);
-                    }
-                  }}
-                />
-                <input
-                  ref={rightThumb}
-                  className="slider-thumb-right"
-                  type="range"
-                  min="0"
-                  max={video.duration}
-                  step={STEP_SIZE}
-                  value={cursorEnd}
-                  onClick={(e) => e.stopPropagation()}
-                  onInput={(e) => {
-                    const value = +e.currentTarget.value;
-                    if (value > cursorStart + 1) {
-                      let newValue = +e.currentTarget.value;
-                      if (video.duration - newValue <= STEP_SIZE) {
-                        newValue = video.duration;
-                      }
-
-                      setCursorEnd(newValue);
-                    }
-                  }}
-                />
-                <input
-                  className="slider-thumb-current"
-                  type="range"
-                  min="0"
-                  max={video.duration}
-                  step={STEP_SIZE}
-                  value={cursorCurrent}
-                  onInput={(e) => {
-                    const value = +e.currentTarget.value;
-                    if (value >= cursorStart && value <= cursorEnd) {
-                      setCursorCurrent(+e.currentTarget.value);
-                    }
-                  }}
-                />
-              </div>
-            </div>
+                <span className="mt-2">{"."}</span>
+              </Fragment>
+            ))}
           </div>
-        </CardContent>
-      </Card>
-    </>
+
+          <div ref={trackRef} className="relative h-16">
+            {(cursorStart > 0 ||
+              +cursorEnd.toFixed(1) < +video.duration.toFixed(1)) && (
+              <div
+                className="pointer-events-none absolute trim-area"
+                style={{
+                  left:
+                    (cursorStart / video.duration) * trackWidth -
+                    (cursorStart / video.duration) * 16,
+                  width:
+                    (cursorEnd / video.duration -
+                      cursorStart / video.duration) *
+                      trackWidth +
+                    (1 - cursorEnd / video.duration) * 16 +
+                    (cursorStart / video.duration) * 16,
+                }}
+              ></div>
+            )}
+
+            <VideoThumbnails trackWidth={trackWidth} />
+
+            <input
+              ref={leftThumb}
+              className="slider-thumb-left"
+              type="range"
+              min="0"
+              max={video.duration}
+              step={STEP_SIZE}
+              value={cursorStart}
+              onClick={(e) => e.stopPropagation()}
+              onInput={(e) => {
+                const value = +e.currentTarget.value;
+                if (value < cursorEnd - 1) {
+                  setCursorStart(+e.currentTarget.value);
+                }
+              }}
+            />
+            <input
+              ref={rightThumb}
+              className="slider-thumb-right"
+              type="range"
+              min="0"
+              max={video.duration}
+              step={STEP_SIZE}
+              value={cursorEnd}
+              onClick={(e) => e.stopPropagation()}
+              onInput={(e) => {
+                const value = +e.currentTarget.value;
+                if (value > cursorStart + 1) {
+                  let newValue = +e.currentTarget.value;
+                  if (video.duration - newValue <= STEP_SIZE) {
+                    newValue = video.duration;
+                  }
+
+                  setCursorEnd(newValue);
+                }
+              }}
+            />
+            <input
+              className="slider-thumb-current"
+              type="range"
+              min="0"
+              max={video.duration}
+              step={STEP_SIZE}
+              value={cursorCurrent}
+              onInput={(e) => {
+                const value = +e.currentTarget.value;
+                if (value >= cursorStart && value <= cursorEnd) {
+                  setCursorCurrent(+e.currentTarget.value);
+                }
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

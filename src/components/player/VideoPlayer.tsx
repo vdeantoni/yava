@@ -47,36 +47,38 @@ const VideoPlayer = () => {
   }, [cursorCurrent, processing]);
 
   return (
-    <div className="mx-auto">
-      <div className="flex flex-col gap-4 relative">
-        <video
-          ref={videoRef}
-          className={cn(
-            "w-full h-full max-h-[50vh] shadow",
-            processing && "invisible",
-          )}
-          onLoadedData={videoLoadedDataHandler}
-          onTimeUpdate={videoTimeUpdateHandler}
-          onPlaying={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
-          playsInline={true}
-          autoPlay={true}
-          muted={processing}
-        >
-          <source src={URL.createObjectURL(file!)} />
-        </video>
+    <div className="flex flex-1 flex-col min-h-0">
+      <div className="flex flex-1 items-center justify-center min-h-0 bg-background">
+        <div className="relative max-w-full max-h-full">
+          <video
+            ref={videoRef}
+            className={cn(
+              "max-w-full max-h-full object-contain block",
+              processing && "invisible",
+            )}
+            onLoadedData={videoLoadedDataHandler}
+            onTimeUpdate={videoTimeUpdateHandler}
+            onPlaying={() => setPlaying(true)}
+            onPause={() => setPlaying(false)}
+            playsInline={true}
+            autoPlay={true}
+            muted={processing}
+          >
+            <source src={URL.createObjectURL(file!)} />
+          </video>
 
-        <VideoCanvas videoRef={videoRef} />
+          <VideoCanvas videoRef={videoRef} />
+        </div>
 
         {processing && (
-          <div className="absolute top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[50%]">
-            <LoaderCircle className={"animate-spin"} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <LoaderCircle className="animate-spin text-primary h-8 w-8" />
           </div>
         )}
+      </div>
 
-        <div className="mx-auto bg-secondary rounded">
-          <VideoControls playing={playing} />
-        </div>
+      <div className="border-t border-border bg-card">
+        <VideoControls playing={playing} />
       </div>
     </div>
   );

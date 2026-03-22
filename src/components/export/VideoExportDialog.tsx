@@ -1,12 +1,6 @@
 import { useAppStore } from "@/store.tsx";
-import {
-  PropsWithChildren,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
-import { cn, secondsToDuration } from "@/lib/utils.ts";
+import { PropsWithChildren, useCallback, useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { fetchFile } from "@ffmpeg/util";
 import { Progress } from "@/components/ui/progress.tsx";
@@ -28,21 +22,23 @@ import {
 } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFFmpeg } from "@/hooks/useFFmpeg.ts";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Slider } from "@/components/ui/slider.tsx";
-import { Input } from "@/components/ui/input.tsx";
-import { usePrevious } from "@uidotdev/usehooks";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { CircleHelp } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox.tsx";
 
-const VideoExportDialog = ({ children }: PropsWithChildren) => {
+interface VideoExportDialogProps extends PropsWithChildren {
+  format: string;
+  frameRate: number;
+  width: string;
+  height: string;
+  noAudio: boolean;
+}
+
+const VideoExportDialog = ({
+  children,
+  format,
+  frameRate,
+  width,
+  height,
+  noAudio,
+}: VideoExportDialogProps) => {
   const {
     file,
     video,
@@ -57,16 +53,8 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
   const outputImageRef = useRef<HTMLImageElement>(null);
 
   const [open, setOpen] = useState(false);
-
-  const [format, setFormat] = useState<string>("mp4");
-  const [frameRate, setFrameRate] = useState<number>(30);
-  const [width, setWidth] = useState<string>(String(video.videoWidth));
-  const [height, setHeight] = useState<string>(String(video.videoHeight));
-  const [noAudio, setNoAudio] = useState<boolean | "indeterminate">(false);
-
   const [exporting, setExporting] = useState(false);
   const [outputUrl, setOutputUrl] = useState("");
-  const previousOutputUrl = usePrevious(outputUrl);
 
   const [log, setLog] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
@@ -80,19 +68,19 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     }, []),
   );
 
+  const previousOutputUrlRef = useRef("");
   useEffect(() => {
     const video = outputVideoRef.current;
     const image = outputImageRef.current;
 
-    URL.revokeObjectURL(previousOutputUrl);
+    URL.revokeObjectURL(previousOutputUrlRef.current);
+    previousOutputUrlRef.current = outputUrl;
 
     const el = format === "gif" ? image : video;
-    if (!el) {
-      return;
-    }
+    if (!el) return;
 
     el.src = outputUrl;
-  }, [format, outputUrl, previousOutputUrl]);
+  }, [format, outputUrl]);
 
   const exportHandler = async () => {
     setExporting(true);
@@ -110,7 +98,6 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     ffmpeg.on("progress", progressCb);
 
     try {
-      // Make sure FFmpeg is loaded
       await load();
 
       const name = "video_file";
@@ -146,7 +133,6 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
 
           noAudio && "-an",
 
-          // for some reason this is needed to make multithreading work in chrome
           multithreading && "-c:a",
           multithreading && "copy",
           filename,
@@ -182,6 +168,8 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
   };
 
   const reset = () => {
+    URL.revokeObjectURL(previousOutputUrlRef.current);
+    previousOutputUrlRef.current = "";
     setOutputUrl("");
     setLog([]);
     setProgress(0);
@@ -191,18 +179,12 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
   const onOpenChange = (open: boolean) => {
     if (!open) {
       reset();
-
-      setFormat("mp4");
-      setFrameRate(30);
-      setWidth(String(video.videoWidth));
-      setHeight(String(video.videoHeight));
-      setNoAudio(false);
-
       if (exporting) {
         ffmpeg.terminate();
       }
+    } else {
+      exportHandler();
     }
-
     setOpen(open);
   };
 
@@ -217,178 +199,41 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         className="max-h-full overflow-scroll"
       >
         <DialogHeader>
-          <DialogTitle>Export</DialogTitle>
+          <DialogTitle>
+            {outputUrl ? "Export Complete" : "Exporting..."}
+          </DialogTitle>
           <DialogDescription asChild>
-            <div className="flex flex-col gap-6 py-4">
-              {!outputUrl && (
-                <>
-                  <div className="grid grid-cols-3 w-full gap-y-4 gap-x-4">
-                    <div className="flex flex-col">
-                      <span className={"text-primary"}>Start</span>
-                      <span>
-                        {secondsToDuration(cursorStart, { ms: true })}
-                      </span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className={"text-primary"}>End</span>
-                      <span>{secondsToDuration(cursorEnd, { ms: true })}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className={"text-primary"}>Duration</span>
-                      <span>
-                        {secondsToDuration(cursorEnd - cursorStart, {
-                          ms: true,
-                        })}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-col gap-1">
-                      <span className={"text-primary"}>Format</span>
-                      <RadioGroup value={format} onValueChange={setFormat}>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="mp4" id="option-mp4" />
-                          <Label htmlFor="option-mp4">mp4</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="gif" id="option-gif" />
-                          <Label htmlFor="option-gif">gif</Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-
-                    <div className="col-span-2 flex flex-col gap-1">
-                      {cropRectangle.w && cropRectangle.h ? (
-                        <>
-                          <span
-                            className={"flex items-center gap-1 text-primary"}
-                          >
-                            Crop area (w x h)
-                          </span>
-                          <span>
-                            {Math.round(
-                              (cropRectangle.w * video.videoWidth) /
-                                cropRectangle.vw,
-                            )}{" "}
-                            x{" "}
-                            {Math.round(
-                              (cropRectangle.h * video.videoHeight) /
-                                cropRectangle.vh,
-                            )}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span
-                            className={"flex items-center gap-1 text-primary"}
-                          >
-                            Dimensions (w x h)
-                            <TooltipProvider delayDuration={0}>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <CircleHelp width={14} />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>
-                                    For original value, or to auto-calulate
-                                    ratio leave either field blank
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </span>
-                          <div className="flex flex-row gap-1 items-center">
-                            <Input
-                              type="text"
-                              value={width}
-                              onChange={(e) => setWidth(e.currentTarget.value)}
-                            />
-                            x
-                            <Input
-                              type="text"
-                              value={height}
-                              onChange={(e) => setHeight(e.currentTarget.value)}
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    <div className="col-span-2 flex flex-col gap-1">
-                      <span className={"flex items-center gap-1 text-primary"}>
-                        Frame rate
-                        <TooltipProvider delayDuration={0}>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <CircleHelp width={14} />
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>For original value enter 0</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </span>
-                      <div className="flex flex-col gap-1">
-                        <Slider
-                          value={[frameRate]}
-                          max={60}
-                          step={1}
-                          onValueChange={([value]) => setFrameRate(value)}
-                        />
-                        <span className="self-end">{`${frameRate} fps`}</span>
-                      </div>
-                    </div>
-
-                    {format === "mp4" && (
-                      <div className="flex flex-col gap-1">
-                        <span className={"text-primary"}>Audio</span>
-                        <div className={"flex items-center space-x-2"}>
-                          <Checkbox
-                            id="no-audio"
-                            checked={noAudio}
-                            onCheckedChange={setNoAudio}
-                          />
-                          <label
-                            htmlFor="no-audio"
-                            className="text-sm text-nowrap"
-                          >
-                            Remove audio
-                          </label>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
+            <div className="flex flex-col gap-4 py-4">
               {exporting && (
-                <div className="flex flex-col gap-1">
-                  <span className={"text-primary"}>Progress</span>
+                <div className="flex flex-col gap-2">
                   <Progress
                     value={Math.round(progress * 100)}
                     indeterminate={
                       exporting && (progress < 0.1 || progress > 1)
                     }
                   />
+                  <span className="text-xs text-muted-foreground">
+                    {Math.round(progress * 100)}%
+                  </span>
                 </div>
               )}
 
               {outputUrl && (
-                <div className="flex flex-col gap-1">
-                  <span className={"text-primary"}>Output</span>
+                <div className="flex flex-col gap-3">
                   <div className="max-h-[35vh] flex justify-center">
                     {format === "gif" && (
                       <img
                         ref={outputImageRef}
-                        className={cn("h-full shadow")}
-                      ></img>
+                        className={cn("h-full shadow rounded")}
+                      />
                     )}
                     {format === "mp4" && (
                       <video
                         ref={outputVideoRef}
-                        className={cn("h-full shadow")}
+                        className={cn("h-full shadow rounded")}
                         controls
                         playsInline
-                      ></video>
+                      />
                     )}
                   </div>
                   <Button onClick={downloadHandler}>Download</Button>
@@ -397,18 +242,17 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
 
               {!!log.length && (
                 <div className="flex flex-col gap-1 max-w-full overflow-hidden">
-                  <span className={"text-primary"}>Log</span>
                   <Collapsible>
-                    <CollapsibleTrigger>
-                      <pre className="text-xs text-secondary-foreground whitespace-pre-wrap">
+                    <CollapsibleTrigger className="text-xs text-muted-foreground hover:text-foreground">
+                      <pre className="whitespace-pre-wrap text-left">
                         {log.findLast(
                           (l) => !l.toLowerCase().includes("aborted()"),
                         )}
                       </pre>
                     </CollapsibleTrigger>
                     <CollapsibleContent>
-                      <ScrollArea className={"h-[200px]"}>
-                        <pre className="text-xs text-secondary-foreground whitespace-pre-wrap">
+                      <ScrollArea className="h-[200px]">
+                        <pre className="text-xs text-muted-foreground whitespace-pre-wrap">
                           {log.join("\n")}
                         </pre>
                       </ScrollArea>
@@ -421,21 +265,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         </DialogHeader>
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={exportHandler}
-            className={cn(outputUrl && "hidden")}
-            disabled={exporting}
-          >
-            Export
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={reset}
-            className={cn(!outputUrl && "hidden")}
-          >
-            Start over
+            {outputUrl ? "Close" : "Cancel"}
           </Button>
         </DialogFooter>
       </DialogContent>

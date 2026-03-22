@@ -1,54 +1,74 @@
 import { useAppStore } from "@/store.tsx";
 import { Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
-import { cn } from "@/lib/utils.ts";
+import { secondsToDuration } from "@/lib/utils.ts";
 
 type VideoControlsProps = {
   playing: boolean;
 };
 
 const VideoControls = ({ playing }: VideoControlsProps) => {
-  const { video, cursorStart, cursorEnd, setCursorCurrent } = useAppStore();
+  const { video, cursorStart, cursorEnd, cursorCurrent, setCursorCurrent } =
+    useAppStore();
 
   return (
-    <div className={cn("justify-self-center px-2 gap-3 py-1 rounded")}>
-      <Button
-        variant="link"
-        size="icon"
-        onClick={(e) => {
-          e.stopPropagation();
-          setCursorCurrent(cursorStart);
-        }}
-      >
-        <SkipBack className="h-6 w-6" />
-      </Button>
+    <div className="flex items-center justify-between w-full px-4 py-1.5">
+      <span className="font-mono text-xs text-muted-foreground min-w-[100px]">
+        {secondsToDuration(cursorCurrent || 0, { ms: true })}
+      </span>
 
-      <Button
-        variant="link"
-        size="icon"
-        onClick={(e) => {
-          e.stopPropagation();
-          if (playing) {
-            video.pause();
-          } else {
-            video.play();
-          }
-        }}
-      >
-        {playing && <Pause className="h-6 w-6" />}
-        {!playing && <Play className="h-6 w-6" />}
-      </Button>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-foreground hover:text-primary"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCursorCurrent(cursorStart);
+          }}
+        >
+          <SkipBack className="h-4 w-4" />
+        </Button>
 
-      <Button
-        variant="link"
-        size="icon"
-        onClick={(e) => {
-          e.stopPropagation();
-          setCursorCurrent(cursorEnd);
-        }}
-      >
-        <SkipForward className="h-6 w-6" />
-      </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-foreground hover:text-primary"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (playing) {
+              video.pause();
+            } else {
+              video.play();
+            }
+          }}
+        >
+          {playing ? (
+            <Pause className="h-4 w-4" />
+          ) : (
+            <Play className="h-4 w-4" />
+          )}
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-foreground hover:text-primary"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCursorCurrent(cursorEnd);
+          }}
+        >
+          <SkipForward className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <span className="font-mono text-xs text-muted-foreground min-w-[100px] text-right">
+        {secondsToDuration(
+          cursorEnd < video?.duration ? cursorEnd : video?.duration || 0,
+          { ms: true },
+        )}
+      </span>
     </div>
   );
 };
