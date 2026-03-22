@@ -18,6 +18,13 @@ const VideoPlayer = () => {
   const [playing, setPlaying] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const prevFileRef = useRef<Blob | undefined>(undefined);
+  const videoSrcRef = useRef("");
+  if (file !== prevFileRef.current) {
+    prevFileRef.current = file;
+    videoSrcRef.current = URL.createObjectURL(file!);
+  }
+  const videoSrc = videoSrcRef.current;
 
   const videoLoadedDataHandler = () => {
     setVideo(videoRef.current!);
@@ -48,7 +55,7 @@ const VideoPlayer = () => {
 
   return (
     <div className="flex flex-1 flex-col min-h-0">
-      <div className="flex flex-1 justify-center min-h-0 bg-background">
+      <div className="relative flex flex-1 justify-center min-h-0 bg-background">
         <div className="relative max-w-full max-h-full">
           <video
             ref={videoRef}
@@ -61,10 +68,9 @@ const VideoPlayer = () => {
             onPlaying={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             playsInline={true}
-            autoPlay={true}
             muted={processing}
           >
-            <source src={URL.createObjectURL(file!)} />
+            <source src={videoSrc} />
           </video>
 
           <VideoCanvas videoRef={videoRef} />

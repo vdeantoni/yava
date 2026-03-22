@@ -28,6 +28,7 @@ interface AppActions {
   setCursorEnd: (cursorEnd: number) => void;
   setCropRectangle: (cropRectangle: CropRectangle) => void;
 
+  resetCursors: (duration: number) => void;
   setProcessing: (processing: boolean) => void;
 
   reset: () => void;
@@ -61,9 +62,20 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
   setFile: (file) => set(() => ({ file })),
 
   setCursorCurrent: (cursorCurrent) => set(() => ({ cursorCurrent })),
-  setCursorStart: (cursorStart) => set(() => ({ cursorStart })),
-  setCursorEnd: (cursorEnd) => set(() => ({ cursorEnd })),
+  setCursorStart: (cursorStart) =>
+    set((state) => ({
+      cursorStart,
+      cursorCurrent: Math.max(state.cursorCurrent, cursorStart),
+    })),
+  setCursorEnd: (cursorEnd) =>
+    set((state) => ({
+      cursorEnd,
+      cursorCurrent: Math.min(state.cursorCurrent, cursorEnd),
+    })),
   setCropRectangle: (cropRectangle) => set(() => ({ cropRectangle })),
+
+  resetCursors: (duration) =>
+    set(() => ({ cursorStart: 0, cursorEnd: duration, cursorCurrent: 0 })),
 
   setProcessing: (processing) => set(() => ({ processing })),
 
