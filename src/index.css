@@ -98,7 +98,7 @@
   }
 
   .duration-trim {
-    @apply text-amber-400 text-sm font-mono;
+    @apply text-primary text-sm font-mono;
   }
 
   .slider-thumb-left,
@@ -109,7 +109,7 @@
 
   .slider-thumb-left::-webkit-slider-thumb,
   .slider-thumb-right::-webkit-slider-thumb {
-    @apply appearance-none pointer-events-auto cursor-grab w-4 h-14 bg-amber-400 shadow;
+    @apply appearance-none pointer-events-auto cursor-grab w-4 h-14 bg-primary rounded-sm shadow;
   }
 
   .slider-thumb-left::-webkit-slider-thumb {
@@ -121,7 +121,7 @@
   }
 
   .slider-thumb-current::-webkit-slider-thumb {
-    @apply appearance-none pointer-events-auto cursor-grab bg-foreground/80 w-1 h-14 transform origin-center;
+    @apply appearance-none pointer-events-auto cursor-grab bg-foreground/80 w-1 h-14 rounded-full transform origin-center;
   }
 
   .timeline-marks {
@@ -129,6 +129,6 @@
   }
 
   .trim-area {
-    @apply bg-amber-400/20 h-16 -top-1 z-10;
+    @apply bg-primary/20 h-16 -top-1 z-10;
   }
 }

@@ -1,7 +1,7 @@
 import VideoTimeline from "@/components/timeline/VideoTimeline.tsx";
 import { useAppStore } from "@/store.tsx";
 import VideoPlayer from "@/components/player/VideoPlayer.tsx";
-import { Clapperboard, Github, Plus } from "lucide-react";
+import { Clapperboard, Github, Plus, Upload } from "lucide-react";
 import NewVideo from "./components/NewVideo";
 import { Button } from "@/components/ui/button.tsx";
 import { Analytics } from "@vercel/analytics/react";
@@ -41,8 +41,8 @@ function App() {
                 className="h-7 text-xs"
                 onClick={() => reset()}
               >
-                <Plus className="h-3.5 w-3.5 mr-1" />
-                New Project
+                <Upload className="h-3.5 w-3.5 mr-1" />
+                New File
               </Button>
             )}
             <a
