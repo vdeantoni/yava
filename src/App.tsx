@@ -5,21 +5,8 @@ import { Clapperboard, Github, Plus, Upload } from "lucide-react";
 import NewVideo from "./components/NewVideo";
 import { Button } from "@/components/ui/button.tsx";
 import { Analytics } from "@vercel/analytics/react";
-import * as Sentry from "@sentry/react";
 import TrimPanel from "@/components/panels/TrimPanel.tsx";
 import ExportPanel from "@/components/panels/ExportPanel.tsx";
-
-Sentry.init({
-  enabled: !import.meta.env.DEV,
-  dsn: "https://7ecb9144de14ea899c8af041bdb68045@o428318.ingest.us.sentry.io/4507867732377600",
-  integrations: [
-    Sentry.browserTracingIntegration(),
-    Sentry.replayIntegration(),
-  ],
-  tracesSampleRate: 1.0,
-  replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1.0,
-});
 
 function App() {
   const { file, reset, video } = useAppStore();
