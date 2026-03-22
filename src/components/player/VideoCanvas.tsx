@@ -58,11 +58,7 @@ interface VideoCanvasProps {
   videoRef: RefObject<HTMLVideoElement | null>;
 }
 
-const isInsideRect = (
-  px: number,
-  py: number,
-  rect: CropRectangle,
-): boolean => {
+const isInsideRect = (px: number, py: number, rect: CropRectangle): boolean => {
   return (
     rect.w > 0 &&
     rect.h > 0 &&
@@ -81,10 +77,26 @@ const getCornerAt = (
   if (rect.w <= 0 || rect.h <= 0) return null;
 
   const { x, y, w, h } = rect;
-  if (Math.abs(px - x) <= HANDLE_HIT_SIZE && Math.abs(py - y) <= HANDLE_HIT_SIZE) return "tl";
-  if (Math.abs(px - (x + w)) <= HANDLE_HIT_SIZE && Math.abs(py - y) <= HANDLE_HIT_SIZE) return "tr";
-  if (Math.abs(px - x) <= HANDLE_HIT_SIZE && Math.abs(py - (y + h)) <= HANDLE_HIT_SIZE) return "bl";
-  if (Math.abs(px - (x + w)) <= HANDLE_HIT_SIZE && Math.abs(py - (y + h)) <= HANDLE_HIT_SIZE) return "br";
+  if (
+    Math.abs(px - x) <= HANDLE_HIT_SIZE &&
+    Math.abs(py - y) <= HANDLE_HIT_SIZE
+  )
+    return "tl";
+  if (
+    Math.abs(px - (x + w)) <= HANDLE_HIT_SIZE &&
+    Math.abs(py - y) <= HANDLE_HIT_SIZE
+  )
+    return "tr";
+  if (
+    Math.abs(px - x) <= HANDLE_HIT_SIZE &&
+    Math.abs(py - (y + h)) <= HANDLE_HIT_SIZE
+  )
+    return "bl";
+  if (
+    Math.abs(px - (x + w)) <= HANDLE_HIT_SIZE &&
+    Math.abs(py - (y + h)) <= HANDLE_HIT_SIZE
+  )
+    return "br";
 
   return null;
 };

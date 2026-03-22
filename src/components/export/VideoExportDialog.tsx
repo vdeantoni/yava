@@ -1,5 +1,11 @@
 import { useAppStore } from "@/store.tsx";
-import { PropsWithChildren, useCallback, useEffect, useRef, useState } from "react";
+import {
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { fetchFile } from "@ffmpeg/util";
@@ -139,9 +145,7 @@ const VideoExportDialog = ({
         ].filter(Boolean) as string[],
       );
 
-      const data = (await ffmpeg.readFile(
-        filename,
-      )) as Uint8Array<ArrayBuffer>;
+      const data = (await ffmpeg.readFile(filename)) as Uint8Array<ArrayBuffer>;
       setOutputUrl(
         URL.createObjectURL(
           new Blob([data], {

@@ -1,5 +1,12 @@
 import { useAppStore } from "@/store.tsx";
-import { Fragment, RefObject, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Fragment,
+  RefObject,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import VideoThumbnails from "@/components/timeline/VideoThumbnails.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 import { useShallow } from "zustand/react/shallow";
