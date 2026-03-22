@@ -60,37 +60,74 @@ function App() {
         {file && (
           <main className="flex flex-col min-h-0">
             <div className="flex flex-1 min-h-[400px] flex-col lg:flex-row">
-              {/* Video Player */}
-              <div className="flex flex-1 flex-col min-w-0 min-h-0">
-                <VideoPlayer />
-              </div>
-
-              {/* Sidebar — Trim + Export */}
+              {/* Left sidebar — Trim (desktop only) */}
               {video && (
-                <aside className="lg:w-[260px] shrink-0 border-t lg:border-t-0 lg:border-l border-border bg-card overflow-y-auto">
-                  <Accordion
-                    type="multiple"
-                    defaultValue={["trim", "export"]}
-                    className="grid grid-cols-2 lg:block"
-                  >
-                    <AccordionItem value="trim" className="border-r lg:border-r-0">
-                      <AccordionTrigger className={triggerClass}>
-                        Trim
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <TrimPanel />
-                      </AccordionContent>
-                    </AccordionItem>
-                    <AccordionItem value="export">
-                      <AccordionTrigger className={triggerClass}>
-                        Crop & Export
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <ExportPanel />
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-                </aside>
+                <>
+                  <aside className="hidden lg:block lg:w-[200px] shrink-0 border-r border-border bg-card overflow-y-auto">
+                    <Accordion type="multiple" defaultValue={["trim"]}>
+                      <AccordionItem value="trim">
+                        <AccordionTrigger className={triggerClass}>
+                          Trim
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <TrimPanel />
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </aside>
+
+                  {/* Video Player */}
+                  <div className="flex flex-1 flex-col min-w-0 min-h-0">
+                    <VideoPlayer />
+                  </div>
+
+                  {/* Right sidebar — Export (desktop only) */}
+                  <aside className="hidden lg:block lg:w-[200px] shrink-0 border-l border-border bg-card overflow-y-auto">
+                    <Accordion type="multiple" defaultValue={["export"]}>
+                      <AccordionItem value="export">
+                        <AccordionTrigger className={triggerClass}>
+                          Crop & Export
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <ExportPanel />
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </aside>
+
+                  {/* Mobile panels — side-by-side accordion */}
+                  <aside className="lg:hidden border-t border-border bg-card overflow-y-auto">
+                    <Accordion
+                      type="multiple"
+                      defaultValue={["trim", "export"]}
+                      className="grid grid-cols-2"
+                    >
+                      <AccordionItem value="trim" className="border-r">
+                        <AccordionTrigger className={triggerClass}>
+                          Trim
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <TrimPanel />
+                        </AccordionContent>
+                      </AccordionItem>
+                      <AccordionItem value="export">
+                        <AccordionTrigger className={triggerClass}>
+                          Crop & Export
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <ExportPanel />
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+                  </aside>
+                </>
+              )}
+
+              {/* Video Player (shown before video metadata loads) */}
+              {!video && (
+                <div className="flex flex-1 flex-col min-w-0 min-h-0">
+                  <VideoPlayer />
+                </div>
               )}
             </div>
 
