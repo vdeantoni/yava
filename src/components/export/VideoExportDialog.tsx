@@ -1,5 +1,11 @@
-import { useAppStore } from "@/store.tsx";
-import { PropsWithChildren, useCallback, useEffect, useRef, useState } from "react";
+import { useAppStore, type Preset } from "@/store.tsx";
+import {
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { fetchFile } from "@ffmpeg/util";
@@ -24,6 +30,20 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFFmpeg } from "@/hooks/useFFmpeg.ts";
 import { Download } from "lucide-react";
 
+const VP9_PRESET_MAP: Record<Preset, string[]> = {
+  ultrafast: ["-deadline", "realtime", "-cpu-used", "8"],
+  fast: ["-deadline", "good", "-cpu-used", "4"],
+  medium: ["-deadline", "good", "-cpu-used", "2"],
+  slow: ["-deadline", "good", "-cpu-used", "0"],
+};
+
+const MIME_TYPES: Record<string, string> = {
+  mp4: "video/mp4",
+  webm: "video/webm",
+  mov: "video/quicktime",
+  gif: "image/gif",
+};
+
 const VideoExportDialog = ({ children }: PropsWithChildren) => {
   const {
     file,
@@ -33,6 +53,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     cursorEnd,
     cropRectangle,
     format,
+    preset,
     frameRate,
     speed,
     outputWidth,
@@ -130,6 +151,23 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
 
       const trimDuration = cursorEnd - cursorStart;
 
+      const presetArgs: string[] = [];
+      if (format === "mp4" || format === "mov") {
+        presetArgs.push("-preset", preset);
+      } else if (format === "webm") {
+        presetArgs.push(...VP9_PRESET_MAP[preset]);
+      }
+
+      const codecArgs: string[] = [];
+      if (format === "webm") {
+        codecArgs.push("-c:v", "libvpx-vp9");
+        if (!noAudio && !audioFilters.length) {
+          codecArgs.push("-c:a", "libopus");
+        }
+      } else if (!noAudio && !audioFilters.length && format !== "gif") {
+        codecArgs.push("-c:a", "copy");
+      }
+
       await ffmpeg.exec(
         [
           "-ss",
@@ -148,11 +186,8 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
 
           noAudio && "-an",
 
-          !noAudio && !audioFilters.length && "-c:a",
-          !noAudio && !audioFilters.length && "copy",
-
-          format === "mp4" && "-preset",
-          format === "mp4" && "ultrafast",
+          ...codecArgs,
+          ...presetArgs,
 
           filename,
         ].filter(Boolean) as string[],
@@ -162,7 +197,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
       setOutputUrl(
         URL.createObjectURL(
           new Blob([data], {
-            type: format === "gif" ? "image/gif" : "video/mp4",
+            type: MIME_TYPES[format] ?? "video/mp4",
           }),
         ),
       );
@@ -244,7 +279,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                         className={cn("h-full shadow rounded")}
                       />
                     )}
-                    {format === "mp4" && (
+                    {format !== "gif" && (
                       <video
                         ref={outputVideoRef}
                         className={cn("h-full shadow rounded")}

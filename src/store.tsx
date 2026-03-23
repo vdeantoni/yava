@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { CropRectangle } from "./components/player/VideoCanvas";
+import { supportsMultithreading } from "./hooks/useFFmpeg";
+
+export type Format = "mp4" | "webm" | "mov" | "gif";
+export type Preset = "ultrafast" | "fast" | "medium" | "slow";
 
 interface AppState {
   ffmpeg: FFmpeg;
@@ -16,7 +20,8 @@ interface AppState {
 
   processing: boolean;
 
-  format: string;
+  format: Format;
+  preset: Preset;
   frameRate: number;
   speed: number;
   outputWidth: string;
@@ -38,7 +43,8 @@ interface AppActions {
   resetCursors: (duration: number) => void;
   setProcessing: (processing: boolean) => void;
 
-  setFormat: (format: string) => void;
+  setFormat: (format: Format) => void;
+  setPreset: (preset: Preset) => void;
   setFrameRate: (frameRate: number) => void;
   setSpeed: (speed: number) => void;
   setOutputWidth: (outputWidth: string) => void;
@@ -50,7 +56,8 @@ interface AppActions {
 }
 
 const DEFAULT_EXPORT = {
-  format: "mp4",
+  format: "mp4" as Format,
+  preset: "ultrafast" as Preset,
   frameRate: 30,
   speed: 1,
   outputWidth: "",
@@ -60,7 +67,7 @@ const DEFAULT_EXPORT = {
 
 export const useAppStore = create<AppState & AppActions>()((set, get) => ({
   ffmpeg: new FFmpeg(),
-  multithreading: false,
+  multithreading: supportsMultithreading,
 
   video: undefined!,
   file: undefined,
@@ -106,6 +113,7 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
   setProcessing: (processing) => set(() => ({ processing })),
 
   setFormat: (format) => set(() => ({ format })),
+  setPreset: (preset) => set(() => ({ preset })),
   setFrameRate: (frameRate) => set(() => ({ frameRate })),
   setSpeed: (speed) => set(() => ({ speed })),
   setOutputWidth: (outputWidth) => set(() => ({ outputWidth })),
@@ -123,7 +131,7 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
 
   reset: () =>
     set(() => ({
-      multithreading: false,
+      multithreading: supportsMultithreading,
 
       file: undefined!,
       video: undefined!,

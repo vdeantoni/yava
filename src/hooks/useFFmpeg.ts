@@ -11,7 +11,7 @@ const FILE_SIZE_MAP = {
   "ffmpeg-core.worker.js": 2915,
 };
 
-const supportsMultithreading =
+export const supportsMultithreading =
   typeof SharedArrayBuffer !== "undefined" &&
   typeof crossOriginIsolated !== "undefined" &&
   crossOriginIsolated;
