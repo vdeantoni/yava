@@ -130,6 +130,7 @@ const VideoTimeline = () => {
             handleDrag.current = false;
             return;
           }
+          video.pause();
           const { width, left } = e.currentTarget.getBoundingClientRect();
           const percentage = (e.clientX - left) / width;
           const time = Math.max(
@@ -204,6 +205,7 @@ const VideoTimeline = () => {
             onPointerDown={onHandlePointerDown}
             onClick={onHandleClick}
             onInput={(e) => {
+              video.pause();
               const value = +e.currentTarget.value;
               if (value >= cursorStart && value <= cursorEnd) {
                 setCursorCurrent(value);

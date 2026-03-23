@@ -24,6 +24,7 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
           className="h-8 w-8 text-foreground hover:text-primary"
           onClick={(e) => {
             e.stopPropagation();
+            video.pause();
             setCursorCurrent(cursorStart);
           }}
         >
@@ -56,6 +57,7 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
           className="h-8 w-8 text-foreground hover:text-primary"
           onClick={(e) => {
             e.stopPropagation();
+            video.pause();
             setCursorCurrent(cursorEnd);
           }}
         >
