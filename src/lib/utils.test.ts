@@ -55,8 +55,8 @@ describe("durationToSeconds", () => {
 
   test("roundtrips with milliseconds", () => {
     const seconds = 1.5;
-    expect(
-      durationToSeconds(secondsToDuration(seconds, { ms: true })),
-    ).toBe(seconds);
+    expect(durationToSeconds(secondsToDuration(seconds, { ms: true }))).toBe(
+      seconds,
+    );
   });
 });
