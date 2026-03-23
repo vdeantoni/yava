@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select.tsx";
 import VideoExportDialog from "@/components/export/VideoExportDialog.tsx";
+import { FileOutput } from "lucide-react";
 
 const ExportPanel = () => {
   const {
@@ -86,11 +87,7 @@ const ExportPanel = () => {
           {(["x", "y", "w", "h"] as const).map((field) => (
             <div key={field} className="flex flex-col gap-1">
               <label className="text-xs text-muted-foreground">
-                {field === "w"
-                  ? "Width"
-                  : field === "h"
-                    ? "Height"
-                    : field}
+                {field === "w" ? "Width" : field === "h" ? "Height" : field}
               </label>
               <Input
                 type="number"
@@ -200,7 +197,10 @@ const ExportPanel = () => {
       )}
 
       <VideoExportDialog>
-        <Button className="w-full mt-2">Export</Button>
+        <Button className="w-full mt-2">
+          <FileOutput className="h-4 w-4 mr-1.5" />
+          Export
+        </Button>
       </VideoExportDialog>
     </div>
   );

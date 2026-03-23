@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFFmpeg } from "@/hooks/useFFmpeg.ts";
+import { Download } from "lucide-react";
 
 const VideoExportDialog = ({ children }: PropsWithChildren) => {
   const {
@@ -247,7 +248,10 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                       />
                     )}
                   </div>
-                  <Button onClick={downloadHandler}>Download</Button>
+                  <Button onClick={downloadHandler}>
+                    <Download className="h-4 w-4 mr-1.5" />
+                    Download
+                  </Button>
                 </div>
               )}
 
