@@ -106,8 +106,7 @@ const VideoCanvas = ({ videoRef }: VideoCanvasProps) => {
   const dragMode = useRef<DragMode>(null);
   const moveOffset = useRef({ x: 0, y: 0 });
   const resizeCorner = useRef<Corner | null>(null);
-  // Anchor is the opposite corner that stays fixed during resize
-  const resizeAnchor = useRef({ x: 0, y: 0 });
+  const dragAnchor = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     const canvas = canvasRef.current!;
@@ -178,7 +177,7 @@ const VideoCanvas = ({ videoRef }: VideoCanvasProps) => {
         bl: { x: x + w, y: y },
         br: { x: x, y: y },
       };
-      resizeAnchor.current = anchors[corner];
+      dragAnchor.current = anchors[corner];
       return;
     }
 
@@ -194,9 +193,12 @@ const VideoCanvas = ({ videoRef }: VideoCanvasProps) => {
 
     // Otherwise draw new
     dragMode.current = "drawing";
+    const ax = Math.max(0, Math.min(px, videoWidth));
+    const ay = Math.max(0, Math.min(py, videoHeight));
+    dragAnchor.current = { x: ax, y: ay };
     setCropRectangle({
-      x: Math.max(0, Math.min(px, videoWidth)),
-      y: Math.max(0, Math.min(py, videoHeight)),
+      x: ax,
+      y: ay,
       w: 0,
       h: 0,
       vw: videoWidth,
@@ -223,9 +225,10 @@ const VideoCanvas = ({ videoRef }: VideoCanvasProps) => {
         x: newX,
         y: newY,
       });
-    } else if (dragMode.current === "resizing") {
-      const ax = resizeAnchor.current.x;
-      const ay = resizeAnchor.current.y;
+    } else {
+      // Drawing or resizing — both use the anchor point
+      const ax = dragAnchor.current.x;
+      const ay = dragAnchor.current.y;
 
       const newX = Math.min(px, ax);
       const newY = Math.min(py, ay);
@@ -238,21 +241,6 @@ const VideoCanvas = ({ videoRef }: VideoCanvasProps) => {
         ...cropRectangle,
         x: newX,
         y: newY,
-        w: newW,
-        h: newH,
-      });
-    } else {
-      // Drawing
-      let newW = px - cropRectangle.x;
-      let newH = py - cropRectangle.y;
-
-      if (newW <= 0 || newH <= 0) return;
-
-      newW = Math.min(newW, videoWidth - cropRectangle.x);
-      newH = Math.min(newH, videoHeight - cropRectangle.y);
-
-      setCropRectangle({
-        ...cropRectangle,
         w: newW,
         h: newH,
       });
