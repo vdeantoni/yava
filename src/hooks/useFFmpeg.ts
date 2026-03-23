@@ -11,10 +11,15 @@ const FILE_SIZE_MAP = {
   "ffmpeg-core.worker.js": 2915,
 };
 
+const supportsMultithreading =
+  typeof SharedArrayBuffer !== "undefined" &&
+  typeof crossOriginIsolated !== "undefined" &&
+  crossOriginIsolated;
+
 type LoadProgressCallback = (progress: { [name: string]: number }) => void;
 
 export const useFFmpeg = (cb: LoadProgressCallback) => {
-  const { ffmpeg, multithreading } = useAppStore();
+  const { ffmpeg, setMultithreading } = useAppStore();
 
   const [progress, setProgress] = useState<{ [name: string]: number }>({});
 
@@ -27,9 +32,12 @@ export const useFFmpeg = (cb: LoadProgressCallback) => {
       return;
     }
 
+    const mt = supportsMultithreading;
+    setMultithreading(mt);
+
     setProgress({});
 
-    const baseURL = multithreading ? BASE_URL_MT : BASE_URL;
+    const baseURL = mt ? BASE_URL_MT : BASE_URL;
 
     const updateProgress =
       (name: string, total: number) =>
@@ -40,8 +48,6 @@ export const useFFmpeg = (cb: LoadProgressCallback) => {
         }));
       };
 
-    // toBlobURL is used to bypass CORS issue, urls with the same
-    // domain can be used directly.
     await ffmpeg.load({
       coreURL: await toBlobURL(
         `${baseURL}/ffmpeg-core.js`,
@@ -55,7 +61,7 @@ export const useFFmpeg = (cb: LoadProgressCallback) => {
         true,
         updateProgress("ffmpeg-core.wasm", FILE_SIZE_MAP["ffmpeg-core.wasm"]),
       ),
-      workerURL: multithreading
+      workerURL: mt
         ? await toBlobURL(
             `${baseURL}/ffmpeg-core.worker.js`,
             "text/javascript",

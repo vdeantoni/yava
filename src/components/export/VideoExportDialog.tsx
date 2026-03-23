@@ -29,7 +29,6 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     file,
     video,
     ffmpeg,
-    multithreading,
     cursorStart,
     cursorEnd,
     cropRectangle,
@@ -129,14 +128,16 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         audioFilters.push(`atempo=${remaining.toFixed(4)}`);
       }
 
+      const trimDuration = cursorEnd - cursorStart;
+
       await ffmpeg.exec(
         [
-          "-i",
-          name,
           "-ss",
           String(cursorStart),
-          "-to",
-          String(cursorEnd),
+          "-i",
+          name,
+          "-t",
+          String(trimDuration),
           frameRate && "-r",
           frameRate && String(frameRate),
           "-vf",
@@ -147,8 +148,12 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
 
           noAudio && "-an",
 
-          multithreading && !audioFilters.length && "-c:a",
-          multithreading && !audioFilters.length && "copy",
+          !noAudio && !audioFilters.length && "-c:a",
+          !noAudio && !audioFilters.length && "copy",
+
+          format === "mp4" && "-preset",
+          format === "mp4" && "ultrafast",
+
           filename,
         ].filter(Boolean) as string[],
       );
