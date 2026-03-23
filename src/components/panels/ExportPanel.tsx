@@ -30,6 +30,10 @@ const ExportPanel = () => {
     }
   }, [video]);
 
+  useEffect(() => {
+    if (video) video.playbackRate = speed;
+  }, [video, speed]);
+
   if (!video) return null;
 
   const hasCrop = cropRectangle.w > 0 && cropRectangle.h > 0;
