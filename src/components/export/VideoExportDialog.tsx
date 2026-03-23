@@ -32,6 +32,7 @@ import { useFFmpeg } from "@/hooks/useFFmpeg.ts";
 interface VideoExportDialogProps extends PropsWithChildren {
   format: string;
   frameRate: number;
+  speed: number;
   width: string;
   height: string;
   noAudio: boolean;
@@ -41,6 +42,7 @@ const VideoExportDialog = ({
   children,
   format,
   frameRate,
+  speed,
   width,
   height,
   noAudio,
@@ -123,6 +125,24 @@ const VideoExportDialog = ({
 
         videoFilters.push(`crop=${w}:${h}:${x}:${y}`);
       }
+      if (speed !== 1) {
+        videoFilters.push(`setpts=${(1 / speed).toFixed(4)}*PTS`);
+      }
+
+      // atempo only supports 0.5–100, chain multiple for extreme values
+      const audioFilters: string[] = [];
+      if (speed !== 1 && !noAudio) {
+        let remaining = speed;
+        while (remaining > 2) {
+          audioFilters.push("atempo=2.0");
+          remaining /= 2;
+        }
+        while (remaining < 0.5) {
+          audioFilters.push("atempo=0.5");
+          remaining /= 0.5;
+        }
+        audioFilters.push(`atempo=${remaining.toFixed(4)}`);
+      }
 
       await ffmpeg.exec(
         [
@@ -137,10 +157,13 @@ const VideoExportDialog = ({
           "-vf",
           videoFilters.join(","),
 
+          audioFilters.length && "-af",
+          audioFilters.length && audioFilters.join(","),
+
           noAudio && "-an",
 
-          multithreading && "-c:a",
-          multithreading && "copy",
+          multithreading && !audioFilters.length && "-c:a",
+          multithreading && !audioFilters.length && "copy",
           filename,
         ].filter(Boolean) as string[],
       );
