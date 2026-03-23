@@ -8,6 +8,7 @@ import VideoCanvas from "./VideoCanvas";
 const VideoPlayer = () => {
   const {
     file,
+    cursorStart,
     cursorEnd,
     cursorCurrent,
     processing,
@@ -31,6 +32,12 @@ const VideoPlayer = () => {
       videoRef.current.pause();
       videoRef.current.currentTime = cursorEnd;
       setCursorCurrent(cursorEnd);
+      return;
+    }
+
+    if (videoRef.current.currentTime < cursorStart) {
+      videoRef.current.currentTime = cursorStart;
+      setCursorCurrent(cursorStart);
       return;
     }
 

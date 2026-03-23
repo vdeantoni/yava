@@ -122,7 +122,7 @@ const VideoTimeline = () => {
     cursorStart > 0 || Math.abs(cursorEnd - video.duration) > 0.05;
 
   return (
-    <div className="border-t border-border bg-card px-2 lg:px-4 py-1">
+    <div className="border-t border-border bg-card px-4 lg:px-8 py-1">
       <div
         className="flex flex-col gap-1 cursor-default"
         onClick={(e) => {
