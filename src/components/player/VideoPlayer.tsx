@@ -1,5 +1,5 @@
 import { useAppStore } from "@/store.tsx";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import VideoControls from "@/components/player/VideoControls.tsx";
 import { cn } from "@/lib/utils.ts";
 import { LoaderCircle } from "lucide-react";
@@ -18,13 +18,7 @@ const VideoPlayer = () => {
   const [playing, setPlaying] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const prevFileRef = useRef<Blob | undefined>(undefined);
-  const videoSrcRef = useRef("");
-  if (file !== prevFileRef.current) {
-    prevFileRef.current = file;
-    videoSrcRef.current = URL.createObjectURL(file!);
-  }
-  const videoSrc = videoSrcRef.current;
+  const videoSrc = useMemo(() => URL.createObjectURL(file!), [file]);
 
   const videoLoadedDataHandler = () => {
     setVideo(videoRef.current!);
