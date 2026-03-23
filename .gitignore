@@ -31,4 +31,4 @@ package-lock.json
 # Test artifacts
 test-results/
 playwright-report/
-tests/playwright/.cache/
+playwright/.cache/
