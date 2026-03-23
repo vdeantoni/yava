@@ -1,11 +1,5 @@
 import { useAppStore } from "@/store.tsx";
-import {
-  PropsWithChildren,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { PropsWithChildren, useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { fetchFile } from "@ffmpeg/util";
@@ -29,24 +23,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFFmpeg } from "@/hooks/useFFmpeg.ts";
 
-interface VideoExportDialogProps extends PropsWithChildren {
-  format: string;
-  frameRate: number;
-  speed: number;
-  width: string;
-  height: string;
-  noAudio: boolean;
-}
-
-const VideoExportDialog = ({
-  children,
-  format,
-  frameRate,
-  speed,
-  width,
-  height,
-  noAudio,
-}: VideoExportDialogProps) => {
+const VideoExportDialog = ({ children }: PropsWithChildren) => {
   const {
     file,
     video,
@@ -55,6 +32,12 @@ const VideoExportDialog = ({
     cursorStart,
     cursorEnd,
     cropRectangle,
+    format,
+    frameRate,
+    speed,
+    outputWidth,
+    outputHeight,
+    noAudio,
   } = useAppStore();
 
   const outputVideoRef = useRef<HTMLVideoElement>(null);
@@ -113,7 +96,9 @@ const VideoExportDialog = ({
       await ffmpeg.writeFile(name, await fetchFile(file));
       const filename = `output_${new Date().getTime()}.${format}`;
 
-      const videoFilters = [`scale=${width || -1}:${height || -1}:`];
+      const videoFilters = [
+        `scale=${outputWidth || -1}:${outputHeight || -1}:`,
+      ];
       if (cropRectangle.w && cropRectangle.h) {
         const px = video.videoWidth / cropRectangle.vw;
         const py = video.videoHeight / cropRectangle.vh;
@@ -129,7 +114,6 @@ const VideoExportDialog = ({
         videoFilters.push(`setpts=${(1 / speed).toFixed(4)}*PTS`);
       }
 
-      // atempo only supports 0.5–100, chain multiple for extreme values
       const audioFilters: string[] = [];
       if (speed !== 1 && !noAudio) {
         let remaining = speed;

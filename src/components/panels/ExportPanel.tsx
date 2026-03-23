@@ -1,5 +1,5 @@
 import { useAppStore } from "@/store.tsx";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Input } from "@/components/ui/input.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Slider } from "@/components/ui/slider.tsx";
@@ -14,21 +14,31 @@ import {
 import VideoExportDialog from "@/components/export/VideoExportDialog.tsx";
 
 const ExportPanel = () => {
-  const { video, cropRectangle, setCropRectangle } = useAppStore();
-
-  const [format, setFormat] = useState("mp4");
-  const [frameRate, setFrameRate] = useState(30);
-  const [speed, setSpeed] = useState(1);
-  const [width, setWidth] = useState("");
-  const [height, setHeight] = useState("");
-  const [noAudio, setNoAudio] = useState(false);
+  const {
+    video,
+    cropRectangle,
+    setCropRectangle,
+    format,
+    setFormat,
+    frameRate,
+    setFrameRate,
+    speed,
+    setSpeed,
+    outputWidth,
+    setOutputWidth,
+    outputHeight,
+    setOutputHeight,
+    noAudio,
+    setNoAudio,
+    resetExportOptions,
+  } = useAppStore();
 
   useEffect(() => {
     if (video) {
-      setWidth(String(video.videoWidth));
-      setHeight(String(video.videoHeight));
+      setOutputWidth(String(video.videoWidth));
+      setOutputHeight(String(video.videoHeight));
     }
-  }, [video]);
+  }, [video, setOutputWidth, setOutputHeight]);
 
   useEffect(() => {
     if (video) video.playbackRate = speed;
@@ -43,19 +53,9 @@ const ExportPanel = () => {
     format !== "mp4" ||
     frameRate !== 30 ||
     speed !== 1 ||
-    width !== String(video.videoWidth) ||
-    height !== String(video.videoHeight) ||
+    outputWidth !== String(video.videoWidth) ||
+    outputHeight !== String(video.videoHeight) ||
     noAudio;
-
-  const resetAll = () => {
-    setCropRectangle({ x: 0, y: 0, w: 0, h: 0, vw: 0, vh: 0 });
-    setFormat("mp4");
-    setFrameRate(30);
-    setSpeed(1);
-    setWidth(String(video.videoWidth));
-    setHeight(String(video.videoHeight));
-    setNoAudio(false);
-  };
 
   const px = cropRectangle.vw ? video.videoWidth / cropRectangle.vw : 1;
   const py = cropRectangle.vh ? video.videoHeight / cropRectangle.vh : 1;
@@ -78,7 +78,6 @@ const ExportPanel = () => {
 
   return (
     <div className="flex flex-col gap-4 px-4">
-      {/* Crop section */}
       <div className="flex flex-col gap-2">
         <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
           Crop
@@ -108,7 +107,6 @@ const ExportPanel = () => {
         </div>
       </div>
 
-      {/* Output Size section */}
       <div className="flex flex-col gap-2">
         <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
           Output Size
@@ -119,8 +117,8 @@ const ExportPanel = () => {
             <Input
               type="text"
               className="font-mono text-sm h-8 bg-background"
-              value={width}
-              onChange={(e) => setWidth(e.currentTarget.value)}
+              value={outputWidth}
+              onChange={(e) => setOutputWidth(e.currentTarget.value)}
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -128,8 +126,8 @@ const ExportPanel = () => {
             <Input
               type="text"
               className="font-mono text-sm h-8 bg-background"
-              value={height}
-              onChange={(e) => setHeight(e.currentTarget.value)}
+              value={outputHeight}
+              onChange={(e) => setOutputHeight(e.currentTarget.value)}
             />
           </div>
         </div>
@@ -195,20 +193,13 @@ const ExportPanel = () => {
         <Button
           variant="link"
           className="text-xs h-min p-0 text-primary self-end"
-          onClick={resetAll}
+          onClick={resetExportOptions}
         >
           Reset
         </Button>
       )}
 
-      <VideoExportDialog
-        format={format}
-        frameRate={frameRate}
-        speed={speed}
-        width={width}
-        height={height}
-        noAudio={noAudio}
-      >
+      <VideoExportDialog>
         <Button className="w-full mt-2">Export</Button>
       </VideoExportDialog>
     </div>

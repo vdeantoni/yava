@@ -15,6 +15,13 @@ interface AppState {
   cropRectangle: CropRectangle;
 
   processing: boolean;
+
+  format: string;
+  frameRate: number;
+  speed: number;
+  outputWidth: string;
+  outputHeight: string;
+  noAudio: boolean;
 }
 
 interface AppActions {
@@ -31,10 +38,27 @@ interface AppActions {
   resetCursors: (duration: number) => void;
   setProcessing: (processing: boolean) => void;
 
+  setFormat: (format: string) => void;
+  setFrameRate: (frameRate: number) => void;
+  setSpeed: (speed: number) => void;
+  setOutputWidth: (outputWidth: string) => void;
+  setOutputHeight: (outputHeight: string) => void;
+  setNoAudio: (noAudio: boolean) => void;
+  resetExportOptions: () => void;
+
   reset: () => void;
 }
 
-export const useAppStore = create<AppState & AppActions>()((set) => ({
+const DEFAULT_EXPORT = {
+  format: "mp4",
+  frameRate: 30,
+  speed: 1,
+  outputWidth: "",
+  outputHeight: "",
+  noAudio: false,
+};
+
+export const useAppStore = create<AppState & AppActions>()((set, get) => ({
   ffmpeg: new FFmpeg(),
   multithreading: false,
 
@@ -54,6 +78,8 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
   },
 
   processing: false,
+
+  ...DEFAULT_EXPORT,
 
   setMultithreading: (multithreading: boolean) =>
     set(() => ({ multithreading })),
@@ -79,6 +105,22 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
 
   setProcessing: (processing) => set(() => ({ processing })),
 
+  setFormat: (format) => set(() => ({ format })),
+  setFrameRate: (frameRate) => set(() => ({ frameRate })),
+  setSpeed: (speed) => set(() => ({ speed })),
+  setOutputWidth: (outputWidth) => set(() => ({ outputWidth })),
+  setOutputHeight: (outputHeight) => set(() => ({ outputHeight })),
+  setNoAudio: (noAudio) => set(() => ({ noAudio })),
+  resetExportOptions: () => {
+    const { video } = get();
+    set(() => ({
+      ...DEFAULT_EXPORT,
+      outputWidth: video ? String(video.videoWidth) : "",
+      outputHeight: video ? String(video.videoHeight) : "",
+      cropRectangle: { x: 0, y: 0, w: 0, h: 0, vw: 0, vh: 0 },
+    }));
+  },
+
   reset: () =>
     set(() => ({
       multithreading: false,
@@ -99,5 +141,7 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       },
 
       processing: true,
+
+      ...DEFAULT_EXPORT,
     })),
 }));
