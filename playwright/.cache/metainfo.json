@@ -1,0 +1,116 @@
+{
+  "version": "1.58.2",
+  "viteVersion": "6.4.1",
+  "registerSourceHash": "ea233d95b980072c81eb49458aee55f5d33fdb02",
+  "components": [
+    {
+      "id": "_Users_vdeantoni_workspace_vdeantoni_yava_tests_components___components_panels_TrimPanel",
+      "filename": "/Users/vdeantoni/workspace/vdeantoni/yava/tests/components/TrimPanel.spec.tsx",
+      "importSource": "@/components/panels/TrimPanel"
+    }
+  ],
+  "sources": {
+    "/Users/vdeantoni/workspace/vdeantoni/yava/playwright/index.html": {
+      "timestamp": 1774217985900.107
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/playwright/index.tsx": {
+      "timestamp": 1774224753237.2559
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/react-dom@19.2.4_react@19.2.4/node_modules/react-dom/client.js": {
+      "timestamp": 1741371072507.577
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/@playwright+experimental-ct-react@1.58.2_@types+node@25.5.0_jiti@2.6.1_lightningcss@1.3_64275c2874d69937e27196b051bae173/node_modules/@playwright/experimental-ct-react/hooks.mjs": {
+      "timestamp": 1769566813990.9187
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/react@19.2.4/node_modules/react/index.js": {
+      "timestamp": 1741371072186.535
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/src/store.tsx": {
+      "timestamp": 1774201658919.0784
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/src/components/panels/TrimPanel.tsx": {
+      "timestamp": 1774156101346.3635
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/src/index.css": {
+      "timestamp": 1774144843083.184
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/react@19.2.4/node_modules/react/cjs/react.production.js": {
+      "timestamp": 1769710715353.6682
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/react-dom@19.2.4_react@19.2.4/node_modules/react-dom/cjs/react-dom-client.production.js": {
+      "timestamp": 1769710715176.504
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/zustand@5.0.12_@types+react@19.2.14_react@19.2.4/node_modules/zustand/esm/index.mjs": {
+      "timestamp": 1774144408884.8145
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/react@19.2.4/node_modules/react/jsx-runtime.js": {
+      "timestamp": 1741371072186.958
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/src/__mocks__/@ffmpeg/ffmpeg.ts": {
+      "timestamp": 1774217812875.7734
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/src/lib/utils.ts": {
+      "timestamp": 1774214783030.628
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/src/components/ui/input.tsx": {
+      "timestamp": 1774212419137.6367
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/src/components/ui/button.tsx": {
+      "timestamp": 1774212419122.2295
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/react-dom@19.2.4_react@19.2.4/node_modules/react-dom/index.js": {
+      "timestamp": 1741371072508.078
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/scheduler@0.27.0/node_modules/scheduler/index.js": {
+      "timestamp": 1741371076606.3428
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/zustand@5.0.12_@types+react@19.2.14_react@19.2.4/node_modules/zustand/esm/vanilla.mjs": {
+      "timestamp": 1774144408897.3408
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/zustand@5.0.12_@types+react@19.2.14_react@19.2.4/node_modules/zustand/esm/react.mjs": {
+      "timestamp": 1774144408894.5698
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/react@19.2.4/node_modules/react/cjs/react-jsx-runtime.production.js": {
+      "timestamp": 1741371072189.2078
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs": {
+      "timestamp": 1741371076237.014
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/class-variance-authority@0.7.1/node_modules/class-variance-authority/dist/index.mjs": {
+      "timestamp": 1762560219121.1138
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/tailwind-merge@3.5.0/node_modules/tailwind-merge/dist/bundle-mjs.mjs": {
+      "timestamp": 1772245570359.6472
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/@radix-ui+react-slot@1.2.4_@types+react@19.2.14_react@19.2.4/node_modules/@radix-ui/react-slot/dist/index.mjs": {
+      "timestamp": 1762561119623.2544
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/scheduler@0.27.0/node_modules/scheduler/cjs/scheduler.production.js": {
+      "timestamp": 1743545816049.9114
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/react-dom@19.2.4_react@19.2.4/node_modules/react-dom/cjs/react-dom.production.js": {
+      "timestamp": 1769710715194.2402
+    },
+    "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/@radix-ui+react-compose-refs@1.1.2_@types+react@19.2.14_react@19.2.4/node_modules/@radix-ui/react-compose-refs/dist/index.mjs": {
+      "timestamp": 1762560225996.4578
+    }
+  },
+  "deps": {
+    "/Users/vdeantoni/workspace/vdeantoni/yava/src/components/panels/TrimPanel.tsx": [
+      "/Users/vdeantoni/workspace/vdeantoni/yava/src/components/panels/TrimPanel.tsx",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/src/store.tsx",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/zustand@5.0.12_@types+react@19.2.14_react@19.2.4/node_modules/zustand/esm/index.mjs",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/zustand@5.0.12_@types+react@19.2.14_react@19.2.4/node_modules/zustand/esm/vanilla.mjs",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/zustand@5.0.12_@types+react@19.2.14_react@19.2.4/node_modules/zustand/esm/react.mjs",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/src/__mocks__/@ffmpeg/ffmpeg.ts",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/src/lib/utils.ts",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/clsx@2.1.1/node_modules/clsx/dist/clsx.mjs",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/tailwind-merge@3.5.0/node_modules/tailwind-merge/dist/bundle-mjs.mjs",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/src/components/ui/input.tsx",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/src/components/ui/button.tsx",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/@radix-ui+react-slot@1.2.4_@types+react@19.2.14_react@19.2.4/node_modules/@radix-ui/react-slot/dist/index.mjs",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/@radix-ui+react-compose-refs@1.1.2_@types+react@19.2.14_react@19.2.4/node_modules/@radix-ui/react-compose-refs/dist/index.mjs",
+      "/Users/vdeantoni/workspace/vdeantoni/yava/node_modules/.pnpm/class-variance-authority@0.7.1/node_modules/class-variance-authority/dist/index.mjs"
+    ]
+  }
+}

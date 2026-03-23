@@ -8,7 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
+    "test:unit": "vitest run",
+    "test:ct": "playwright test -c playwright-ct.config.ts",
+    "test": "vitest run && playwright test -c playwright-ct.config.ts"
   },
   "dependencies": {
     "@ffmpeg/ffmpeg": "^0.12.15",
@@ -45,6 +48,8 @@
   "devDependencies": {
     "@eslint/js": "^9.39.4",
     "@ffmpeg/types": "^0.12.2",
+    "@playwright/experimental-ct-react": "^1.58.2",
+    "@playwright/test": "^1.58.2",
     "@sentry/vite-plugin": "^5.1.1",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/lodash": "^4.17.24",
@@ -57,11 +62,13 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
+    "jsdom": "^29.0.1",
     "postcss": "^8.5.8",
     "prettier": "^3.8.1",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.1",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "vitest": "^4.1.0"
   }
 }
