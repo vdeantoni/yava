@@ -9,6 +9,22 @@ type VideoThumbnailsProps = {
   trackWidth: number;
 };
 
+function findNearest(
+  cache: Map<number, ImageBitmap>,
+  target: number,
+): ImageBitmap | undefined {
+  let best: ImageBitmap | undefined;
+  let bestDist = Infinity;
+  for (const [ts, bitmap] of cache) {
+    const dist = Math.abs(ts - target);
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = bitmap;
+    }
+  }
+  return best;
+}
+
 const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
   const { file, video, setProcessing } = useAppStore(
     useShallow((s) => ({
@@ -19,25 +35,29 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
   );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const framesRef = useRef<(ImageBitmap | undefined)[]>([]);
+  const cacheRef = useRef(new Map<number, ImageBitmap>());
   const frameWidthRef = useRef(0);
+  const durationRef = useRef(0);
 
   const drawFrames = useCallback(() => {
     const canvas = canvasRef.current;
-    const frames = framesRef.current;
+    const cache = cacheRef.current;
     const w = frameWidthRef.current;
-    if (!canvas || !w || !frames.length) return;
+    const duration = durationRef.current;
+    if (!canvas || !w || !cache.size || !duration) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const numVisible = Math.ceil(canvas.width / w);
+    const step = duration / numVisible;
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (let i = 0; i < frames.length; i++) {
-      const x = i * w;
-      if (x >= canvas.width) break;
-      const frame = frames[i];
+    for (let i = 0; i < numVisible; i++) {
+      const targetTime = i * step;
+      const frame = findNearest(cache, targetTime);
       if (frame) {
-        ctx.drawImage(frame, x, 0, w, THUMBNAIL_HEIGHT);
+        ctx.drawImage(frame, i * w, 0, w, THUMBNAIL_HEIGHT);
       }
     }
   }, []);
@@ -47,21 +67,20 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
   useEffect(() => {
     if (!video || !file || !video.videoWidth || !video.videoHeight) return;
 
-    // Clean up old frames
-    for (const f of framesRef.current) f?.close();
-    framesRef.current = [];
+    // Clean up old cache
+    for (const bitmap of cacheRef.current.values()) bitmap.close();
+    cacheRef.current.clear();
 
     const h = THUMBNAIL_HEIGHT;
     const w = Math.round(h * (video.videoWidth / video.videoHeight));
     if (w <= 0) return;
     frameWidthRef.current = w;
+    durationRef.current = video.duration;
 
     // Generate enough frames to fill the widest likely viewport
     const maxWidth = window.screen.width;
     const numFrames = Math.ceil(maxWidth / w) + 1;
     const step = video.duration / numFrames;
-
-    framesRef.current = new Array(numFrames);
 
     setProcessing(true);
 
@@ -88,6 +107,7 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
       const captureAndAdvance = async () => {
         if (cancelled) return;
 
+        const timestamp = slot * step;
         tmpCtx.drawImage(thumbVideo, 0, 0, w, h);
         try {
           const bitmap = await createImageBitmap(tmpCanvas);
@@ -95,7 +115,7 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
             bitmap.close();
             return;
           }
-          framesRef.current[slot] = bitmap;
+          cacheRef.current.set(timestamp, bitmap);
           drawFrames();
         } catch {
           // ignore extraction errors for individual frames
@@ -121,8 +141,6 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
         "loadeddata",
         () => {
           if (cancelled) return;
-          // Extractor 0 starts at time 0 — already there after load,
-          // so capture directly instead of seeking (which may not fire seeked).
           if (slot * step < 0.001) {
             captureAndAdvance();
           } else {
@@ -143,8 +161,8 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
     return () => {
       cancelled = true;
       for (const cleanup of cleanups) cleanup();
-      for (const f of framesRef.current) f?.close();
-      framesRef.current = [];
+      for (const bitmap of cacheRef.current.values()) bitmap.close();
+      cacheRef.current.clear();
       setProcessing(false);
     };
   }, [video, file, setProcessing, drawFrames]);
