@@ -201,6 +201,10 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
           }),
         ),
       );
+
+      // Clean up WASM filesystem to free memory between exports
+      await ffmpeg.deleteFile(name);
+      await ffmpeg.deleteFile(filename);
     } finally {
       ffmpeg.off("log", logCb);
       ffmpeg.off("progress", progressCb);

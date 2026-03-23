@@ -69,7 +69,16 @@ const VideoTimeline = () => {
   );
 
   const trackRef = useRef<HTMLDivElement>(null);
+  const handleDrag = useRef(false);
   const trackWidth = useTrackResizeObserver(trackRef);
+
+  const onHandlePointerDown = () => {
+    handleDrag.current = true;
+  };
+  const onHandleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    handleDrag.current = false;
+  };
 
   useEffect(() => {
     resetCursors(video.duration);
@@ -117,9 +126,16 @@ const VideoTimeline = () => {
       <div
         className="flex flex-col gap-1 cursor-default"
         onClick={(e) => {
+          if (handleDrag.current) {
+            handleDrag.current = false;
+            return;
+          }
           const { width, left } = e.currentTarget.getBoundingClientRect();
           const percentage = (e.clientX - left) / width;
-          const time = percentage * video.duration;
+          const time = Math.max(
+            cursorStart,
+            Math.min(cursorEnd, percentage * video.duration),
+          );
 
           setCursorCurrent(time);
         }}
@@ -151,7 +167,8 @@ const VideoTimeline = () => {
             max={video.duration}
             step={STEP_SIZE}
             value={cursorStart}
-            onClick={(e) => e.stopPropagation()}
+            onPointerDown={onHandlePointerDown}
+            onClick={onHandleClick}
             onInput={(e) => {
               const value = +e.currentTarget.value;
               if (value < cursorEnd - 1) {
@@ -166,7 +183,8 @@ const VideoTimeline = () => {
             max={video.duration}
             step={STEP_SIZE}
             value={cursorEnd}
-            onClick={(e) => e.stopPropagation()}
+            onPointerDown={onHandlePointerDown}
+            onClick={onHandleClick}
             onInput={(e) => {
               const value = +e.currentTarget.value;
               if (value > cursorStart + 1) {
@@ -183,6 +201,8 @@ const VideoTimeline = () => {
             max={video.duration}
             step={STEP_SIZE}
             value={cursorCurrent}
+            onPointerDown={onHandlePointerDown}
+            onClick={onHandleClick}
             onInput={(e) => {
               const value = +e.currentTarget.value;
               if (value >= cursorStart && value <= cursorEnd) {

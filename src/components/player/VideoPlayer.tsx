@@ -18,6 +18,7 @@ const VideoPlayer = () => {
   const [playing, setPlaying] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const lastPlaybackTime = useRef<number | null>(null);
   const videoSrc = useMemo(() => URL.createObjectURL(file!), [file]);
 
   const videoLoadedDataHandler = () => {
@@ -29,7 +30,9 @@ const VideoPlayer = () => {
       return;
     }
 
-    setCursorCurrent(videoRef.current.currentTime || 0);
+    const time = videoRef.current.currentTime || 0;
+    lastPlaybackTime.current = time;
+    setCursorCurrent(time);
 
     if (videoRef.current.currentTime > cursorEnd) {
       videoRef.current.pause();
@@ -38,12 +41,22 @@ const VideoPlayer = () => {
   };
 
   useEffect(() => {
-    if (!videoRef?.current || processing) {
+    const el = videoRef.current;
+    if (!el || processing) return;
+
+    // If cursorCurrent matches the last value reported by timeupdate, the video
+    // is already at (or past) this position — don't seek back.
+    if (
+      lastPlaybackTime.current !== null &&
+      Math.abs(cursorCurrent - lastPlaybackTime.current) < 0.001
+    ) {
+      lastPlaybackTime.current = null;
       return;
     }
+    lastPlaybackTime.current = null;
 
-    if (Math.abs(videoRef.current.currentTime - cursorCurrent) >= 0.01) {
-      videoRef.current.currentTime = cursorCurrent;
+    if (Math.abs(el.currentTime - cursorCurrent) >= 0.01) {
+      el.currentTime = cursorCurrent;
     }
   }, [cursorCurrent, processing]);
 
