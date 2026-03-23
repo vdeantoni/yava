@@ -1,12 +1,7 @@
 import { cn } from "@/lib/utils.ts";
 import { RefObject, useEffect, useRef, useState } from "react";
 import { useAppStore } from "../../store";
-import {
-  useDebounceCallback,
-  useEventListener,
-  useResizeObserver,
-} from "usehooks-ts";
-import { useMouse } from "@uidotdev/usehooks";
+import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 
 export type CropRectangle = {
   x: number;
@@ -106,7 +101,7 @@ const VideoCanvas = ({ videoRef }: VideoCanvasProps) => {
 
   const [videoWidth, videoHeight] = useVideoResizeObserver(videoRef);
 
-  const [mouse, canvasRef] = useMouse<HTMLCanvasElement>();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const dragMode = useRef<DragMode>(null);
   const moveOffset = useRef({ x: 0, y: 0 });
@@ -286,64 +281,53 @@ const VideoCanvas = ({ videoRef }: VideoCanvasProps) => {
     }
   };
 
-  useEventListener(
-    "mousedown",
-    (e) => {
-      e.preventDefault();
-      onPointerDown(mouse.elementX, mouse.elementY);
-    },
-    canvasRef,
-  );
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  useEventListener(
-    "touchstart",
-    (e: TouchEvent) => {
-      e.preventDefault();
-      const rect = canvasRef.current.getBoundingClientRect();
-      onPointerDown(
-        e.touches[0].clientX - rect.x,
-        e.touches[0].clientY - rect.y,
-      );
-    },
-    canvasRef,
-  );
+    const getCanvasPos = (e: PointerEvent): [number, number] => {
+      const rect = canvas.getBoundingClientRect();
+      return [e.clientX - rect.left, e.clientY - rect.top];
+    };
 
-  useEventListener(
-    "mousemove",
-    (e) => {
+    const handlePointerDown = (e: PointerEvent) => {
       e.preventDefault();
+      canvas.setPointerCapture(e.pointerId);
+      const [px, py] = getCanvasPos(e);
+      onPointerDown(px, py);
+    };
+
+    const handlePointerMove = (e: PointerEvent) => {
+      e.preventDefault();
+      const [px, py] = getCanvasPos(e);
       if (dragMode.current) {
-        onPointerMove(mouse.elementX, mouse.elementY);
+        onPointerMove(px, py);
       } else {
-        onHover(mouse.elementX, mouse.elementY);
+        onHover(px, py);
       }
-    },
-    canvasRef,
-  );
+    };
 
-  useEventListener(
-    "touchmove",
-    (e: TouchEvent) => {
-      e.preventDefault();
-      const rect = canvasRef.current.getBoundingClientRect();
-      onPointerMove(
-        e.touches[0].clientX - rect.x,
-        e.touches[0].clientY - rect.y,
-      );
-    },
-    canvasRef,
-  );
+    const handlePointerUp = (e: PointerEvent) => {
+      canvas.releasePointerCapture(e.pointerId);
+      onPointerUp();
+    };
 
-  useEventListener("mouseup", () => onPointerUp(), canvasRef);
-  useEventListener("touchend", () => onPointerUp(), canvasRef);
-  useEventListener("mouseenter", () => onPointerUp(), canvasRef);
-  useEventListener("mouseleave", () => onPointerUp(), canvasRef);
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointerup", handlePointerUp);
+
+    return () => {
+      canvas.removeEventListener("pointerdown", handlePointerDown);
+      canvas.removeEventListener("pointermove", handlePointerMove);
+      canvas.removeEventListener("pointerup", handlePointerUp);
+    };
+  });
 
   return (
     <canvas
       ref={canvasRef}
       className={cn(
-        "absolute top-0 left-0 cursor-crosshair",
+        "absolute top-0 left-0 cursor-crosshair touch-none",
         processing && "invisible",
       )}
       width={videoWidth}

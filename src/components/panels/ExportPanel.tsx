@@ -24,8 +24,6 @@ import { FileOutput } from "lucide-react";
 const ExportPanel = () => {
   const {
     video,
-    cropRectangle,
-    setCropRectangle,
     format,
     setFormat,
     preset,
@@ -56,12 +54,13 @@ const ExportPanel = () => {
     if (video) video.playbackRate = speed;
   }, [video, speed]);
 
+  useEffect(() => {
+    if (video) video.muted = noAudio;
+  }, [video, noAudio]);
+
   if (!video) return null;
 
-  const hasCrop = cropRectangle.w > 0 && cropRectangle.h > 0;
-
   const hasChanges =
-    hasCrop ||
     format !== "mp4" ||
     preset !== "ultrafast" ||
     frameRate !== 30 ||
@@ -70,75 +69,26 @@ const ExportPanel = () => {
     outputHeight !== String(video.videoHeight) ||
     noAudio;
 
-  const px = cropRectangle.vw ? video.videoWidth / cropRectangle.vw : 1;
-  const py = cropRectangle.vh ? video.videoHeight / cropRectangle.vh : 1;
-
-  const updateCrop = (field: "x" | "y" | "w" | "h", pixelValue: number) => {
-    const base =
-      cropRectangle.vw && cropRectangle.vh
-        ? cropRectangle
-        : {
-            ...cropRectangle,
-            vw: video.videoWidth,
-            vh: video.videoHeight,
-          };
-    const scale =
-      field === "x" || field === "w"
-        ? video.videoWidth / base.vw
-        : video.videoHeight / base.vh;
-    setCropRectangle({ ...base, [field]: Math.max(0, pixelValue) / scale });
-  };
-
   return (
     <div className="flex flex-col gap-4 px-4">
-      <div className="flex flex-col gap-2">
-        <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-          Crop
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          {(["x", "y", "w", "h"] as const).map((field) => (
-            <div key={field} className="flex flex-col gap-1">
-              <label className="text-xs text-muted-foreground">
-                {field === "w" ? "Width" : field === "h" ? "Height" : field}
-              </label>
-              <Input
-                type="number"
-                className="font-mono text-sm h-8 bg-background"
-                value={Math.round(
-                  cropRectangle[field] *
-                    (field === "x" || field === "w" ? px : py),
-                )}
-                min={0}
-                onChange={(e) => updateCrop(field, +e.currentTarget.value)}
-              />
-            </div>
-          ))}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">Width</label>
+          <Input
+            type="text"
+            className="font-mono text-sm h-8 bg-background"
+            value={outputWidth}
+            onChange={(e) => setOutputWidth(e.currentTarget.value)}
+          />
         </div>
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-          Output Size
-        </label>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">Width</label>
-            <Input
-              type="text"
-              className="font-mono text-sm h-8 bg-background"
-              value={outputWidth}
-              onChange={(e) => setOutputWidth(e.currentTarget.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">Height</label>
-            <Input
-              type="text"
-              className="font-mono text-sm h-8 bg-background"
-              value={outputHeight}
-              onChange={(e) => setOutputHeight(e.currentTarget.value)}
-            />
-          </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-muted-foreground">Height</label>
+          <Input
+            type="text"
+            className="font-mono text-sm h-8 bg-background"
+            value={outputHeight}
+            onChange={(e) => setOutputHeight(e.currentTarget.value)}
+          />
         </div>
       </div>
 
@@ -165,16 +115,25 @@ const ExportPanel = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ultrafast" description="Fastest export, larger file">
+              <SelectItem
+                value="ultrafast"
+                description="Fastest export, larger file"
+              >
                 ultrafast
               </SelectItem>
-              <SelectItem value="fast" description="Good balance, leaning speed">
+              <SelectItem
+                value="fast"
+                description="Good balance, leaning speed"
+              >
                 fast
               </SelectItem>
               <SelectItem value="medium" description="Balanced speed & quality">
                 medium
               </SelectItem>
-              <SelectItem value="slow" description="Best quality, slower export">
+              <SelectItem
+                value="slow"
+                description="Best quality, slower export"
+              >
                 slow
               </SelectItem>
             </SelectContent>

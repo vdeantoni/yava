@@ -6,6 +6,7 @@ import NewVideo from "./components/NewVideo";
 import { Button } from "@/components/ui/button.tsx";
 import { Analytics } from "@vercel/analytics/react";
 import TrimPanel from "@/components/panels/TrimPanel.tsx";
+import CropPanel from "@/components/panels/CropPanel.tsx";
 import ExportPanel from "@/components/panels/ExportPanel.tsx";
 import {
   Accordion,
@@ -60,17 +61,25 @@ function App() {
         {file && (
           <main className="flex flex-col min-h-0">
             <div className="flex flex-1 min-h-[400px] flex-col lg:flex-row">
-              {/* Left sidebar — Trim (desktop only) */}
+              {/* Left sidebar — Trim & Crop (desktop only) */}
               {video && (
                 <>
                   <aside className="hidden lg:block lg:w-[200px] shrink-0 border-r border-border bg-card overflow-y-auto">
-                    <Accordion type="multiple" defaultValue={["trim"]}>
+                    <Accordion type="multiple" defaultValue={["trim", "crop"]}>
                       <AccordionItem value="trim">
                         <AccordionTrigger className={triggerClass}>
                           Trim
                         </AccordionTrigger>
                         <AccordionContent>
                           <TrimPanel />
+                        </AccordionContent>
+                      </AccordionItem>
+                      <AccordionItem value="crop">
+                        <AccordionTrigger className={triggerClass}>
+                          Crop
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <CropPanel />
                         </AccordionContent>
                       </AccordionItem>
                     </Accordion>
@@ -86,7 +95,7 @@ function App() {
                     <Accordion type="multiple" defaultValue={["export"]}>
                       <AccordionItem value="export">
                         <AccordionTrigger className={triggerClass}>
-                          Crop & Export
+                          Export
                         </AccordionTrigger>
                         <AccordionContent>
                           <ExportPanel />
@@ -99,20 +108,30 @@ function App() {
                   <aside className="lg:hidden border-t border-border bg-card overflow-y-auto">
                     <Accordion
                       type="multiple"
-                      defaultValue={["trim", "export"]}
+                      defaultValue={["trim", "crop", "export"]}
                       className="grid grid-cols-2"
                     >
-                      <AccordionItem value="trim" className="border-r">
-                        <AccordionTrigger className={triggerClass}>
-                          Trim
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <TrimPanel />
-                        </AccordionContent>
-                      </AccordionItem>
+                      <div className="border-r border-border">
+                        <AccordionItem value="trim">
+                          <AccordionTrigger className={triggerClass}>
+                            Trim
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <TrimPanel />
+                          </AccordionContent>
+                        </AccordionItem>
+                        <AccordionItem value="crop">
+                          <AccordionTrigger className={triggerClass}>
+                            Crop
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <CropPanel />
+                          </AccordionContent>
+                        </AccordionItem>
+                      </div>
                       <AccordionItem value="export">
                         <AccordionTrigger className={triggerClass}>
-                          Crop & Export
+                          Export
                         </AccordionTrigger>
                         <AccordionContent>
                           <ExportPanel />
