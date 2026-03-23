@@ -3,7 +3,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
-import { Clapperboard, ScreenShare, Upload, Webcam } from "lucide-react";
+import {
+  Clapperboard,
+  ScreenShare,
+  Search,
+  Upload,
+  Webcam,
+} from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import {
   Dialog,
@@ -90,7 +96,7 @@ const NewVideo = () => {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-hidden relative">
       {/* Title + description — positioned above the box */}
-      <div className="absolute left-0 right-0 bottom-[min(calc(50%+28vh),calc(100%-12rem))] flex flex-col items-center gap-8">
+      <div className="absolute left-0 right-0 bottom-[min(calc(50%+30vh),calc(100%-12rem))] flex flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-1">
           <h1 className="flex gap-3 items-center text-5xl sm:text-7xl font-bold tracking-tight">
             <Clapperboard className="h-12 w-12 sm:h-16 sm:w-16 text-primary" />
@@ -101,7 +107,7 @@ const NewVideo = () => {
           </p>
         </div>
 
-        <p className="text-center text-muted-foreground leading-relaxed max-w-md">
+        <p className="text-center text-muted-foreground leading-relaxed max-w-lg">
           Trim, crop, resize and export video files. Everything is processed
           locally,{" "}
           <span className="text-foreground font-medium">
@@ -112,30 +118,37 @@ const NewVideo = () => {
       </div>
 
       {/* Upload box — truly centered */}
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-4xl">
         <div
           className={cn(
-            "w-full h-[40vh] min-h-[200px] flex flex-col items-center justify-center gap-6 rounded-lg border-2 border-dashed border-border bg-card/30 transition-colors",
+            "w-full max-h-[50vh] min-h-[200px] flex flex-col items-center justify-center gap-20 rounded-lg border-2 border-dashed border-border bg-card/30 transition-colors p-20 group aspect-square",
             isDragActive && "border-primary bg-primary/5",
           )}
           {...getRootProps()}
         >
           <Input {...getInputProps()} />
 
-          <Upload className="h-10 w-10 text-muted-foreground" />
+          <Upload
+            className={cn(
+              "h-10 w-10 text-muted-foreground transition-all",
+              isDragActive &&
+                "border-primary text-primary rotate-180 translate-y-2 scale-200 h-20",
+            )}
+          />
 
-          <div className="text-sm text-muted-foreground text-center">
-            Drag and drop a video file here, or
-            <Button
-              variant="link"
-              className="text-sm p-1 text-primary"
-              onClick={open}
-            >
-              browse
-            </Button>
+          <div className="text-lg text-muted-foreground text-center transition-colors">
+            Drag and drop your video files here to begin editing in the browser.
           </div>
 
-          <div className="flex gap-3">
+          <div
+            className={cn(
+              "flex flex-col md:flex-row items-center gap-4",
+              isDragActive && "invisible",
+            )}
+          >
+            <Button size="lg" className="gap-1.5" onClick={open}>
+              <Search className="h-3.5 w-3.5" /> Browse device
+            </Button>
             <Button
               variant="outline"
               size="sm"
