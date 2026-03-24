@@ -86,18 +86,20 @@ const ExportPanel = () => {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Width</label>
           <Input
-            type="text"
+            type="number"
             className="font-mono text-sm h-8 bg-background"
             value={outputWidth}
+            min={0}
             onChange={(e) => setOutputWidth(e.currentTarget.value)}
           />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Height</label>
           <Input
-            type="text"
+            type="number"
             className="font-mono text-sm h-8 bg-background"
             value={outputHeight}
+            min={0}
             onChange={(e) => setOutputHeight(e.currentTarget.value)}
           />
         </div>
