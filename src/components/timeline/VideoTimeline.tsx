@@ -10,6 +10,7 @@ import {
 import VideoThumbnails from "@/components/timeline/VideoThumbnails.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 import { useShallow } from "zustand/react/shallow";
+import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { cn } from "@/lib/utils.ts";
 import {
   isMobile,
@@ -84,6 +85,8 @@ const VideoTimeline = () => {
   const handleDrag = useRef(false);
   const trackWidth = useTrackResizeObserver(trackRef);
 
+  const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
+
   const onHandlePointerDown = () => {
     handleDrag.current = true;
   };
@@ -130,6 +133,13 @@ const VideoTimeline = () => {
 
   const hasMultipleSegments = segments.length > 1;
 
+  const getTimeFromEvent = (
+    e: React.MouseEvent<HTMLDivElement>,
+  ): number => {
+    const { width, left } = e.currentTarget.getBoundingClientRect();
+    return ((e.clientX - left) / width) * video.duration;
+  };
+
   return (
     <div className="border-t border-border bg-card px-4 lg:px-8 py-1">
       <div
@@ -140,28 +150,30 @@ const VideoTimeline = () => {
             return;
           }
           video.pause();
-          const { width, left } = e.currentTarget.getBoundingClientRect();
-          const percentage = (e.clientX - left) / width;
-          const time = percentage * video.duration;
+          const time = getTimeFromEvent(e);
 
-          // Only seek within active segments
           const seg = findSegmentAt(segments, time);
           if (seg) {
             setCursorCurrent(
               Math.max(seg.sourceStart, Math.min(seg.sourceEnd, time)),
             );
           } else if (hasMultipleSegments) {
-            // In a gap — snap to nearest segment boundary
             setCursorCurrent(
               snapToNearestSegmentBoundary(segments, time, cursorStart),
             );
           } else {
-            // Single segment — clamp to bounds
             setCursorCurrent(
               Math.max(cursorStart, Math.min(cursorEnd, time)),
             );
           }
         }}
+        onMouseMove={(e) => {
+          if (!hasMultipleSegments) return;
+          const time = getTimeFromEvent(e);
+          const seg = findSegmentAt(segments, time);
+          setHoveredSegmentId(seg?.id ?? null);
+        }}
+        onMouseLeave={() => setHoveredSegmentId(null)}
       >
         <div className="grid grid-flow-col timeline-marks w-full overflow-hidden">
           {tickMarks}
@@ -173,25 +185,41 @@ const VideoTimeline = () => {
             const segStartPct = seg.sourceStart / video.duration;
             const segEndPct = seg.sourceEnd / video.duration;
             const isSelected = seg.id === selectedSegmentId;
+            const isHovered = seg.id === hoveredSegmentId;
+            const segWidthPx = (segEndPct - segStartPct) * trackWidth;
 
             return (
               <Fragment key={seg.id}>
                 <div
                   className={cn(
-                    "pointer-events-auto absolute h-16 -top-1 z-10 cursor-pointer transition-colors",
+                    "pointer-events-none absolute h-16 -top-1 z-10 transition-colors",
                     isSelected
                       ? "bg-primary/30 ring-1 ring-inset ring-primary"
                       : "bg-primary/20",
                   )}
                   style={{
                     left: segStartPct * trackWidth,
-                    width: (segEndPct - segStartPct) * trackWidth,
+                    width: segWidthPx,
                   }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    selectSegment(isSelected ? null : seg.id);
-                  }}
-                />
+                >
+                  {/* Checkbox for segment selection (hover or selected) */}
+                  {hasMultipleSegments &&
+                    (isHovered || isSelected) &&
+                    segWidthPx > 24 && (
+                      <div
+                        className="absolute top-0.5 right-0.5 pointer-events-auto z-20"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          selectSegment(isSelected ? null : seg.id);
+                        }}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          className="h-3.5 w-3.5"
+                        />
+                      </div>
+                    )}
+                </div>
                 {/* Split line between adjacent segments */}
                 {i < segments.length - 1 && (
                   <div
@@ -207,41 +235,69 @@ const VideoTimeline = () => {
 
           <VideoThumbnails trackWidth={trackWidth} />
 
-          <input
-            className="slider-thumb-left"
-            type="range"
-            min="0"
-            max={video.duration}
-            step="any"
-            value={cursorStart}
-            onPointerDown={onHandlePointerDown}
-            onClick={onHandleClick}
-            onInput={(e) => {
-              const value = +e.currentTarget.value;
-              const firstSegEnd = segments[0]?.sourceEnd ?? cursorEnd;
-              if (value < firstSegEnd - 1) {
-                setCursorStart(value);
-              }
-            }}
-          />
-          <input
-            className="slider-thumb-right"
-            type="range"
-            min="0"
-            max={video.duration}
-            step="any"
-            value={cursorEnd}
-            onPointerDown={onHandlePointerDown}
-            onClick={onHandleClick}
-            onInput={(e) => {
-              const value = +e.currentTarget.value;
-              const lastSegStart =
-                segments[segments.length - 1]?.sourceStart ?? cursorStart;
-              if (value > lastSegStart + 1) {
-                setCursorEnd(value);
-              }
-            }}
-          />
+          {/* Gap overlays for deleted segments */}
+          {hasMultipleSegments &&
+            segments.map((seg, i) => {
+              if (i >= segments.length - 1) return null;
+              const nextSeg = segments[i + 1];
+              if (nextSeg.sourceStart <= seg.sourceEnd) return null;
+
+              const gapStartPct = seg.sourceEnd / video.duration;
+              const gapEndPct = nextSeg.sourceStart / video.duration;
+
+              return (
+                <div
+                  key={`gap-${seg.id}`}
+                  className="absolute h-16 -top-1 z-[5] bg-background/60 pointer-events-none"
+                  style={{
+                    left: gapStartPct * trackWidth,
+                    width: (gapEndPct - gapStartPct) * trackWidth,
+                  }}
+                />
+              );
+            })}
+
+          {/* Trim handles — only shown for single segment */}
+          {!hasMultipleSegments && (
+            <>
+              <input
+                className="slider-thumb-left"
+                type="range"
+                min="0"
+                max={video.duration}
+                step="any"
+                value={cursorStart}
+                onPointerDown={onHandlePointerDown}
+                onClick={onHandleClick}
+                onInput={(e) => {
+                  const value = +e.currentTarget.value;
+                  const firstSegEnd = segments[0]?.sourceEnd ?? cursorEnd;
+                  if (value < firstSegEnd - 1) {
+                    setCursorStart(value);
+                  }
+                }}
+              />
+              <input
+                className="slider-thumb-right"
+                type="range"
+                min="0"
+                max={video.duration}
+                step="any"
+                value={cursorEnd}
+                onPointerDown={onHandlePointerDown}
+                onClick={onHandleClick}
+                onInput={(e) => {
+                  const value = +e.currentTarget.value;
+                  const lastSegStart =
+                    segments[segments.length - 1]?.sourceStart ?? cursorStart;
+                  if (value > lastSegStart + 1) {
+                    setCursorEnd(value);
+                  }
+                }}
+              />
+            </>
+          )}
+
           <input
             className="slider-thumb-current"
             type="range"

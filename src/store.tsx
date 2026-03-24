@@ -61,6 +61,11 @@ interface AppActions {
   sliceAtCursor: () => void;
   deleteSegment: (id: string) => void;
   selectSegment: (id: string | null) => void;
+  updateSegmentBounds: (
+    id: string,
+    sourceStart: number,
+    sourceEnd: number,
+  ) => void;
 
   setFormat: (format: Format) => void;
   setPreset: (preset: Preset) => void;
@@ -219,6 +224,39 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
     }),
 
   selectSegment: (id) => set(() => ({ selectedSegmentId: id })),
+
+  updateSegmentBounds: (id, sourceStart, sourceEnd) =>
+    set((state) => {
+      const idx = state.segments.findIndex((s) => s.id === id);
+      if (idx === -1) return state;
+
+      sourceStart = Math.max(0, sourceStart);
+      sourceEnd = Math.min(state.video?.duration ?? Infinity, sourceEnd);
+
+      if (sourceEnd - sourceStart < MIN_SLICE_DISTANCE) return state;
+
+      const prev = state.segments[idx - 1];
+      const next = state.segments[idx + 1];
+      if (prev && sourceStart < prev.sourceEnd) sourceStart = prev.sourceEnd;
+      if (next && sourceEnd > next.sourceStart) sourceEnd = next.sourceStart;
+
+      const segments = [...state.segments];
+      segments[idx] = { ...segments[idx], sourceStart, sourceEnd };
+
+      const cursorStart = segments[0].sourceStart;
+      const cursorEnd = segments[segments.length - 1].sourceEnd;
+
+      let { cursorCurrent } = state;
+      if (!findSegmentAt(segments, cursorCurrent)) {
+        cursorCurrent = snapToNearestSegmentBoundary(
+          segments,
+          cursorCurrent,
+          cursorStart,
+        );
+      }
+
+      return { segments, cursorStart, cursorEnd, cursorCurrent };
+    }),
 
   setFormat: (format) => set(() => ({ format })),
   setPreset: (preset) => set(() => ({ preset })),
