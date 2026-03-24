@@ -102,7 +102,10 @@
   }
 
   .slider-thumb-left,
-  .slider-thumb-right,
+  .slider-thumb-right {
+    @apply appearance-none pointer-events-none h-0 w-full absolute mt-7 z-20;
+  }
+
   .slider-thumb-current {
     @apply appearance-none pointer-events-none h-0 w-full absolute mt-7 z-10;
   }
@@ -112,16 +115,9 @@
     @apply appearance-none pointer-events-auto cursor-grab w-4 h-14 bg-primary rounded-sm shadow;
   }
 
-  .slider-thumb-left::-webkit-slider-thumb {
-    @apply transform -translate-x-2.5;
-  }
-
-  .slider-thumb-right::-webkit-slider-thumb {
-    @apply transform translate-x-2.5;
-  }
-
   .slider-thumb-current::-webkit-slider-thumb {
-    @apply appearance-none pointer-events-auto cursor-grab bg-foreground/80 w-1 h-14 rounded-full transform origin-center;
+    @apply appearance-none pointer-events-auto cursor-grab w-4 h-14;
+    background: transparent;
   }
 
   .timeline-marks {

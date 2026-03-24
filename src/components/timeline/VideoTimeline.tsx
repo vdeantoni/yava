@@ -166,7 +166,7 @@ const VideoTimeline = () => {
             type="range"
             min="0"
             max={video.duration}
-            step={STEP_SIZE}
+            step="any"
             value={cursorStart}
             onPointerDown={onHandlePointerDown}
             onClick={onHandleClick}
@@ -182,16 +182,14 @@ const VideoTimeline = () => {
             type="range"
             min="0"
             max={video.duration}
-            step={STEP_SIZE}
+            step="any"
             value={cursorEnd}
             onPointerDown={onHandlePointerDown}
             onClick={onHandleClick}
             onInput={(e) => {
               const value = +e.currentTarget.value;
               if (value > cursorStart + 1) {
-                const newValue =
-                  video.duration - value <= STEP_SIZE ? video.duration : value;
-                setCursorEnd(newValue);
+                setCursorEnd(value);
               }
             }}
           />
@@ -212,6 +210,17 @@ const VideoTimeline = () => {
               }
             }}
           />
+          <div
+            className="absolute pointer-events-none z-30"
+            style={{
+              left:
+                (cursorCurrent / video.duration) * (trackWidth - HANDLE_WIDTH) +
+                HANDLE_WIDTH / 2,
+              top: 0,
+            }}
+          >
+            <div className="w-1 h-14 bg-foreground/80 rounded-full -translate-x-1/2" />
+          </div>
         </div>
       </div>
     </div>
