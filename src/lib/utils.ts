@@ -48,3 +48,59 @@ export function durationToSeconds(duration: string): number {
 
   return value;
 }
+
+/** Minimum distance from a segment edge to allow a slice (seconds). */
+export const MIN_SLICE_DISTANCE = 0.5;
+
+/** Tolerance for matching a time to a segment during playback (seconds). */
+export const PLAYBACK_TOLERANCE = 0.05;
+
+/** Tolerance for detecting cursor at segment end for play-restart (seconds). */
+export const RESTART_TOLERANCE = 0.1;
+
+interface SegmentLike {
+  sourceStart: number;
+  sourceEnd: number;
+}
+
+/** Find the index of the segment containing `time` (within optional tolerance). Returns -1 if none. */
+export function findSegmentIndexAt<T extends SegmentLike>(
+  segments: T[],
+  time: number,
+  tolerance = 0,
+): number {
+  return segments.findIndex(
+    (s) =>
+      time >= s.sourceStart - tolerance && time <= s.sourceEnd + tolerance,
+  );
+}
+
+/** Find the segment containing `time` (within optional tolerance). */
+export function findSegmentAt<T extends SegmentLike>(
+  segments: T[],
+  time: number,
+  tolerance = 0,
+): T | undefined {
+  const idx = findSegmentIndexAt(segments, time, tolerance);
+  return idx === -1 ? undefined : segments[idx];
+}
+
+/** Find the nearest segment boundary (sourceStart or sourceEnd) to `time`. */
+export function snapToNearestSegmentBoundary(
+  segments: SegmentLike[],
+  time: number,
+  fallback = 0,
+): number {
+  let nearest = fallback;
+  let minDist = Infinity;
+  for (const seg of segments) {
+    for (const edge of [seg.sourceStart, seg.sourceEnd]) {
+      const dist = Math.abs(time - edge);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = edge;
+      }
+    }
+  }
+  return nearest;
+}

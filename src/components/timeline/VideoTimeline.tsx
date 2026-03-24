@@ -10,7 +10,13 @@ import {
 import VideoThumbnails from "@/components/timeline/VideoThumbnails.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 import { useShallow } from "zustand/react/shallow";
-import { isMobile, secondsToDuration } from "@/lib/utils.ts";
+import { cn } from "@/lib/utils.ts";
+import {
+  isMobile,
+  secondsToDuration,
+  findSegmentAt,
+  snapToNearestSegmentBoundary,
+} from "@/lib/utils.ts";
 
 export const STEP_SIZE = 0.1;
 
@@ -51,9 +57,12 @@ const VideoTimeline = () => {
     cursorStart,
     cursorEnd,
     cursorCurrent,
+    segments,
+    selectedSegmentId,
     setCursorStart,
     setCursorEnd,
     setCursorCurrent,
+    selectSegment,
     resetCursors,
   } = useAppStore(
     useShallow((s) => ({
@@ -61,9 +70,12 @@ const VideoTimeline = () => {
       cursorStart: s.cursorStart,
       cursorEnd: s.cursorEnd,
       cursorCurrent: s.cursorCurrent,
+      segments: s.segments,
+      selectedSegmentId: s.selectedSegmentId,
       setCursorStart: s.setCursorStart,
       setCursorEnd: s.setCursorEnd,
       setCursorCurrent: s.setCursorCurrent,
+      selectSegment: s.selectSegment,
       resetCursors: s.resetCursors,
     })),
   );
@@ -116,10 +128,7 @@ const VideoTimeline = () => {
     [marks],
   );
 
-  const startPct = cursorStart / video.duration;
-  const endPct = cursorEnd / video.duration;
-  const isTrimmed =
-    cursorStart > 0 || Math.abs(cursorEnd - video.duration) > 0.05;
+  const hasMultipleSegments = segments.length > 1;
 
   return (
     <div className="border-t border-border bg-card px-4 lg:px-8 py-1">
@@ -133,12 +142,25 @@ const VideoTimeline = () => {
           video.pause();
           const { width, left } = e.currentTarget.getBoundingClientRect();
           const percentage = (e.clientX - left) / width;
-          const time = Math.max(
-            cursorStart,
-            Math.min(cursorEnd, percentage * video.duration),
-          );
+          const time = percentage * video.duration;
 
-          setCursorCurrent(time);
+          // Only seek within active segments
+          const seg = findSegmentAt(segments, time);
+          if (seg) {
+            setCursorCurrent(
+              Math.max(seg.sourceStart, Math.min(seg.sourceEnd, time)),
+            );
+          } else if (hasMultipleSegments) {
+            // In a gap — snap to nearest segment boundary
+            setCursorCurrent(
+              snapToNearestSegmentBoundary(segments, time, cursorStart),
+            );
+          } else {
+            // Single segment — clamp to bounds
+            setCursorCurrent(
+              Math.max(cursorStart, Math.min(cursorEnd, time)),
+            );
+          }
         }}
       >
         <div className="grid grid-flow-col timeline-marks w-full overflow-hidden">
@@ -146,18 +168,42 @@ const VideoTimeline = () => {
         </div>
 
         <div ref={trackRef} className="relative h-16">
-          {isTrimmed && (
-            <div
-              className="pointer-events-none absolute trim-area"
-              style={{
-                left: startPct * trackWidth - startPct * HANDLE_WIDTH,
-                width:
-                  (endPct - startPct) * trackWidth +
-                  (1 - endPct) * HANDLE_WIDTH +
-                  startPct * HANDLE_WIDTH,
-              }}
-            ></div>
-          )}
+          {/* Segment highlights */}
+          {segments.map((seg, i) => {
+            const segStartPct = seg.sourceStart / video.duration;
+            const segEndPct = seg.sourceEnd / video.duration;
+            const isSelected = seg.id === selectedSegmentId;
+
+            return (
+              <Fragment key={seg.id}>
+                <div
+                  className={cn(
+                    "pointer-events-auto absolute h-16 -top-1 z-10 cursor-pointer transition-colors",
+                    isSelected
+                      ? "bg-primary/30 ring-1 ring-inset ring-primary"
+                      : "bg-primary/20",
+                  )}
+                  style={{
+                    left: segStartPct * trackWidth,
+                    width: (segEndPct - segStartPct) * trackWidth,
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    selectSegment(isSelected ? null : seg.id);
+                  }}
+                />
+                {/* Split line between adjacent segments */}
+                {i < segments.length - 1 && (
+                  <div
+                    className="absolute w-0.5 h-16 -top-1 z-20 bg-primary/60 pointer-events-none"
+                    style={{
+                      left: segEndPct * trackWidth,
+                    }}
+                  />
+                )}
+              </Fragment>
+            );
+          })}
 
           <VideoThumbnails trackWidth={trackWidth} />
 
@@ -172,7 +218,8 @@ const VideoTimeline = () => {
             onClick={onHandleClick}
             onInput={(e) => {
               const value = +e.currentTarget.value;
-              if (value < cursorEnd - 1) {
+              const firstSegEnd = segments[0]?.sourceEnd ?? cursorEnd;
+              if (value < firstSegEnd - 1) {
                 setCursorStart(value);
               }
             }}
@@ -188,7 +235,9 @@ const VideoTimeline = () => {
             onClick={onHandleClick}
             onInput={(e) => {
               const value = +e.currentTarget.value;
-              if (value > cursorStart + 1) {
+              const lastSegStart =
+                segments[segments.length - 1]?.sourceStart ?? cursorStart;
+              if (value > lastSegStart + 1) {
                 setCursorEnd(value);
               }
             }}
@@ -206,7 +255,22 @@ const VideoTimeline = () => {
               video.pause();
               const value = +e.currentTarget.value;
               if (value >= cursorStart && value <= cursorEnd) {
-                setCursorCurrent(value);
+                if (hasMultipleSegments) {
+                  const seg = findSegmentAt(segments, value);
+                  if (seg) {
+                    setCursorCurrent(value);
+                  } else {
+                    setCursorCurrent(
+                      snapToNearestSegmentBoundary(
+                        segments,
+                        value,
+                        cursorStart,
+                      ),
+                    );
+                  }
+                } else {
+                  setCursorCurrent(value);
+                }
               }
             }}
           />

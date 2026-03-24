@@ -51,6 +51,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     video,
     cursorStart,
     cursorEnd,
+    segments,
     cropRectangle,
     format,
     preset,
@@ -161,8 +162,6 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         audioFilters.push(`atempo=${remaining.toFixed(4)}`);
       }
 
-      const trimDuration = cursorEnd - cursorStart;
-
       const presetArgs: string[] = [];
       if (format === "mp4" || format === "mov") {
         presetArgs.push("-preset", preset);
@@ -193,14 +192,14 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
           : "4"
         : "1";
 
-      await ffmpeg.exec(
+      const buildSegmentArgs = (start: number, duration: number, out: string) =>
         [
           "-ss",
-          String(cursorStart),
+          String(start),
           "-i",
           name,
           "-t",
-          String(trimDuration),
+          String(duration),
           "-threads",
           threadCount,
           frameRate && "-r",
@@ -216,9 +215,56 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
           ...codecArgs,
           ...presetArgs,
 
+          out,
+        ].filter(Boolean) as string[];
+
+      if (segments.length <= 1) {
+        // Single segment — original export path
+        const trimDuration = cursorEnd - cursorStart;
+        await ffmpeg.exec(buildSegmentArgs(cursorStart, trimDuration, filename));
+      } else {
+        // Multi-segment — extract each, then concat
+        const segmentFiles: string[] = [];
+
+        for (let i = 0; i < segments.length; i++) {
+          const seg = segments[i];
+          const segFile = `segment_${i}.${format}`;
+          segmentFiles.push(segFile);
+
+          const segDuration = seg.sourceEnd - seg.sourceStart;
+          await ffmpeg.exec(
+            buildSegmentArgs(seg.sourceStart, segDuration, segFile),
+          );
+        }
+
+        // Write concat list to WASM filesystem
+        const concatContent = segmentFiles
+          .map((f) => `file '${f}'`)
+          .join("\n");
+        await ffmpeg.writeFile(
+          "concat_list.txt",
+          new TextEncoder().encode(concatContent),
+        );
+
+        // Concatenate with stream copy
+        await ffmpeg.exec([
+          "-f",
+          "concat",
+          "-safe",
+          "0",
+          "-i",
+          "concat_list.txt",
+          "-c",
+          "copy",
           filename,
-        ].filter(Boolean) as string[],
-      );
+        ]);
+
+        // Clean up intermediate files
+        for (const f of segmentFiles) {
+          await ffmpeg.deleteFile(f);
+        }
+        await ffmpeg.deleteFile("concat_list.txt");
+      }
 
       const data = (await ffmpeg.readFile(filename)) as Uint8Array<ArrayBuffer>;
       setOutputUrl(

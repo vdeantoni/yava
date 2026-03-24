@@ -1,4 +1,5 @@
 import VideoTimeline from "@/components/timeline/VideoTimeline.tsx";
+import SliceToolbar from "@/components/timeline/SliceToolbar.tsx";
 import { useAppStore } from "@/store.tsx";
 import VideoPlayer from "@/components/player/VideoPlayer.tsx";
 import { Clapperboard, Github, Upload } from "lucide-react";
@@ -14,12 +15,33 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion.tsx";
+import { useEffect } from "react";
 
 const triggerClass =
   "px-4 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground hover:no-underline";
 
 function App() {
   const { file, reset, video } = useAppStore();
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        // Don't intercept when typing in an input
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+        const { selectedSegmentId, segments, deleteSegment } =
+          useAppStore.getState();
+        if (selectedSegmentId && segments.length > 1) {
+          e.preventDefault();
+          deleteSegment(selectedSegmentId);
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <>
@@ -150,7 +172,8 @@ function App() {
               )}
             </div>
 
-            {/* Timeline — full width */}
+            {/* Slice toolbar + Timeline — full width */}
+            {video && <SliceToolbar />}
             {video && <VideoTimeline />}
           </main>
         )}

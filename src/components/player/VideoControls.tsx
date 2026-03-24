@@ -1,15 +1,21 @@
 import { useAppStore } from "@/store.tsx";
 import { Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
-import { secondsToDuration } from "@/lib/utils.ts";
+import { secondsToDuration, RESTART_TOLERANCE } from "@/lib/utils.ts";
 
 type VideoControlsProps = {
   playing: boolean;
 };
 
 const VideoControls = ({ playing }: VideoControlsProps) => {
-  const { video, cursorStart, cursorEnd, cursorCurrent, setCursorCurrent } =
-    useAppStore();
+  const {
+    video,
+    cursorStart,
+    cursorEnd,
+    cursorCurrent,
+    segments,
+    setCursorCurrent,
+  } = useAppStore();
 
   return (
     <div className="flex items-center justify-between w-full px-4 py-1.5">
@@ -40,6 +46,11 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
             if (playing) {
               video.pause();
             } else {
+              // If at end of last segment, restart from beginning
+              const lastSeg = segments[segments.length - 1];
+              if (lastSeg && Math.abs(cursorCurrent - lastSeg.sourceEnd) < RESTART_TOLERANCE) {
+                setCursorCurrent(segments[0].sourceStart);
+              }
               video.play();
             }
           }}

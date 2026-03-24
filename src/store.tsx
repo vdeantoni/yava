@@ -2,9 +2,20 @@ import { create } from "zustand";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { CropRectangle } from "./components/player/VideoCanvas";
 import { supportsMultithreading } from "./hooks/useFFmpeg";
+import {
+  findSegmentAt,
+  snapToNearestSegmentBoundary,
+  MIN_SLICE_DISTANCE,
+} from "./lib/utils";
 
 export type Format = "mp4" | "webm" | "mov" | "gif";
 export type Preset = "ultrafast" | "fast" | "medium" | "slow";
+
+export interface Segment {
+  id: string;
+  sourceStart: number;
+  sourceEnd: number;
+}
 
 interface AppState {
   ffmpeg: FFmpeg;
@@ -17,6 +28,10 @@ interface AppState {
   cursorStart: number;
   cursorEnd: number;
   cropRectangle: CropRectangle;
+
+  segments: Segment[];
+  selectedSegmentId: string | null;
+  nextSegmentId: number;
 
   processing: boolean;
 
@@ -42,6 +57,10 @@ interface AppActions {
 
   resetCursors: (duration: number) => void;
   setProcessing: (processing: boolean) => void;
+
+  sliceAtCursor: () => void;
+  deleteSegment: (id: string) => void;
+  selectSegment: (id: string | null) => void;
 
   setFormat: (format: Format) => void;
   setPreset: (preset: Preset) => void;
@@ -84,6 +103,10 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
     vh: 0,
   },
 
+  segments: [],
+  selectedSegmentId: null,
+  nextSegmentId: 0,
+
   processing: false,
 
   ...DEFAULT_EXPORT,
@@ -96,21 +119,106 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
 
   setCursorCurrent: (cursorCurrent) => set(() => ({ cursorCurrent })),
   setCursorStart: (cursorStart) =>
-    set((state) => ({
-      cursorStart,
-      cursorCurrent: Math.max(state.cursorCurrent, cursorStart),
-    })),
+    set((state) => {
+      const segments = [...state.segments];
+      if (segments[0]) {
+        segments[0] = { ...segments[0], sourceStart: cursorStart };
+      }
+      return {
+        cursorStart,
+        cursorCurrent: Math.max(state.cursorCurrent, cursorStart),
+        segments,
+      };
+    }),
   setCursorEnd: (cursorEnd) =>
-    set((state) => ({
-      cursorEnd,
-      cursorCurrent: Math.min(state.cursorCurrent, cursorEnd),
-    })),
+    set((state) => {
+      const last = state.segments.length - 1;
+      const segments = [...state.segments];
+      if (segments[last]) {
+        segments[last] = { ...segments[last], sourceEnd: cursorEnd };
+      }
+      return {
+        cursorEnd,
+        cursorCurrent: Math.min(state.cursorCurrent, cursorEnd),
+        segments,
+      };
+    }),
   setCropRectangle: (cropRectangle) => set(() => ({ cropRectangle })),
 
   resetCursors: (duration) =>
-    set(() => ({ cursorStart: 0, cursorEnd: duration, cursorCurrent: 0 })),
+    set(() => ({
+      cursorStart: 0,
+      cursorEnd: duration,
+      cursorCurrent: 0,
+      segments: [{ id: "s0", sourceStart: 0, sourceEnd: duration }],
+      selectedSegmentId: null,
+      nextSegmentId: 1,
+    })),
 
   setProcessing: (processing) => set(() => ({ processing })),
+
+  sliceAtCursor: () =>
+    set((state) => {
+      const { cursorCurrent, segments, nextSegmentId } = state;
+      const idx = segments.findIndex(
+        (s) =>
+          cursorCurrent > s.sourceStart + MIN_SLICE_DISTANCE &&
+          cursorCurrent < s.sourceEnd - MIN_SLICE_DISTANCE,
+      );
+      if (idx === -1) return state;
+
+      const seg = segments[idx];
+      const left: Segment = {
+        id: `s${nextSegmentId}`,
+        sourceStart: seg.sourceStart,
+        sourceEnd: cursorCurrent,
+      };
+      const right: Segment = {
+        id: `s${nextSegmentId + 1}`,
+        sourceStart: cursorCurrent,
+        sourceEnd: seg.sourceEnd,
+      };
+
+      const newSegments = [...segments];
+      newSegments.splice(idx, 1, left, right);
+
+      return {
+        segments: newSegments,
+        nextSegmentId: nextSegmentId + 2,
+        selectedSegmentId: null,
+      };
+    }),
+
+  deleteSegment: (id) =>
+    set((state) => {
+      if (state.segments.length <= 1) return state;
+
+      const newSegments = state.segments.filter((s) => s.id !== id);
+      if (newSegments.length === state.segments.length) return state;
+
+      const newStart = newSegments[0].sourceStart;
+      const newEnd = newSegments[newSegments.length - 1].sourceEnd;
+
+      // Snap cursor if it was inside the deleted segment
+      let { cursorCurrent } = state;
+      if (!findSegmentAt(newSegments, cursorCurrent)) {
+        cursorCurrent = snapToNearestSegmentBoundary(
+          newSegments,
+          cursorCurrent,
+          newStart,
+        );
+      }
+
+      return {
+        segments: newSegments,
+        cursorStart: newStart,
+        cursorEnd: newEnd,
+        cursorCurrent,
+        selectedSegmentId: null,
+      };
+    }),
+
+  selectSegment: (id) => set(() => ({ selectedSegmentId: id })),
 
   setFormat: (format) => set(() => ({ format })),
   setPreset: (preset) => set(() => ({ preset })),
@@ -147,6 +255,10 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
         vw: 0,
         vh: 0,
       },
+
+      segments: [],
+      selectedSegmentId: null,
+      nextSegmentId: 0,
 
       processing: true,
 

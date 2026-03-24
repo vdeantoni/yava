@@ -5,8 +5,15 @@ import { Input } from "@/components/ui/input.tsx";
 import { Button } from "@/components/ui/button.tsx";
 
 const TrimPanel = () => {
-  const { video, cursorStart, setCursorStart, cursorEnd, setCursorEnd } =
-    useAppStore();
+  const {
+    video,
+    cursorStart,
+    setCursorStart,
+    cursorEnd,
+    setCursorEnd,
+    segments,
+    resetCursors,
+  } = useAppStore();
 
   const [trimStart, setTrimStart] = useState("");
   const [trimEnd, setTrimEnd] = useState("");
@@ -18,8 +25,12 @@ const TrimPanel = () => {
 
   if (!video) return null;
 
-  const duration = cursorEnd - cursorStart;
+  const effectiveDuration = segments.reduce(
+    (sum, seg) => sum + (seg.sourceEnd - seg.sourceStart),
+    0,
+  );
   const hasTrim = cursorStart > 0 || cursorEnd < video.duration;
+  const hasSlices = segments.length > 1;
 
   return (
     <div className="flex flex-col gap-3 px-4">
@@ -55,20 +66,19 @@ const TrimPanel = () => {
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">Duration</label>
+        <label className="text-xs text-muted-foreground">
+          Output Duration
+        </label>
         <div className="font-mono text-sm text-foreground h-8 flex items-center px-3 rounded-md bg-background border border-border">
-          {secondsToDuration(duration, { ms: true })}
+          {secondsToDuration(effectiveDuration, { ms: true })}
         </div>
       </div>
 
-      {hasTrim && (
+      {(hasTrim || hasSlices) && (
         <Button
           variant="link"
           className="text-xs h-min p-0 text-primary self-end"
-          onClick={() => {
-            setCursorStart(0);
-            setCursorEnd(video.duration);
-          }}
+          onClick={() => resetCursors(video.duration)}
         >
           Reset
         </Button>

@@ -1,7 +1,7 @@
 import { useAppStore } from "@/store.tsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import VideoControls from "@/components/player/VideoControls.tsx";
-import { cn } from "@/lib/utils.ts";
+import { cn, findSegmentIndexAt, PLAYBACK_TOLERANCE } from "@/lib/utils.ts";
 import { LoaderCircle } from "lucide-react";
 import VideoCanvas from "./VideoCanvas";
 
@@ -11,6 +11,7 @@ const VideoPlayer = () => {
     cursorStart,
     cursorEnd,
     cursorCurrent,
+    segments,
     processing,
     setVideo,
     setCursorCurrent,
@@ -27,15 +28,59 @@ const VideoPlayer = () => {
 
   const videoTimeUpdateHandler = () => {
     if (!videoRef?.current || processing) return;
+    const ct = videoRef.current.currentTime;
 
-    if (videoRef.current.currentTime > cursorEnd) {
+    if (segments.length > 1) {
+      // Multi-segment playback
+      const segIndex = findSegmentIndexAt(segments, ct, PLAYBACK_TOLERANCE);
+
+      if (segIndex !== -1) {
+        const currentSeg = segments[segIndex];
+        // Check if we've reached the end of this segment
+        if (ct >= currentSeg.sourceEnd - PLAYBACK_TOLERANCE) {
+          if (segIndex < segments.length - 1) {
+            // Jump to next segment
+            const nextSeg = segments[segIndex + 1];
+            videoRef.current.currentTime = nextSeg.sourceStart;
+            setCursorCurrent(nextSeg.sourceStart);
+          } else {
+            // Last segment — pause at end
+            videoRef.current.pause();
+            videoRef.current.currentTime = currentSeg.sourceEnd;
+            setCursorCurrent(currentSeg.sourceEnd);
+          }
+          return;
+        }
+
+        if (!videoRef.current.paused) {
+          setCursorCurrent(ct);
+        }
+        return;
+      }
+
+      // In a gap — find next segment
+      const nextSeg = segments.find((s) => s.sourceStart > ct);
+      if (nextSeg) {
+        videoRef.current.currentTime = nextSeg.sourceStart;
+        setCursorCurrent(nextSeg.sourceStart);
+      } else {
+        const lastSeg = segments[segments.length - 1];
+        videoRef.current.pause();
+        videoRef.current.currentTime = lastSeg.sourceEnd;
+        setCursorCurrent(lastSeg.sourceEnd);
+      }
+      return;
+    }
+
+    // Single segment — original behavior
+    if (ct > cursorEnd) {
       videoRef.current.pause();
       videoRef.current.currentTime = cursorEnd;
       setCursorCurrent(cursorEnd);
       return;
     }
 
-    if (videoRef.current.currentTime < cursorStart) {
+    if (ct < cursorStart) {
       videoRef.current.currentTime = cursorStart;
       setCursorCurrent(cursorStart);
       return;
@@ -43,7 +88,7 @@ const VideoPlayer = () => {
 
     if (videoRef.current.paused) return;
 
-    setCursorCurrent(videoRef.current.currentTime || 0);
+    setCursorCurrent(ct || 0);
   };
 
   useEffect(() => {
