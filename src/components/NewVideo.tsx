@@ -96,7 +96,7 @@ const NewVideo = () => {
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-hidden relative">
       {/* Title + description — positioned above the box */}
-      <div className="absolute left-0 right-0 bottom-[min(calc(50%+30vh),calc(100%-12rem))] flex flex-col items-center gap-8">
+      <div className="absolute left-0 right-0 bottom-[min(calc(50%+30vh),calc(100%-14rem))] flex flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-1">
           <h1 className="flex gap-3 items-center text-5xl sm:text-7xl font-bold tracking-tight">
             <Clapperboard className="h-12 w-12 sm:h-16 sm:w-16 text-primary" />
@@ -121,7 +121,7 @@ const NewVideo = () => {
       <div className="w-full max-w-4xl">
         <div
           className={cn(
-            "w-full max-h-[50vh] min-h-[200px] flex flex-col items-center justify-center gap-20 rounded-lg border-2 border-dashed border-border bg-card/30 transition-colors p-20 group aspect-square",
+            "w-full md:max-h-[50vh] min-h-[200px] flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed border-border bg-card/30 transition-colors p-10 md:p-20 mt-30 md:mt-20 group md:aspect-square",
             isDragActive && "border-primary bg-primary/5",
           )}
           {...getRootProps()}
@@ -130,7 +130,7 @@ const NewVideo = () => {
 
           <Upload
             className={cn(
-              "h-10 w-10 text-muted-foreground transition-all",
+              "h-10 w-10 text-muted-foreground transition-all mb-10 md:mb-20",
               isDragActive &&
                 "border-primary text-primary rotate-180 translate-y-2 scale-200 h-20",
             )}
@@ -138,6 +138,15 @@ const NewVideo = () => {
 
           <div className="text-lg text-muted-foreground text-center transition-colors">
             Drag and drop your video files here to begin editing in the browser.
+          </div>
+
+          <div
+            className={cn(
+              "text-lg text-muted-foreground text-center transition-colors",
+              isDragActive && "invisible",
+            )}
+          >
+            or
           </div>
 
           <div
