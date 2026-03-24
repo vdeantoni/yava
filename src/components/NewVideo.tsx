@@ -170,9 +170,8 @@ const NewVideo = () => {
       </div>
 
       {(mode === "screen" || mode === "camera") && (
-        <Dialog open={true}>
+        <Dialog open={true} onOpenChange={() => setMode("file")}>
           <DialogContent
-            onEscapeKeyDown={(e) => e.preventDefault()}
             onPointerDownOutside={(e) => e.preventDefault()}
             onInteractOutside={(e) => e.preventDefault()}
             onOpenAutoFocus={(e) => e.preventDefault()}
@@ -191,6 +190,7 @@ const NewVideo = () => {
                     setFile(file);
                     setMode("file");
                   }}
+                  onCancel={() => setMode("file")}
                 />
               )}
               {mode === "camera" && (
@@ -199,6 +199,7 @@ const NewVideo = () => {
                     setFile(file);
                     setMode("file");
                   }}
+                  onCancel={() => setMode("file")}
                 />
               )}
             </div>

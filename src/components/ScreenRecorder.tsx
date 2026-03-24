@@ -1,18 +1,23 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useReactMediaRecorder } from "react-media-recorder";
-import { cn, isMobile } from "../lib/utils";
-import { Video } from "lucide-react";
+import { isMobile } from "../lib/utils";
+import { Monitor, MonitorX } from "lucide-react";
 
 interface ScreenRecorderProps {
   onDone: (file: Blob) => void;
+  onCancel: () => void;
 }
 
-const ScreenRecorder = ({ onDone }: ScreenRecorderProps) => {
+const ScreenRecorder = ({ onDone, onCancel }: ScreenRecorderProps) => {
+  const [started, setStarted] = useState(false);
+
   const screen = useReactMediaRecorder({
     screen: !isMobile,
     video: { displaySurface: "window" },
-    onStop: (_, blob) => onDone(blob),
+    onStop: (_, blob) => {
+      if (blob?.size) onDone(blob);
+    },
     mediaRecorderOptions: { mimeType: "video/mp4" },
   });
 
@@ -24,52 +29,66 @@ const ScreenRecorder = ({ onDone }: ScreenRecorderProps) => {
     }
   }, [screen.previewStream]);
 
-  return (
-    <div className="flex flex-col gap-4 justify-center relative">
-      <Video
-        className={cn(
-          "absolute top-[50%] left-[50%] transform -translate-x-[50%] -translate-y-[80%] h-20 w-20 text-primary",
-          screen.status === "recording" && "hidden",
+  const startCapture = () => {
+    setStarted(true);
+    screen.startRecording();
+  };
+
+  const hasError =
+    started &&
+    (screen.status === "idle" ||
+      screen.status === "permission_denied" ||
+      screen.status === "no_specified_media_found");
+
+  if (!started || hasError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-6 py-12">
+        {hasError ? (
+          <>
+            <MonitorX className="h-16 w-16 text-destructive" />
+            <div className="flex flex-col items-center gap-2 text-center">
+              <p className="text-sm font-medium">Screen capture failed</p>
+              <p className="text-sm text-muted-foreground max-w-xs">
+                Screen capture was cancelled or denied. Please try again.
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <Monitor className="h-16 w-16 text-muted-foreground" />
+            <div className="flex flex-col items-center gap-2 text-center">
+              <p className="text-sm text-muted-foreground max-w-xs">
+                Your browser will ask you to pick a screen, window, or tab.
+                Recording starts after selection.
+              </p>
+            </div>
+          </>
         )}
-      />
+        <Button onClick={startCapture}>
+          {hasError ? "Try Again" : "Allow Screen Capture"}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
       <video
         ref={videoRef}
-        className="w-full h-full shadow"
+        className="w-full h-full shadow rounded"
         autoPlay
         playsInline
         muted
       />
-
-      {screen.status !== "recording" && (
-        <div className="flex gap-2 justify-end">
-          <Button
-            variant="secondary"
-            onClick={async () => {
-              screen.stopRecording();
-              onDone(null!);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={async () => {
-              screen.startRecording();
-            }}
-          >
-            Start Recording
-          </Button>
-        </div>
-      )}
-      {screen.status === "recording" && (
-        <Button
-          variant="destructive"
-          onClick={async () => {
-            screen.stopRecording();
-          }}
-        >
-          Stop Recording
-        </Button>
-      )}
+      <Button
+        variant="destructive"
+        onClick={() => screen.stopRecording()}
+      >
+        Stop Recording
+      </Button>
     </div>
   );
 };
