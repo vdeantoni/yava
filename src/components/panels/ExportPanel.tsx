@@ -24,6 +24,7 @@ import { FileOutput } from "lucide-react";
 const ExportPanel = () => {
   const {
     video,
+    cropRectangle,
     format,
     setFormat,
     preset,
@@ -44,11 +45,21 @@ const ExportPanel = () => {
   } = useAppStore();
 
   useEffect(() => {
-    if (video) {
+    if (!video) return;
+    if (cropRectangle.w && cropRectangle.h) {
+      const w = Math.round(
+        (cropRectangle.w / cropRectangle.vw) * video.videoWidth,
+      );
+      const h = Math.round(
+        (cropRectangle.h / cropRectangle.vh) * video.videoHeight,
+      );
+      setOutputWidth(String(w - (w % 2)));
+      setOutputHeight(String(h - (h % 2)));
+    } else {
       setOutputWidth(String(video.videoWidth));
       setOutputHeight(String(video.videoHeight));
     }
-  }, [video, setOutputWidth, setOutputHeight]);
+  }, [video, cropRectangle, setOutputWidth, setOutputHeight]);
 
   useEffect(() => {
     if (video) video.playbackRate = speed;

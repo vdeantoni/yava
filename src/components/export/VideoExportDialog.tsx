@@ -47,8 +47,8 @@ const MIME_TYPES: Record<string, string> = {
 const VideoExportDialog = ({ children }: PropsWithChildren) => {
   const {
     file,
-    video,
     ffmpeg,
+    video,
     cursorStart,
     cursorEnd,
     cropRectangle,
@@ -118,20 +118,31 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
       await ffmpeg.writeFile(name, await fetchFile(file));
       const filename = `output_${new Date().getTime()}.${format}`;
 
-      const videoFilters = [
-        `scale=${outputWidth || -1}:${outputHeight || -1}:`,
-      ];
+      const toEven = (n: number) => n - (n % 2);
+
+      const videoFilters: string[] = [];
       if (cropRectangle.w && cropRectangle.h) {
-        const px = video.videoWidth / cropRectangle.vw;
-        const py = video.videoHeight / cropRectangle.vh;
+        const xFrac = cropRectangle.x / cropRectangle.vw;
+        const yFrac = cropRectangle.y / cropRectangle.vh;
+        const wFrac = cropRectangle.w / cropRectangle.vw;
+        const hFrac = cropRectangle.h / cropRectangle.vh;
 
-        const x = Math.round(cropRectangle.x * px);
-        const y = Math.round(cropRectangle.y * py);
-        const w = Math.round(cropRectangle.w * px);
-        const h = Math.round(cropRectangle.h * py);
+        const cropW = toEven(Math.round(wFrac * video.videoWidth));
+        const cropH = toEven(Math.round(hFrac * video.videoHeight));
+        const cropX = Math.round(xFrac * video.videoWidth);
+        const cropY = Math.round(yFrac * video.videoHeight);
 
-        videoFilters.push(`crop=${w}:${h}:${x}:${y}`);
+        // Normalize to intrinsic dimensions first (handles non-square SAR)
+        videoFilters.push(
+          `scale=${video.videoWidth}:${video.videoHeight}`,
+        );
+        videoFilters.push(`crop=${cropW}:${cropH}:${cropX}:${cropY}`);
       }
+      const scaleW = Number(outputWidth) || -2;
+      const scaleH = Number(outputHeight) || -2;
+      videoFilters.push(
+        `scale=${scaleW > 0 ? toEven(scaleW) : scaleW}:${scaleH > 0 ? toEven(scaleH) : scaleH}`,
+      );
       if (speed !== 1) {
         videoFilters.push(`setpts=${(1 / speed).toFixed(4)}*PTS`);
       }
@@ -164,8 +175,6 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         codecArgs.push(
           "-c:v",
           "libvpx",
-          "-threads",
-          multithreading ? "2" : "1",
           "-crf",
           "10",
           "-b:v",
@@ -178,6 +187,12 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         codecArgs.push("-c:a", "copy");
       }
 
+      const threadCount = multithreading
+        ? format === "webm"
+          ? "2"
+          : "4"
+        : "1";
+
       await ffmpeg.exec(
         [
           "-ss",
@@ -186,6 +201,8 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
           name,
           "-t",
           String(trimDuration),
+          "-threads",
+          threadCount,
           frameRate && "-r",
           frameRate && String(frameRate),
           "-vf",
