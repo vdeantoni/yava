@@ -107,7 +107,7 @@ const ExportPanel = () => {
         </Select>
       </div>
 
-      {(format === "mp4" || format === "mov") && (
+      {format !== "gif" && (
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground">Preset</label>
           <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>

@@ -30,11 +30,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFFmpeg } from "@/hooks/useFFmpeg.ts";
 import { Download } from "lucide-react";
 
-const VP9_PRESET_MAP: Record<Preset, string[]> = {
+const WEBM_PRESET_MAP: Record<Preset, string[]> = {
   ultrafast: ["-deadline", "realtime", "-cpu-used", "8"],
-  fast: ["-deadline", "good", "-cpu-used", "4"],
-  medium: ["-deadline", "good", "-cpu-used", "2"],
-  slow: ["-deadline", "good", "-cpu-used", "0"],
+  fast: ["-deadline", "realtime", "-cpu-used", "5"],
+  medium: ["-deadline", "good", "-cpu-used", "4"],
+  slow: ["-deadline", "good", "-cpu-used", "2"],
 };
 
 const MIME_TYPES: Record<string, string> = {
@@ -59,6 +59,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     outputWidth,
     outputHeight,
     noAudio,
+    multithreading,
   } = useAppStore();
 
   const outputVideoRef = useRef<HTMLVideoElement>(null);
@@ -155,14 +156,23 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
       if (format === "mp4" || format === "mov") {
         presetArgs.push("-preset", preset);
       } else if (format === "webm") {
-        presetArgs.push(...VP9_PRESET_MAP[preset]);
+        presetArgs.push(...WEBM_PRESET_MAP[preset]);
       }
 
       const codecArgs: string[] = [];
       if (format === "webm") {
-        codecArgs.push("-c:v", "libvpx-vp9");
+        codecArgs.push(
+          "-c:v",
+          "libvpx",
+          "-threads",
+          multithreading ? "2" : "1",
+          "-crf",
+          "10",
+          "-b:v",
+          "1M",
+        );
         if (!noAudio && !audioFilters.length) {
-          codecArgs.push("-c:a", "libopus");
+          codecArgs.push("-c:a", "libvorbis");
         }
       } else if (!noAudio && !audioFilters.length && format !== "gif") {
         codecArgs.push("-c:a", "copy");
