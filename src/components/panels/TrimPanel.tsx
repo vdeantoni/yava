@@ -1,6 +1,10 @@
 import { useAppStore, type Segment } from "@/store.tsx";
 import { useEffect, useRef, useState } from "react";
-import { durationToSeconds, secondsToDuration } from "@/lib/utils.ts";
+import {
+  durationToSeconds,
+  secondsToDuration,
+  MIN_SLICE_DISTANCE,
+} from "@/lib/utils.ts";
 import { Input } from "@/components/ui/input.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
@@ -140,12 +144,18 @@ const TrimPanel = () => {
     : null;
 
   const applyTrimStart = (formatted: string) => {
-    const value = durationToSeconds(formatted);
+    const value = Math.max(
+      0,
+      Math.min(durationToSeconds(formatted), segments[0].sourceEnd - MIN_SLICE_DISTANCE),
+    );
     updateSegmentBounds(segments[0].id, value, segments[0].sourceEnd);
   };
 
   const applyTrimEnd = (formatted: string) => {
-    const value = durationToSeconds(formatted);
+    const value = Math.min(
+      video.duration,
+      Math.max(durationToSeconds(formatted), segments[0].sourceStart + MIN_SLICE_DISTANCE),
+    );
     updateSegmentBounds(segments[0].id, segments[0].sourceStart, value);
   };
 
