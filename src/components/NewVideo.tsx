@@ -5,9 +5,9 @@ import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import {
   Clapperboard,
-  ScreenShare,
-  Search,
-  Upload,
+  FileVideo,
+  FolderOpen,
+  MonitorUp,
   Webcam,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
@@ -94,9 +94,9 @@ const NewVideo = () => {
   }, [setFile]);
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-hidden relative">
+    <div className="flex-1 flex flex-col items-center md:justify-center min-h-[700px] p-4 overflow-hidden relative gap-10">
       {/* Title + description — positioned above the box */}
-      <div className="absolute left-0 right-0 bottom-[min(calc(50%+30vh),calc(100%-14rem))] flex flex-col items-center gap-8">
+      <div className="flex flex-col items-center gap-8 -mt-50">
         <div className="flex flex-col items-center gap-1">
           <h1 className="flex gap-3 items-center text-5xl sm:text-7xl font-bold tracking-tight">
             <Clapperboard className="h-12 w-12 sm:h-16 sm:w-16 text-primary" />
@@ -117,64 +117,117 @@ const NewVideo = () => {
         </p>
       </div>
 
-      {/* Upload box — truly centered */}
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-2xl" {...getRootProps()}>
+        <Input {...getInputProps()} />
+
         <div
           className={cn(
-            "w-full md:max-h-[50vh] min-h-[200px] flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed border-border bg-card/30 transition-colors p-10 md:p-20 mt-30 md:mt-20 group md:aspect-square",
-            isDragActive && "border-primary bg-primary/5",
+            "relative flex flex-col items-center gap-6 rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm px-8 py-12 md:p-16 transition-all",
+            isDragActive && "border-primary/60 bg-primary/5 scale-[1.01]",
           )}
-          {...getRootProps()}
         >
-          <Input {...getInputProps()} />
-
-          <Upload
-            className={cn(
-              "h-10 w-10 text-muted-foreground transition-all mb-10 md:mb-20",
-              isDragActive &&
-                "border-primary text-primary rotate-180 translate-y-2 scale-200 h-20",
-            )}
-          />
-
-          <div className="text-lg text-muted-foreground text-center transition-colors">
-            Drag and drop your video files here to begin editing in the browser.
-          </div>
-
+          {/* Icon */}
           <div
             className={cn(
-              "text-lg text-muted-foreground text-center transition-colors",
-              isDragActive && "invisible",
+              "flex items-center justify-center w-16 h-16 rounded-xl bg-primary/15 transition-all duration-500",
+              isDragActive && "scale-125 bg-primary/25 scale-0",
             )}
           >
-            or
+            <FileVideo
+              className={cn(
+                "h-8 w-8 text-primary transition-transform",
+                isDragActive && "scale-110",
+              )}
+            />
           </div>
 
+          {/* Heading */}
+          <div className="flex flex-col items-center gap-8">
+            <h2
+              className={cn(
+                "text-3xl md:text-4xl font-bold tracking-tight text-center transform transition-transform",
+                isDragActive && "relative translate-y-14",
+              )}
+            >
+              {isDragActive ? "Drop!" : "Ready?"}
+            </h2>
+            <p
+              className={cn(
+                "text-muted-foreground text-center max-w-md",
+                isDragActive && "invisible",
+              )}
+            >
+              Drag and drop your video files, record your camera or capture your
+              screen to begin editing in the browser.
+            </p>
+          </div>
+
+          {/* Action buttons */}
           <div
             className={cn(
-              "flex flex-col md:flex-row items-center gap-4",
-              isDragActive && "invisible",
+              "flex items-stretch gap-3 w-full max-w-md mt-2 transition-opacity",
+              isDragActive && "opacity-0 pointer-events-none",
             )}
           >
-            <Button size="lg" className="gap-1.5" onClick={open}>
-              <Search className="h-3.5 w-3.5" /> Browse device
+            <Button
+              size="lg"
+              className="flex-1 h-14 gap-2 text-sm font-semibold uppercase tracking-wider"
+              onClick={open}
+            >
+              <FolderOpen className="h-4 w-4" />
+              Browse Files
             </Button>
             <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
+              variant="secondary"
+              className="h-14 w-14 shrink-0 flex flex-col gap-1 p-0"
               onClick={() => setMode("camera")}
             >
-              <Webcam className="h-3.5 w-3.5" /> Record camera
+              <Webcam className="h-4 w-4" />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Record
+              </span>
             </Button>
             <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
+              variant="secondary"
+              className="h-14 w-14 shrink-0 flex flex-col gap-1 p-0"
               onClick={() => setMode("screen")}
             >
-              <ScreenShare className="h-3.5 w-3.5" /> Capture screen
+              <MonitorUp className="h-4 w-4" />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                Screen
+              </span>
             </Button>
           </div>
+
+          {/* Feature badges */}
+          <div
+            className={cn(
+              "flex flex-wrap items-center justify-center gap-x-6 gap-y-1 mt-2 transition-opacity",
+              isDragActive && "opacity-0",
+            )}
+          >
+            {["FFmpeg", "No uploads", "WASM"].map((label) => (
+              <span
+                key={label}
+                className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                {label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Supported formats */}
+        <div className="flex items-center justify-center gap-8 mt-6">
+          {["MP4", "MOV", "WEBM", "GIF"].map((fmt) => (
+            <span key={fmt} className="flex flex-col items-center gap-1">
+              <span className="text-xs font-mono tracking-[0.2em] text-muted-foreground/50">
+                {fmt}
+              </span>
+              <span className="w-4 h-0.5 rounded-full bg-primary/30" />
+            </span>
+          ))}
         </div>
       </div>
 

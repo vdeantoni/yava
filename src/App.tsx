@@ -45,7 +45,7 @@ function App() {
 
   return (
     <>
-      <div className="flex h-[100svh] flex-col overflow-hidden">
+      <div className="flex h-svh flex-col overflow-hidden">
         {/* Header */}
         <header className="flex h-11 items-center justify-between gap-4 border-b border-border bg-card px-3 shrink-0">
           <nav className="flex items-center gap-2">
