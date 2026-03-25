@@ -13,7 +13,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function secondsToDuration(
   seconds: number,
-  options: { trimLeft?: boolean; ms?: boolean } = {},
+  options: { trimLeft?: boolean; ms?: boolean; compact?: boolean } = {},
 ): string {
   const ms = Math.ceil((seconds % 1) * 1000);
 
@@ -22,13 +22,14 @@ export function secondsToDuration(
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor((seconds % 3600) % 60);
 
-  const parts = [h, m, s].map((p) => String(p).padStart(2, "0"));
+  const parts = options?.compact ? [m, s] : [h, m, s];
+  const formatted = parts.map((p) => String(p).padStart(2, "0"));
 
   if (options?.ms) {
-    parts.push(String(ms).padStart(3, "0"));
+    formatted.push(String(ms).padStart(3, "0"));
   }
 
-  let value = parts.join(":");
+  let value = formatted.join(":");
 
   if (options?.trimLeft) {
     value = value.replace(/00:/g, "");
@@ -40,13 +41,38 @@ export function secondsToDuration(
 export function durationToSeconds(duration: string): number {
   const parts = duration.split(":");
 
-  const value =
-    parseInt(parts[0] || "0", 10) * 3600 +
-    parseInt(parts[1] || "0", 10) * 60 +
-    parseInt(parts[2] || "0", 10) +
-    parseInt(parts[3] || "0", 10) / 1000;
+  if (parts.length === 4) {
+    // HH:MM:SS:mmm
+    return (
+      parseInt(parts[0] || "0", 10) * 3600 +
+      parseInt(parts[1] || "0", 10) * 60 +
+      parseInt(parts[2] || "0", 10) +
+      parseInt(parts[3] || "0", 10) / 1000
+    );
+  }
 
-  return value;
+  if (parts.length === 3) {
+    // Disambiguate: MM:SS:mmm (last part 3 digits) vs HH:MM:SS (all 2 digits)
+    if (parts[2].length === 3) {
+      // MM:SS:mmm
+      return (
+        parseInt(parts[0] || "0", 10) * 60 +
+        parseInt(parts[1] || "0", 10) +
+        parseInt(parts[2] || "0", 10) / 1000
+      );
+    }
+    // HH:MM:SS
+    return (
+      parseInt(parts[0] || "0", 10) * 3600 +
+      parseInt(parts[1] || "0", 10) * 60 +
+      parseInt(parts[2] || "0", 10)
+    );
+  }
+
+  // MM:SS
+  return (
+    parseInt(parts[0] || "0", 10) * 60 + parseInt(parts[1] || "0", 10)
+  );
 }
 
 /** Minimum distance from a segment edge to allow a slice (seconds). */

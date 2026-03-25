@@ -7,6 +7,8 @@ type VideoControlsProps = {
   playing: boolean;
 };
 
+const COMPACT_THRESHOLD = 45 * 60;
+
 const VideoControls = ({ playing }: VideoControlsProps) => {
   const {
     video,
@@ -17,10 +19,13 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
     setCursorCurrent,
   } = useAppStore();
 
+  const compact = video?.duration < COMPACT_THRESHOLD;
+  const durationOpts = { ms: true, compact } as const;
+
   return (
     <div className="flex items-center justify-between w-full px-4 py-1.5">
       <span className="font-mono text-xs text-muted-foreground min-w-[100px]">
-        {secondsToDuration(cursorCurrent || 0, { ms: true })}
+        {secondsToDuration(cursorCurrent || 0, durationOpts)}
       </span>
 
       <div className="flex items-center gap-1">
@@ -79,7 +84,7 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
       <span className="font-mono text-xs text-muted-foreground min-w-[100px] text-right">
         {secondsToDuration(
           cursorEnd < video?.duration ? cursorEnd : video?.duration || 0,
-          { ms: true },
+          durationOpts,
         )}
       </span>
     </div>

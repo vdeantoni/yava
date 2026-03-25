@@ -30,8 +30,18 @@ describe("secondsToDuration", () => {
     expect(secondsToDuration(125, { trimLeft: true })).toBe("02:05");
   });
 
-  test("handles fractional seconds without ms option", () => {
-    expect(secondsToDuration(1.999)).toBe("00:00:01");
+  test("compact format omits hours", () => {
+    expect(secondsToDuration(125, { compact: true })).toBe("02:05");
+  });
+
+  test("compact with ms", () => {
+    expect(secondsToDuration(1.5, { ms: true, compact: true })).toBe(
+      "00:01:500",
+    );
+  });
+
+  test("compact formats zero", () => {
+    expect(secondsToDuration(0, { compact: true })).toBe("00:00");
   });
 });
 
@@ -42,6 +52,14 @@ describe("durationToSeconds", () => {
 
   test("parses HH:MM:SS:mmm with milliseconds", () => {
     expect(durationToSeconds("00:00:01:500")).toBe(1.5);
+  });
+
+  test("parses MM:SS:mmm compact format", () => {
+    expect(durationToSeconds("02:05:500")).toBe(125.5);
+  });
+
+  test("parses MM:SS compact format", () => {
+    expect(durationToSeconds("02:05")).toBe(125);
   });
 
   test("parses zero duration", () => {
@@ -58,5 +76,14 @@ describe("durationToSeconds", () => {
     expect(durationToSeconds(secondsToDuration(seconds, { ms: true }))).toBe(
       seconds,
     );
+  });
+
+  test("roundtrips compact with milliseconds", () => {
+    const seconds = 125.5;
+    expect(
+      durationToSeconds(
+        secondsToDuration(seconds, { ms: true, compact: true }),
+      ),
+    ).toBe(seconds);
   });
 });

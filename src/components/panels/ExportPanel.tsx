@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Slider } from "@/components/ui/slider.tsx";
 import { Switch } from "@/components/ui/switch.tsx";
+import { secondsToDuration } from "@/lib/utils.ts";
 import {
   Select,
   SelectContent,
@@ -25,6 +26,7 @@ const ExportPanel = () => {
   const {
     video,
     cropRectangle,
+    segments,
     format,
     setFormat,
     preset,
@@ -235,6 +237,24 @@ const ExportPanel = () => {
           Reset
         </Button>
       )}
+
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-muted-foreground">
+          Output Duration
+        </label>
+        <Input
+          type="text"
+          className="font-mono text-sm h-8 bg-background"
+          value={secondsToDuration(
+            segments.reduce(
+              (sum, seg) => sum + (seg.sourceEnd - seg.sourceStart),
+              0,
+            ),
+            { ms: true, compact: video.duration < 45 * 60 },
+          )}
+          readOnly
+        />
+      </div>
 
       <VideoExportDialog>
         <Button className="w-full mt-2">
