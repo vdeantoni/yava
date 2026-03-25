@@ -64,6 +64,7 @@ const VideoTimeline = () => {
     setCursorEnd,
     setCursorCurrent,
     selectSegment,
+    updateSegmentBounds,
     resetCursors,
   } = useAppStore(
     useShallow((s) => ({
@@ -77,6 +78,7 @@ const VideoTimeline = () => {
       setCursorEnd: s.setCursorEnd,
       setCursorCurrent: s.setCursorCurrent,
       selectSegment: s.selectSegment,
+      updateSegmentBounds: s.updateSegmentBounds,
       resetCursors: s.resetCursors,
     })),
   );
@@ -86,6 +88,17 @@ const VideoTimeline = () => {
   const trackWidth = useTrackResizeObserver(trackRef);
 
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
+  const [pointerTime, setPointerTime] = useState(0);
+  const [checkboxPinnedRight, setCheckboxPinnedRight] = useState(true);
+
+  const segDrag = useRef<{
+    segId: string;
+    type: "resize" | "move";
+    edge?: "start" | "end";
+    startX: number;
+    startTime: number;
+    endTime?: number;
+  } | null>(null);
 
   const onHandlePointerDown = () => {
     handleDrag.current = true;
@@ -93,6 +106,26 @@ const VideoTimeline = () => {
   const onHandleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     handleDrag.current = false;
+  };
+
+  const onSegHandlePointerDown = (
+    e: React.PointerEvent,
+    segId: string,
+    edge: "start" | "end",
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const seg = segments.find((s) => s.id === segId);
+    if (!seg) return;
+    handleDrag.current = true;
+    segDrag.current = {
+      segId,
+      type: "resize",
+      edge,
+      startX: e.clientX,
+      startTime: edge === "start" ? seg.sourceStart : seg.sourceEnd,
+    };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   useEffect(() => {
@@ -172,8 +205,62 @@ const VideoTimeline = () => {
           const time = getTimeFromEvent(e);
           const seg = findSegmentAt(segments, time);
           setHoveredSegmentId(seg?.id ?? null);
+          setPointerTime(time);
         }}
-        onMouseLeave={() => setHoveredSegmentId(null)}
+        onMouseLeave={() => {
+          setHoveredSegmentId(null);
+        }}
+        onPointerMove={(e) => {
+          if (!segDrag.current) return;
+          const { startX, startTime, segId, type, edge, endTime } =
+            segDrag.current;
+          const dx = e.clientX - startX;
+          const timeDelta = dx / (trackWidth / video.duration);
+
+          if (type === "move") {
+            let newStart = startTime + timeDelta;
+            let newEnd = endTime! + timeDelta;
+            const duration = endTime! - startTime;
+
+            // Clamp to video bounds as a unit
+            if (newStart < 0) {
+              newStart = 0;
+              newEnd = duration;
+            }
+            if (newEnd > video.duration) {
+              newEnd = video.duration;
+              newStart = video.duration - duration;
+            }
+
+            // Clamp to adjacent segments as a unit
+            const idx = segments.findIndex((s) => s.id === segId);
+            if (idx === -1) return;
+            const prev = segments[idx - 1];
+            const next = segments[idx + 1];
+            if (prev && newStart < prev.sourceEnd) {
+              newStart = prev.sourceEnd;
+              newEnd = prev.sourceEnd + duration;
+            }
+            if (next && newEnd > next.sourceStart) {
+              newEnd = next.sourceStart;
+              newStart = next.sourceStart - duration;
+            }
+
+            updateSegmentBounds(segId, newStart, newEnd);
+          } else {
+            const seg = segments.find((s) => s.id === segId);
+            if (!seg) return;
+            const newTime = startTime + timeDelta;
+            if (edge === "start") {
+              updateSegmentBounds(segId, newTime, seg.sourceEnd);
+            } else {
+              updateSegmentBounds(segId, seg.sourceStart, newTime);
+            }
+          }
+        }}
+        onPointerUp={() => {
+          segDrag.current = null;
+        }}
       >
         <div className="grid grid-flow-col timeline-marks w-full overflow-hidden">
           {tickMarks}
@@ -187,29 +274,69 @@ const VideoTimeline = () => {
             const isSelected = seg.id === selectedSegmentId;
             const isHovered = seg.id === hoveredSegmentId;
             const segWidthPx = (segEndPct - segStartPct) * trackWidth;
+            const segMidTime = (seg.sourceStart + seg.sourceEnd) / 2;
+            const isDragging = segDrag.current !== null;
 
             return (
               <Fragment key={seg.id}>
                 <div
                   className={cn(
-                    "pointer-events-none absolute h-16 -top-1 z-10 transition-colors",
+                    "absolute h-16 -top-1 z-10",
+                    !isDragging && "transition-colors duration-150",
                     isSelected
-                      ? "bg-primary/30 ring-1 ring-inset ring-primary"
-                      : "bg-primary/20",
+                      ? "bg-primary/30 ring-1 ring-inset ring-primary pointer-events-auto cursor-grab"
+                      : isHovered
+                        ? "bg-primary/25 pointer-events-none"
+                        : "bg-primary/20 pointer-events-none",
                   )}
                   style={{
                     left: segStartPct * trackWidth,
                     width: segWidthPx,
                   }}
+                  onPointerDown={
+                    isSelected
+                      ? (e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          handleDrag.current = true;
+                          segDrag.current = {
+                            segId: seg.id,
+                            type: "move",
+                            startX: e.clientX,
+                            startTime: seg.sourceStart,
+                            endTime: seg.sourceEnd,
+                          };
+                          (e.target as HTMLElement).setPointerCapture(
+                            e.pointerId,
+                          );
+                        }
+                      : undefined
+                  }
                 >
                   {/* Checkbox for segment selection (hover or selected) */}
                   {hasMultipleSegments &&
-                    (isHovered || isSelected) &&
-                    segWidthPx > 24 && (
+                    (isMobile || isHovered || isSelected) && (
                       <div
-                        className="absolute top-0.5 right-0.5 pointer-events-auto z-20"
+                        className={cn(
+                          "absolute top-0.5 pointer-events-auto z-20",
+                          !isDragging &&
+                            "transition-[left] duration-150 ease-in-out",
+                        )}
+                        style={{
+                          left:
+                            (isSelected
+                              ? checkboxPinnedRight
+                              : pointerTime > segMidTime)
+                              ? segWidthPx - 16
+                              : 2,
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (!isSelected) {
+                            setCheckboxPinnedRight(
+                              pointerTime > segMidTime,
+                            );
+                          }
                           selectSegment(isSelected ? null : seg.id);
                         }}
                       >
@@ -219,6 +346,23 @@ const VideoTimeline = () => {
                         />
                       </div>
                     )}
+                  {/* Resize handles for selected segment */}
+                  {isSelected && hasMultipleSegments && (
+                    <>
+                      <div
+                        className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-primary rounded-sm pointer-events-auto cursor-col-resize z-20 shadow"
+                        onPointerDown={(e) =>
+                          onSegHandlePointerDown(e, seg.id, "start")
+                        }
+                      />
+                      <div
+                        className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-primary rounded-sm pointer-events-auto cursor-col-resize z-20 shadow"
+                        onPointerDown={(e) =>
+                          onSegHandlePointerDown(e, seg.id, "end")
+                        }
+                      />
+                    </>
+                  )}
                 </div>
                 {/* Split line between adjacent segments */}
                 {i < segments.length - 1 && (
