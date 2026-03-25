@@ -26,11 +26,10 @@ function findNearest(
 }
 
 const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
-  const { file, video, setProcessing } = useAppStore(
+  const { file, video } = useAppStore(
     useShallow((s) => ({
       file: s.file,
       video: s.video,
-      setProcessing: s.setProcessing,
     })),
   );
 
@@ -82,8 +81,6 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
     const numFrames = Math.ceil(maxWidth / w) + 1;
     const step = video.duration / numFrames;
 
-    setProcessing(true);
-
     let completedExtractors = 0;
     let cancelled = false;
     const cleanups: (() => void)[] = [];
@@ -126,9 +123,6 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
           thumbVideo.currentTime = slot * step;
         } else {
           completedExtractors++;
-          if (completedExtractors >= numExtractors) {
-            setProcessing(false);
-          }
         }
       };
 
@@ -163,9 +157,8 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
       for (const cleanup of cleanups) cleanup();
       for (const bitmap of cacheRef.current.values()) bitmap.close();
       cacheRef.current.clear();
-      setProcessing(false);
     };
-  }, [video, file, setProcessing, drawFrames]);
+  }, [video, file, drawFrames]);
 
   // Redraw cached frames when canvas width changes (cheap — no video seeking)
   useEffect(() => {

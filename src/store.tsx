@@ -326,7 +326,7 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
       selectedSegmentId: null,
       nextSegmentId: 0,
 
-      processing: true,
+      processing: false,
 
       ...DEFAULT_EXPORT,
     })),
