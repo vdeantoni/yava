@@ -111,6 +111,6 @@
   }
 
   .timeline-marks {
-    @apply bg-card h-7 pt-1 rounded-none cursor-default text-muted-foreground text-xs font-mono;
+    @apply bg-card h-7 pt-1 rounded-none cursor-default text-muted-foreground text-xs font-mono select-none;
   }
 }

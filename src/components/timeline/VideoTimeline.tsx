@@ -28,8 +28,7 @@ import {
 
 export const STEP_SIZE = 0.1;
 
-const TICKS = 100;
-const TOTAL_MARKS = 10;
+const MIN_MARK_SPACING_PX = 80;
 const HANDLE_WIDTH = 16;
 
 const MARK_OPTIONS = [
@@ -138,36 +137,33 @@ const VideoTimeline = () => {
   }, [video, resetCursors]);
 
   const marks = useMemo(() => {
+    const totalMarks = Math.max(
+      2,
+      Math.floor((trackWidth || 600) / MIN_MARK_SPACING_PX),
+    );
     const markLength =
       MARK_OPTIONS.find(
-        (opt) => Math.ceil(video.duration / TOTAL_MARKS) <= opt,
+        (opt) => Math.ceil(video.duration / totalMarks) <= opt,
       ) ?? MARK_OPTIONS[0];
 
-    const result: Record<number, number> = {};
-    for (let i = 0; i < video.duration / markLength; i++) {
-      result[Math.floor((i * markLength * TICKS) / video.duration)] =
-        markLength * i;
+    const major: { time: number; pct: number }[] = [];
+    for (let t = markLength; t < video.duration; t += markLength) {
+      major.push({ time: t, pct: (t / video.duration) * 100 });
     }
 
-    return result;
-  }, [video.duration]);
+    const maxTicks = Math.max(20, Math.floor((trackWidth || 600) / 8));
+    const rawTickInterval = markLength / 5;
+    const tickInterval =
+      video.duration / rawTickInterval > maxTicks
+        ? video.duration / maxTicks
+        : rawTickInterval;
+    const ticks: number[] = [];
+    for (let t = tickInterval; t < video.duration; t += tickInterval) {
+      ticks.push((t / video.duration) * 100);
+    }
 
-  const tickMarks = useMemo(
-    () =>
-      Array.from({ length: TICKS }, (_, i) => (
-        <Fragment key={i}>
-          <span className="relative">
-            <span className="absolute top-0 left-0 transform -translate-x-[50%]">
-              {i && marks[i]
-                ? secondsToDuration(marks[i], { trimLeft: isMobile })
-                : ""}
-            </span>
-          </span>
-          <span className="mt-2">{"."}</span>
-        </Fragment>
-      )),
-    [marks],
-  );
+    return { major, ticks };
+  }, [video.duration, trackWidth]);
 
   const hasMultipleSegments = segments.length > 1;
 
@@ -271,8 +267,26 @@ const VideoTimeline = () => {
           segDrag.current = null;
         }}
       >
-        <div className="grid grid-flow-col timeline-marks w-full overflow-hidden">
-          {tickMarks}
+        <div className="relative timeline-marks w-full">
+          {marks.ticks.map((pct, i) => (
+            <span
+              key={`t${i}`}
+              className="absolute bottom-0 w-px h-1.5 bg-muted-foreground/25 -translate-x-1/2"
+              style={{ left: `${pct}%` }}
+            />
+          ))}
+          {marks.major.map(({ time, pct }) => (
+            <span
+              key={time}
+              className="absolute top-1 -translate-x-1/2 whitespace-nowrap"
+              style={{ left: `${pct}%` }}
+            >
+              {secondsToDuration(time, {
+                compact: video.duration < 3600,
+                trimLeft: isMobile,
+              })}
+            </span>
+          ))}
         </div>
 
         <div ref={trackRef} className="relative h-16">
@@ -456,7 +470,7 @@ const VideoTimeline = () => {
               top: 0,
             }}
           >
-            <div className="w-1 h-14 bg-foreground/80 rounded-full -translate-x-1/2" />
+            <div className="w-0.5 h-14 bg-primary rounded-full -translate-x-1/2 shadow-[0_0_6px_hsl(var(--primary)/0.4)]" />
           </div>
         </div>
       </div>
