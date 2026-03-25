@@ -111,9 +111,7 @@ const TrimPanel = () => {
   const {
     video,
     cursorStart,
-    setCursorStart,
     cursorEnd,
-    setCursorEnd,
     segments,
     selectedSegmentId,
     selectSegment,
@@ -142,16 +140,13 @@ const TrimPanel = () => {
     : null;
 
   const applyTrimStart = (formatted: string) => {
-    let value = durationToSeconds(formatted);
-    if (value > cursorEnd - 1) value = cursorEnd - 1;
-    if (value < 0) value = 0;
-    setCursorStart(value);
+    const value = durationToSeconds(formatted);
+    updateSegmentBounds(segments[0].id, value, segments[0].sourceEnd);
   };
 
   const applyTrimEnd = (formatted: string) => {
-    let value = durationToSeconds(formatted);
-    if (value < cursorStart + 1) value = cursorStart + 1;
-    setCursorEnd(value);
+    const value = durationToSeconds(formatted);
+    updateSegmentBounds(segments[0].id, segments[0].sourceStart, value);
   };
 
   // Single-segment mode

@@ -6,6 +6,7 @@ import {
   findSegmentAt,
   snapToNearestSegmentBoundary,
   MIN_SLICE_DISTANCE,
+  FLUSH_TOLERANCE,
 } from "./lib/utils";
 
 export type Format = "mp4" | "webm" | "mov" | "gif";
@@ -51,8 +52,6 @@ interface AppActions {
   setFile: (file: Blob) => void;
 
   setCursorCurrent: (cursorCurrent: number) => void;
-  setCursorStart: (cursorStart: number) => void;
-  setCursorEnd: (cursorEnd: number) => void;
   setCropRectangle: (cropRectangle: CropRectangle) => void;
 
   resetCursors: (duration: number) => void;
@@ -60,6 +59,7 @@ interface AppActions {
 
   sliceAtCursor: () => void;
   deleteSegment: (id: string) => void;
+  joinSegment: (id: string) => void;
   selectSegment: (id: string | null) => void;
   updateSegmentBounds: (
     id: string,
@@ -123,31 +123,6 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
   setFile: (file) => set(() => ({ file })),
 
   setCursorCurrent: (cursorCurrent) => set(() => ({ cursorCurrent })),
-  setCursorStart: (cursorStart) =>
-    set((state) => {
-      const segments = [...state.segments];
-      if (segments[0]) {
-        segments[0] = { ...segments[0], sourceStart: cursorStart };
-      }
-      return {
-        cursorStart,
-        cursorCurrent: Math.max(state.cursorCurrent, cursorStart),
-        segments,
-      };
-    }),
-  setCursorEnd: (cursorEnd) =>
-    set((state) => {
-      const last = state.segments.length - 1;
-      const segments = [...state.segments];
-      if (segments[last]) {
-        segments[last] = { ...segments[last], sourceEnd: cursorEnd };
-      }
-      return {
-        cursorEnd,
-        cursorCurrent: Math.min(state.cursorCurrent, cursorEnd),
-        segments,
-      };
-    }),
   setCropRectangle: (cropRectangle) => set(() => ({ cropRectangle })),
 
   resetCursors: (duration) =>
@@ -220,6 +195,59 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
         cursorEnd: newEnd,
         cursorCurrent,
         selectedSegmentId: null,
+      };
+    }),
+
+  joinSegment: (id) =>
+    set((state) => {
+      const idx = state.segments.findIndex((s) => s.id === id);
+      if (idx === -1) return state;
+
+      // Walk left to find all flush neighbors
+      let startIdx = idx;
+      while (startIdx > 0) {
+        const prev = state.segments[startIdx - 1];
+        const curr = state.segments[startIdx];
+        if (Math.abs(prev.sourceEnd - curr.sourceStart) <= FLUSH_TOLERANCE) {
+          startIdx--;
+        } else {
+          break;
+        }
+      }
+
+      // Walk right to find all flush neighbors
+      let endIdx = idx;
+      while (endIdx < state.segments.length - 1) {
+        const curr = state.segments[endIdx];
+        const next = state.segments[endIdx + 1];
+        if (Math.abs(curr.sourceEnd - next.sourceStart) <= FLUSH_TOLERANCE) {
+          endIdx++;
+        } else {
+          break;
+        }
+      }
+
+      // Nothing to join if it's just the one segment
+      if (startIdx === endIdx) return state;
+
+      const merged: Segment = {
+        id: `s${state.nextSegmentId}`,
+        sourceStart: state.segments[startIdx].sourceStart,
+        sourceEnd: state.segments[endIdx].sourceEnd,
+      };
+
+      const newSegments = [
+        ...state.segments.slice(0, startIdx),
+        merged,
+        ...state.segments.slice(endIdx + 1),
+      ];
+
+      return {
+        segments: newSegments,
+        nextSegmentId: state.nextSegmentId + 1,
+        cursorStart: newSegments[0].sourceStart,
+        cursorEnd: newSegments[newSegments.length - 1].sourceEnd,
+        selectedSegmentId: merged.id,
       };
     }),
 

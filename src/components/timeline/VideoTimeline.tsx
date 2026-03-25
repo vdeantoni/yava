@@ -10,14 +10,21 @@ import {
 import VideoThumbnails from "@/components/timeline/VideoThumbnails.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 import { useShallow } from "zustand/react/shallow";
-import { Checkbox } from "@/components/ui/checkbox.tsx";
-import { cn } from "@/lib/utils.ts";
 import {
+  cn,
   isMobile,
   secondsToDuration,
   findSegmentAt,
   snapToNearestSegmentBoundary,
+  FLUSH_TOLERANCE,
 } from "@/lib/utils.ts";
+import { Merge, Trash2 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip.tsx";
 
 export const STEP_SIZE = 0.1;
 
@@ -60,10 +67,10 @@ const VideoTimeline = () => {
     cursorCurrent,
     segments,
     selectedSegmentId,
-    setCursorStart,
-    setCursorEnd,
     setCursorCurrent,
     selectSegment,
+    deleteSegment,
+    joinSegment,
     updateSegmentBounds,
     resetCursors,
   } = useAppStore(
@@ -74,10 +81,10 @@ const VideoTimeline = () => {
       cursorCurrent: s.cursorCurrent,
       segments: s.segments,
       selectedSegmentId: s.selectedSegmentId,
-      setCursorStart: s.setCursorStart,
-      setCursorEnd: s.setCursorEnd,
       setCursorCurrent: s.setCursorCurrent,
       selectSegment: s.selectSegment,
+      deleteSegment: s.deleteSegment,
+      joinSegment: s.joinSegment,
       updateSegmentBounds: s.updateSegmentBounds,
       resetCursors: s.resetCursors,
     })),
@@ -88,8 +95,6 @@ const VideoTimeline = () => {
   const trackWidth = useTrackResizeObserver(trackRef);
 
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
-  const [pointerTime, setPointerTime] = useState(0);
-  const [checkboxPinnedRight, setCheckboxPinnedRight] = useState(true);
 
   const segDrag = useRef<{
     segId: string;
@@ -190,22 +195,21 @@ const VideoTimeline = () => {
             setCursorCurrent(
               Math.max(seg.sourceStart, Math.min(seg.sourceEnd, time)),
             );
-          } else if (hasMultipleSegments) {
-            setCursorCurrent(
-              snapToNearestSegmentBoundary(segments, time, cursorStart),
-            );
           } else {
             setCursorCurrent(
-              Math.max(cursorStart, Math.min(cursorEnd, time)),
+              snapToNearestSegmentBoundary(segments, time, cursorStart),
             );
           }
         }}
         onMouseMove={(e) => {
-          if (!hasMultipleSegments) return;
           const time = getTimeFromEvent(e);
           const seg = findSegmentAt(segments, time);
-          setHoveredSegmentId(seg?.id ?? null);
-          setPointerTime(time);
+          const newHoveredId = seg?.id ?? null;
+          if (newHoveredId !== hoveredSegmentId)
+            setHoveredSegmentId(newHoveredId);
+          if (hasMultipleSegments && seg && seg.id !== selectedSegmentId) {
+            selectSegment(seg.id);
+          }
         }}
         onMouseLeave={() => {
           setHoveredSegmentId(null);
@@ -215,6 +219,11 @@ const VideoTimeline = () => {
           const { startX, startTime, segId, type, edge, endTime } =
             segDrag.current;
           const dx = e.clientX - startX;
+
+          // Dead zone: don't commit to drag until pointer moves past threshold
+          if (!handleDrag.current && Math.abs(dx) < 3) return;
+          handleDrag.current = true;
+
           const timeDelta = dx / (trackWidth / video.duration);
 
           if (type === "move") {
@@ -274,80 +283,89 @@ const VideoTimeline = () => {
             const isSelected = seg.id === selectedSegmentId;
             const isHovered = seg.id === hoveredSegmentId;
             const segWidthPx = (segEndPct - segStartPct) * trackWidth;
-            const segMidTime = (seg.sourceStart + seg.sourceEnd) / 2;
             const isDragging = segDrag.current !== null;
+            const canJoin =
+              hasMultipleSegments &&
+              ((i > 0 &&
+                Math.abs(
+                  segments[i - 1].sourceEnd - seg.sourceStart,
+                ) <= FLUSH_TOLERANCE) ||
+                (i < segments.length - 1 &&
+                  Math.abs(
+                    seg.sourceEnd - segments[i + 1].sourceStart,
+                  ) <= FLUSH_TOLERANCE));
 
             return (
               <Fragment key={seg.id}>
                 <div
                   className={cn(
-                    "absolute h-16 -top-1 z-10",
+                    "absolute h-16 -top-1 z-10 pointer-events-auto cursor-grab",
                     !isDragging && "transition-colors duration-150",
-                    isSelected
-                      ? "bg-primary/30 ring-1 ring-inset ring-primary pointer-events-auto cursor-grab"
-                      : isHovered
-                        ? "bg-primary/25 pointer-events-none"
-                        : "bg-primary/20 pointer-events-none",
+                    isHovered ? "bg-primary/25" : "bg-primary/20",
                   )}
                   style={{
                     left: segStartPct * trackWidth,
                     width: segWidthPx,
                   }}
-                  onPointerDown={
-                    isSelected
-                      ? (e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          handleDrag.current = true;
-                          segDrag.current = {
-                            segId: seg.id,
-                            type: "move",
-                            startX: e.clientX,
-                            startTime: seg.sourceStart,
-                            endTime: seg.sourceEnd,
-                          };
-                          (e.target as HTMLElement).setPointerCapture(
-                            e.pointerId,
-                          );
-                        }
-                      : undefined
-                  }
+                  onPointerDown={(e) => {
+                    segDrag.current = {
+                      segId: seg.id,
+                      type: "move",
+                      startX: e.clientX,
+                      startTime: seg.sourceStart,
+                      endTime: seg.sourceEnd,
+                    };
+                    (e.target as HTMLElement).setPointerCapture(
+                      e.pointerId,
+                    );
+                  }}
                 >
-                  {/* Checkbox for segment selection (hover or selected) */}
-                  {hasMultipleSegments &&
-                    (isMobile || isHovered || isSelected) && (
-                      <div
-                        className={cn(
-                          "absolute top-0.5 pointer-events-auto z-20",
-                          !isDragging &&
-                            "transition-[left] duration-150 ease-in-out",
-                        )}
-                        style={{
-                          left:
-                            (isSelected
-                              ? checkboxPinnedRight
-                              : pointerTime > segMidTime)
-                              ? segWidthPx - 16
-                              : 2,
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!isSelected) {
-                            setCheckboxPinnedRight(
-                              pointerTime > segMidTime,
-                            );
-                          }
-                          selectSegment(isSelected ? null : seg.id);
-                        }}
-                      >
-                        <Checkbox
-                          checked={isSelected}
-                          className="h-3.5 w-3.5"
-                        />
+                  {/* Segment actions (top-right) */}
+                  {(isMobile || isHovered || isSelected) &&
+                    hasMultipleSegments && (
+                      <div className="absolute top-0.5 right-0.5 pointer-events-auto z-20 flex items-center gap-1.5">
+                        <TooltipProvider>
+                          {canJoin && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div
+                                  className="cursor-pointer text-primary hover:text-primary/80"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    joinSegment(seg.id);
+                                  }}
+                                >
+                                  <Merge className="h-3.5 w-3.5" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">
+                                  Join adjacent segments into one
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div
+                                  className="cursor-pointer text-destructive hover:text-destructive/80"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteSegment(seg.id);
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">Delete segment</p>
+                              </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                       </div>
                     )}
-                  {/* Resize handles for selected segment */}
-                  {isSelected && hasMultipleSegments && (
+                  {/* Resize handles — visible on hover, offset vertically to avoid overlap */}
+                  {(isMobile || isHovered || isSelected) && (
                     <>
                       <div
                         className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-primary rounded-sm pointer-events-auto cursor-col-resize z-20 shadow"
@@ -401,47 +419,6 @@ const VideoTimeline = () => {
               );
             })}
 
-          {/* Trim handles — only shown for single segment */}
-          {!hasMultipleSegments && (
-            <>
-              <input
-                className="slider-thumb-left"
-                type="range"
-                min="0"
-                max={video.duration}
-                step="any"
-                value={cursorStart}
-                onPointerDown={onHandlePointerDown}
-                onClick={onHandleClick}
-                onInput={(e) => {
-                  const value = +e.currentTarget.value;
-                  const firstSegEnd = segments[0]?.sourceEnd ?? cursorEnd;
-                  if (value < firstSegEnd - 1) {
-                    setCursorStart(value);
-                  }
-                }}
-              />
-              <input
-                className="slider-thumb-right"
-                type="range"
-                min="0"
-                max={video.duration}
-                step="any"
-                value={cursorEnd}
-                onPointerDown={onHandlePointerDown}
-                onClick={onHandleClick}
-                onInput={(e) => {
-                  const value = +e.currentTarget.value;
-                  const lastSegStart =
-                    segments[segments.length - 1]?.sourceStart ?? cursorStart;
-                  if (value > lastSegStart + 1) {
-                    setCursorEnd(value);
-                  }
-                }}
-              />
-            </>
-          )}
-
           <input
             className="slider-thumb-current"
             type="range"
@@ -455,21 +432,17 @@ const VideoTimeline = () => {
               video.pause();
               const value = +e.currentTarget.value;
               if (value >= cursorStart && value <= cursorEnd) {
-                if (hasMultipleSegments) {
-                  const seg = findSegmentAt(segments, value);
-                  if (seg) {
-                    setCursorCurrent(value);
-                  } else {
-                    setCursorCurrent(
-                      snapToNearestSegmentBoundary(
-                        segments,
-                        value,
-                        cursorStart,
-                      ),
-                    );
-                  }
-                } else {
+                const seg = findSegmentAt(segments, value);
+                if (seg) {
                   setCursorCurrent(value);
+                } else {
+                  setCursorCurrent(
+                    snapToNearestSegmentBoundary(
+                      segments,
+                      value,
+                      cursorStart,
+                    ),
+                  );
                 }
               }
             }}

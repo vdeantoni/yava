@@ -17,61 +17,67 @@ describe("useAppStore", () => {
     });
   });
 
-  describe("setCursorStart", () => {
-    test("sets cursorStart", () => {
+  describe("updateSegmentBounds (start)", () => {
+    test("updates cursorStart via first segment", () => {
       initSegments(10);
-      useAppStore.getState().setCursorStart(5);
+      const { segments } = useAppStore.getState();
+      useAppStore.getState().updateSegmentBounds(segments[0].id, 5, 10);
       expect(useAppStore.getState().cursorStart).toBe(5);
     });
 
     test("clamps cursorCurrent up when below new start", () => {
       initSegments(10);
       useAppStore.setState({ cursorCurrent: 2 });
-      useAppStore.getState().setCursorStart(5);
+      const { segments } = useAppStore.getState();
+      useAppStore.getState().updateSegmentBounds(segments[0].id, 5, 10);
       expect(useAppStore.getState().cursorCurrent).toBe(5);
     });
 
     test("does not change cursorCurrent when already past start", () => {
       initSegments(10);
       useAppStore.setState({ cursorCurrent: 8 });
-      useAppStore.getState().setCursorStart(5);
+      const { segments } = useAppStore.getState();
+      useAppStore.getState().updateSegmentBounds(segments[0].id, 5, 10);
       expect(useAppStore.getState().cursorCurrent).toBe(8);
     });
 
     test("syncs first segment sourceStart", () => {
       initSegments(10);
-      useAppStore.getState().setCursorStart(3);
       const { segments } = useAppStore.getState();
-      expect(segments[0].sourceStart).toBe(3);
+      useAppStore.getState().updateSegmentBounds(segments[0].id, 3, 10);
+      expect(useAppStore.getState().segments[0].sourceStart).toBe(3);
     });
   });
 
-  describe("setCursorEnd", () => {
-    test("sets cursorEnd", () => {
+  describe("updateSegmentBounds (end)", () => {
+    test("updates cursorEnd via last segment", () => {
       initSegments(10);
-      useAppStore.getState().setCursorEnd(5);
+      const { segments } = useAppStore.getState();
+      useAppStore.getState().updateSegmentBounds(segments[0].id, 0, 5);
       expect(useAppStore.getState().cursorEnd).toBe(5);
     });
 
     test("clamps cursorCurrent down when above new end", () => {
       initSegments(10);
       useAppStore.setState({ cursorCurrent: 8 });
-      useAppStore.getState().setCursorEnd(5);
+      const { segments } = useAppStore.getState();
+      useAppStore.getState().updateSegmentBounds(segments[0].id, 0, 5);
       expect(useAppStore.getState().cursorCurrent).toBe(5);
     });
 
     test("does not change cursorCurrent when already before end", () => {
       initSegments(10);
       useAppStore.setState({ cursorCurrent: 3 });
-      useAppStore.getState().setCursorEnd(5);
+      const { segments } = useAppStore.getState();
+      useAppStore.getState().updateSegmentBounds(segments[0].id, 0, 5);
       expect(useAppStore.getState().cursorCurrent).toBe(3);
     });
 
     test("syncs last segment sourceEnd", () => {
       initSegments(10);
-      useAppStore.getState().setCursorEnd(7);
       const { segments } = useAppStore.getState();
-      expect(segments[segments.length - 1].sourceEnd).toBe(7);
+      useAppStore.getState().updateSegmentBounds(segments[0].id, 0, 7);
+      expect(useAppStore.getState().segments[0].sourceEnd).toBe(7);
     });
   });
 

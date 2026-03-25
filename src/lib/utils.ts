@@ -78,6 +78,9 @@ export function durationToSeconds(duration: string): number {
 /** Minimum distance from a segment edge to allow a slice (seconds). */
 export const MIN_SLICE_DISTANCE = 0.5;
 
+/** Tolerance for treating adjacent segment boundaries as flush (seconds). */
+export const FLUSH_TOLERANCE = 0.01;
+
 /** Tolerance for matching a time to a segment during playback (seconds). */
 export const PLAYBACK_TOLERANCE = 0.05;
 
