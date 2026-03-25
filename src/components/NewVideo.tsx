@@ -94,9 +94,12 @@ const NewVideo = () => {
   }, [setFile]);
 
   return (
-    <div className="flex-1 flex flex-col items-center md:justify-center min-h-[700px] p-4 overflow-hidden relative gap-10">
-      {/* Title + description — positioned above the box */}
-      <div className="flex flex-col items-center gap-8 -mt-50">
+    <div className="flex-1 flex flex-col items-center p-4">
+      {/* Top spacer — pushes content above true center */}
+      <div className="flex-[2_0_0%]" />
+
+      {/* Title + description */}
+      <div className="flex flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-1">
           <h1 className="flex gap-3 items-center text-5xl sm:text-7xl font-bold tracking-tight">
             <Clapperboard className="h-12 w-12 sm:h-16 sm:w-16 text-primary" />
@@ -117,7 +120,7 @@ const NewVideo = () => {
         </p>
       </div>
 
-      <div className="w-full max-w-2xl" {...getRootProps()}>
+      <div className="w-full max-w-2xl mt-10" {...getRootProps()}>
         <Input {...getInputProps()} />
 
         <div
@@ -130,7 +133,7 @@ const NewVideo = () => {
           <div
             className={cn(
               "flex items-center justify-center w-16 h-16 rounded-xl bg-primary/15 transition-all duration-500",
-              isDragActive && "scale-125 bg-primary/25 scale-0",
+              isDragActive && "scale-0 h-0 bg-primary/25",
             )}
           >
             <FileVideo
@@ -144,10 +147,7 @@ const NewVideo = () => {
           {/* Heading */}
           <div className="flex flex-col items-center gap-8">
             <h2
-              className={cn(
-                "text-3xl md:text-4xl font-bold tracking-tight text-center transform transition-transform",
-                isDragActive && "relative translate-y-14",
-              )}
+              className="text-3xl md:text-4xl font-bold tracking-tight text-center"
             >
               {isDragActive ? "Drop!" : "Ready?"}
             </h2>
@@ -230,6 +230,9 @@ const NewVideo = () => {
           ))}
         </div>
       </div>
+
+      {/* Bottom spacer — larger than top for optical centering */}
+      <div className="flex-[3_0_0%]" />
 
       {(mode === "screen" || mode === "camera") && (
         <Dialog open={true} onOpenChange={() => setMode("file")}>
