@@ -101,9 +101,9 @@ const VideoPlayer = () => {
   }, [cursorCurrent, processing]);
 
   return (
-    <div className="flex flex-1 flex-col min-h-0">
-      <div className="relative flex flex-1 justify-center min-h-0 bg-background">
-        <div className="relative max-w-full max-h-full">
+    <div className="flex flex-col bg-background">
+      <div className="relative overflow-hidden">
+        <div className="relative max-w-full mx-auto w-fit">
           <video
             ref={videoRef}
             className={cn(
@@ -130,7 +130,7 @@ const VideoPlayer = () => {
         )}
       </div>
 
-      <div className="border-t border-border bg-card">
+      <div className="shrink-0 border-t border-border bg-card">
         <VideoControls playing={playing} />
       </div>
     </div>
