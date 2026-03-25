@@ -3,13 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
-import {
-  Clapperboard,
-  FileVideo,
-  FolderOpen,
-  MonitorUp,
-  Webcam,
-} from "lucide-react";
+import { FileVideo, FolderOpen, MonitorUp, Webcam } from "lucide-react";
+import YavaLogo from "@/components/YavaLogo";
 import { cn } from "@/lib/utils.ts";
 import {
   Dialog,
@@ -102,7 +97,7 @@ const NewVideo = () => {
       <div className="flex flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-1">
           <h1 className="flex gap-3 items-center text-5xl sm:text-7xl font-bold tracking-tight">
-            <Clapperboard className="h-12 w-12 sm:h-16 sm:w-16 text-primary" />
+            <YavaLogo className="h-16 w-16 sm:h-20 sm:w-20 text-primary" />
             yava
           </h1>
           <p className="text-sm text-foreground/80 self-end">

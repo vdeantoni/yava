@@ -2,7 +2,8 @@ import VideoTimeline from "@/components/timeline/VideoTimeline.tsx";
 import SliceToolbar from "@/components/timeline/SliceToolbar.tsx";
 import { useAppStore } from "@/store.tsx";
 import VideoPlayer from "@/components/player/VideoPlayer.tsx";
-import { Clapperboard, Github, Upload } from "lucide-react";
+import { Github, Upload } from "lucide-react";
+import YavaLogo from "@/components/YavaLogo";
 import NewVideo from "./components/NewVideo";
 import { Button } from "@/components/ui/button.tsx";
 import { Analytics } from "@vercel/analytics/react";
@@ -48,10 +49,7 @@ function App() {
       <div className="flex h-svh flex-col overflow-hidden">
         {/* Header */}
         <header className="flex h-11 items-center justify-between gap-4 border-b border-border bg-card px-3 shrink-0">
-          <nav className="flex items-center gap-2">
-            <Clapperboard className="h-5 w-5 text-primary" />
-            <h1 className="text-base font-semibold tracking-tight">yava</h1>
-          </nav>
+          <YavaLogo className="h-7 w-7 text-primary" />
           <div className="flex items-center gap-2">
             {file && (
               <Button
