@@ -3,7 +3,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
-import { FileVideo, FolderOpen, MonitorUp, Webcam } from "lucide-react";
+import {
+  FileVideo,
+  FolderOpen,
+  LoaderCircle,
+  MonitorUp,
+  Webcam,
+} from "lucide-react";
 import YavaLogo from "@/components/YavaLogo";
 import { cn } from "@/lib/utils.ts";
 import {
@@ -16,10 +22,53 @@ import {
 import ScreenRecorder from "./ScreenRecorder";
 import CameraRecorder from "./CameraRecorder";
 
+// Start fetch at module level so it survives React strict mode's double-mount
+let pendingVideoFetch: Promise<Blob> | null = null;
+const paramUrl = new URLSearchParams(window.location.search).get("v");
+if (paramUrl) {
+  window.history.replaceState({}, "", window.location.pathname);
+  pendingVideoFetch = fetch(paramUrl).then((res) => {
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.blob();
+  });
+}
+
 const NewVideo = () => {
   const { setFile } = useAppStore();
 
   const [mode, setMode] = useState<"file" | "camera" | "screen">("file");
+  const [urlLoading, setUrlLoading] = useState(!!pendingVideoFetch);
+  const [urlError, setUrlError] = useState<string | null>(null);
+
+  // Observe the module-level fetch result
+  useEffect(() => {
+    if (!pendingVideoFetch) return;
+
+    let active = true;
+
+    pendingVideoFetch
+      .then((blob) => {
+        if (!active) return;
+        if (blob.type.startsWith("video/")) {
+          setFile(blob);
+        } else {
+          setUrlError("URL did not return a video file");
+        }
+      })
+      .catch(() => {
+        if (!active) return;
+        setUrlError("Failed to load video from URL");
+      })
+      .finally(() => {
+        if (!active) return;
+        setUrlLoading(false);
+        pendingVideoFetch = null;
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (!acceptedFiles?.length) {
@@ -67,17 +116,25 @@ const NewVideo = () => {
       }
 
       e.preventDefault();
+      setUrlLoading(true);
+      setUrlError(null);
       try {
         const response = await fetch(text, {
           signal: controller.signal,
         });
-        if (!response.ok) return;
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const blob = await response.blob();
         if (blob.type.startsWith("video/")) {
           setFile(blob);
+        } else {
+          setUrlError("URL did not return a video file");
         }
-      } catch {
-        // Fetch failed (CORS, network, abort, etc.) — ignore silently
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setUrlError("Failed to load video from URL");
+        }
+      } finally {
+        setUrlLoading(false);
       }
     };
 
@@ -86,7 +143,7 @@ const NewVideo = () => {
       document.removeEventListener("paste", handlePaste);
       controller.abort();
     };
-  }, [setFile]);
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col items-center p-4">
@@ -131,29 +188,38 @@ const NewVideo = () => {
               isDragActive && "scale-0 h-0 bg-primary/25",
             )}
           >
-            <FileVideo
-              className={cn(
-                "h-8 w-8 text-primary transition-transform",
-                isDragActive && "scale-110",
-              )}
-            />
+            {/* URL loading state */}
+            {urlLoading ? (
+              <LoaderCircle className="h-8 w-8 text-primary animate-spin" />
+            ) : (
+              <FileVideo
+                className={cn(
+                  "h-8 w-8 text-primary transition-transform",
+                  isDragActive && "scale-110",
+                )}
+              />
+            )}
           </div>
 
           {/* Heading */}
           <div className="flex flex-col items-center gap-8">
-            <h2
-              className="text-3xl md:text-4xl font-bold tracking-tight text-center"
-            >
-              {isDragActive ? "Drop!" : "Ready?"}
+            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-center">
+              {isDragActive
+                ? "Drop!"
+                : urlError
+                  ? "Oops..."
+                  : urlLoading
+                    ? "Loading..."
+                    : "Ready?"}
             </h2>
             <p
               className={cn(
                 "text-muted-foreground text-center max-w-md",
-                isDragActive && "invisible",
+                (isDragActive || urlLoading) && "invisible",
               )}
             >
-              Drag and drop your video files, record your camera or capture your
-              screen to begin editing in the browser.
+              {urlError ||
+                "Drag and drop your video files, record your camera or capture your screen to begin editing in the browser."}
             </p>
           </div>
 
@@ -161,7 +227,7 @@ const NewVideo = () => {
           <div
             className={cn(
               "flex items-stretch gap-3 w-full max-w-md mt-2 transition-opacity",
-              isDragActive && "opacity-0 pointer-events-none",
+              (isDragActive || urlLoading) && "opacity-0 pointer-events-none",
             )}
           >
             <Button
