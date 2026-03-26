@@ -8,6 +8,11 @@ export type HooksConfig = {
 
 beforeMount<HooksConfig>(async ({ hooksConfig }) => {
   if (hooksConfig?.storeState) {
-    useAppStore.setState(hooksConfig.storeState);
+    const state = { ...hooksConfig.storeState };
+    // Blob can't be serialized from Node.js → browser; create it here
+    if (state.file) {
+      state.file = new Blob(["fake"], { type: "video/mp4" });
+    }
+    useAppStore.setState(state);
   }
 });
