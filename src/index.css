@@ -101,15 +101,6 @@
     @apply text-primary text-sm font-mono;
   }
 
-  .slider-thumb-current {
-    @apply appearance-none pointer-events-none h-0 w-full absolute mt-7 z-10;
-  }
-
-  .slider-thumb-current::-webkit-slider-thumb {
-    @apply appearance-none pointer-events-auto cursor-grab w-4 h-14;
-    background: transparent;
-  }
-
   .timeline-marks {
     @apply bg-card h-7 pt-1 rounded-none cursor-default text-muted-foreground text-xs font-mono select-none;
   }

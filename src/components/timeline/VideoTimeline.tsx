@@ -10,7 +10,6 @@ import {
 import VideoThumbnails from "@/components/timeline/VideoThumbnails.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 import { useShallow } from "zustand/react/shallow";
-import { pendingEditState } from "@/components/NewVideo";
 import {
   cn,
   isMobile,
@@ -26,8 +25,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip.tsx";
-
-export const STEP_SIZE = 0.1;
 
 const MIN_MARK_SPACING_PX = 80;
 
@@ -91,6 +88,7 @@ const VideoTimeline = () => {
 
   const trackRef = useRef<HTMLDivElement>(null);
   const handleDrag = useRef(false);
+  const dragRect = useRef<DOMRect | null>(null);
   const trackWidth = useTrackResizeObserver(trackRef);
 
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
@@ -103,14 +101,6 @@ const VideoTimeline = () => {
     startTime: number;
     endTime?: number;
   } | null>(null);
-
-  const onHandlePointerDown = () => {
-    handleDrag.current = true;
-  };
-  const onHandleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    handleDrag.current = false;
-  };
 
   const onSegHandlePointerDown = (
     e: React.PointerEvent,
@@ -133,7 +123,7 @@ const VideoTimeline = () => {
   };
 
   useEffect(() => {
-    resetCursors(video.duration, pendingEditState);
+    resetCursors(video.duration);
   }, [video, resetCursors]);
 
   const marks = useMemo(() => {
@@ -333,69 +323,79 @@ const VideoTimeline = () => {
                       e.pointerId,
                     );
                   }}
-                >
-                  {/* Segment actions (top-right) */}
-                  {(isMobile || isHovered || isSelected) &&
-                    hasMultipleSegments && (
-                      <div className="absolute top-0.5 right-0.5 pointer-events-auto z-20 flex items-center gap-1.5">
-                        <TooltipProvider>
-                          {canJoin && (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div
-                                  className="cursor-pointer text-primary hover:text-primary/80"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    joinSegment(seg.id);
-                                  }}
-                                >
-                                  <Merge className="h-3.5 w-3.5" />
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">
-                                  Join adjacent segments into one
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          )}
+                />
+                {/* Segment actions (top-right) — in track stacking context */}
+                {(isMobile || isHovered || isSelected) &&
+                  hasMultipleSegments && (
+                    <div
+                      className="absolute top-0 pointer-events-auto z-30 flex items-center gap-1.5"
+                      style={{
+                        left:
+                          segStartPct * trackWidth +
+                          segWidthPx -
+                          (canJoin ? 36 : 18),
+                        top: -2,
+                      }}
+                    >
+                      <TooltipProvider>
+                        {canJoin && (
                           <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div
-                                  className="cursor-pointer text-destructive hover:text-destructive/80"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    deleteSegment(seg.id);
-                                  }}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">Delete segment</p>
-                              </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                    )}
-                  {/* Resize handles — visible on hover, offset vertically to avoid overlap */}
-                  {(isMobile || isHovered || isSelected) && (
-                    <>
-                      <div
-                        className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-primary rounded-sm pointer-events-auto cursor-col-resize z-20 shadow"
-                        onPointerDown={(e) =>
-                          onSegHandlePointerDown(e, seg.id, "start")
-                        }
-                      />
-                      <div
-                        className="absolute right-0 top-1/2 translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 bg-primary rounded-sm pointer-events-auto cursor-col-resize z-20 shadow"
-                        onPointerDown={(e) =>
-                          onSegHandlePointerDown(e, seg.id, "end")
-                        }
-                      />
-                    </>
+                            <TooltipTrigger asChild>
+                              <div
+                                className="cursor-pointer text-primary hover:text-primary/80"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  joinSegment(seg.id);
+                                }}
+                              >
+                                <Merge className="h-3.5 w-3.5" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">
+                                Join adjacent segments into one
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div
+                                className="cursor-pointer text-destructive hover:text-destructive/80"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteSegment(seg.id);
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Delete segment</p>
+                            </TooltipContent>
+                          </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   )}
-                </div>
+                {/* Resize handles — in track stacking context, above cursor */}
+                {(isMobile || isHovered || isSelected) && (
+                  <>
+                    <div
+                      className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-6 bg-primary rounded-full pointer-events-auto cursor-col-resize z-40 shadow"
+                      style={{ left: segStartPct * trackWidth }}
+                      onPointerDown={(e) =>
+                        onSegHandlePointerDown(e, seg.id, "start")
+                      }
+                    />
+                    <div
+                      className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-6 bg-primary rounded-full pointer-events-auto cursor-col-resize z-40 shadow"
+                      style={{ left: segEndPct * trackWidth }}
+                      onPointerDown={(e) =>
+                        onSegHandlePointerDown(e, seg.id, "end")
+                      }
+                    />
+                  </>
+                )}
                 {/* Split line between adjacent segments */}
                 {i < segments.length - 1 && (
                   <div
@@ -433,42 +433,51 @@ const VideoTimeline = () => {
               );
             })}
 
-          <input
-            className="slider-thumb-current"
-            type="range"
-            min="0"
-            max={video.duration}
-            step={STEP_SIZE}
-            value={cursorCurrent}
-            onPointerDown={onHandlePointerDown}
-            onClick={onHandleClick}
-            onInput={(e) => {
-              video.pause();
-              const value = +e.currentTarget.value;
-              if (value >= cursorStart && value <= cursorEnd) {
-                const seg = findSegmentAt(segments, value);
-                if (seg) {
-                  setCursorCurrent(value);
-                } else {
-                  setCursorCurrent(
-                    snapToNearestSegmentBoundary(
-                      segments,
-                      value,
-                      cursorStart,
-                    ),
-                  );
-                }
-              }
-            }}
-          />
           <div
-            className="absolute pointer-events-none z-30"
+            className="absolute z-20"
             style={{
               left: (cursorCurrent / video.duration) * trackWidth,
               top: 0,
             }}
           >
-            <div className="w-0.5 h-14 bg-primary rounded-full -translate-x-1/2 shadow-[0_0_6px_hsl(var(--primary)/0.4)]" />
+            {/* Invisible wider hit area for dragging */}
+            <div
+              className="absolute -translate-x-1/2 w-4 h-14 cursor-grab pointer-events-auto"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                handleDrag.current = true;
+                dragRect.current =
+                  trackRef.current!.getBoundingClientRect();
+                (e.target as HTMLElement).setPointerCapture(e.pointerId);
+              }}
+              onPointerMove={(e) => {
+                if (!handleDrag.current || !dragRect.current) return;
+                const rect = dragRect.current;
+                const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                const time = (x / rect.width) * video.duration;
+                if (time >= cursorStart && time <= cursorEnd) {
+                  const seg = findSegmentAt(segments, time);
+                  if (seg) {
+                    setCursorCurrent(time);
+                  } else {
+                    setCursorCurrent(
+                      snapToNearestSegmentBoundary(segments, time, cursorStart),
+                    );
+                  }
+                }
+              }}
+              onPointerUp={() => {
+                handleDrag.current = false;
+                dragRect.current = null;
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDrag.current = false;
+              }}
+            />
+            {/* Visual cursor line */}
+            <div className="w-0.5 h-14 bg-primary rounded-full -translate-x-1/2 pointer-events-none shadow-[0_0_6px_hsl(var(--primary)/0.4)]" />
           </div>
         </div>
       </div>

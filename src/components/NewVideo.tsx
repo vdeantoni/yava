@@ -26,11 +26,16 @@ import {
 import ScreenRecorder from "./ScreenRecorder";
 import CameraRecorder from "./CameraRecorder";
 
+const DEMO_VIDEO_URL =
+  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+
 // Start fetch at module level so it survives React strict mode's double-mount
 let pendingVideoFetch: Promise<Blob> | null = null;
+let pendingVideoFetchConsumed = false;
 const parsedUrl = parseUrlEditState();
-const pendingEditState = parsedUrl.editState;
-export { pendingEditState };
+if (parsedUrl.editState) {
+  useAppStore.setState({ pendingEditState: parsedUrl.editState });
+}
 if (parsedUrl.videoUrl) {
   pendingVideoFetch = fetch(parsedUrl.videoUrl).then((res) => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -72,15 +77,15 @@ const NewVideo = () => {
     [setFile],
   );
 
-  // Observe the module-level fetch result
+  // Observe the module-level fetch result (once only)
   useEffect(() => {
-    if (!pendingVideoFetch) return;
+    if (!pendingVideoFetch || pendingVideoFetchConsumed) return;
+    pendingVideoFetchConsumed = true;
 
-    let active = true;
+    setUrlLoading(true);
 
     pendingVideoFetch
       .then((blob) => {
-        if (!active) return;
         if (blob.type.startsWith("video/")) {
           setFile(blob, parsedUrl.videoUrl!);
         } else {
@@ -88,18 +93,12 @@ const NewVideo = () => {
         }
       })
       .catch(() => {
-        if (!active) return;
         setUrlError("Failed to load video from URL");
       })
       .finally(() => {
-        if (!active) return;
         setUrlLoading(false);
         pendingVideoFetch = null;
       });
-
-    return () => {
-      active = false;
-    };
   }, []);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -159,7 +158,7 @@ const NewVideo = () => {
   }, []);
 
   return (
-    <div className="flex-1 flex flex-col items-center p-4">
+    <div className="flex-1 flex flex-col items-center p-4" {...getRootProps()}>
       {/* Top spacer — pushes content above true center */}
       <div className="flex-[2_0_0%]" />
 
@@ -185,7 +184,7 @@ const NewVideo = () => {
         </p>
       </div>
 
-      <div className="w-full max-w-2xl mt-10" {...getRootProps()}>
+      <div className="w-full max-w-2xl mt-10">
         <Input {...getInputProps()} />
 
         <div
@@ -220,6 +219,7 @@ const NewVideo = () => {
               className={cn(
                 "text-3xl md:text-4xl font-bold tracking-tight text-center duration-500",
                 isDragActive && "translate-y-30",
+                urlLoading && "translate-y-15",
               )}
             >
               {isDragActive
@@ -230,61 +230,79 @@ const NewVideo = () => {
                     ? "Loading..."
                     : "Ready?"}
             </h2>
-            {mode === "url" ? (
-              <div
-                className={cn(
-                  "flex gap-2 w-full max-w-md",
-                  (isDragActive || urlLoading) && "invisible",
-                )}
-              >
-                <Input
-                  type="url"
-                  placeholder="https://..."
-                  autoFocus
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && urlInput.trim()) {
-                      setMode("file");
-                      fetchVideoFromUrl(urlInput.trim());
-                    }
-                    if (e.key === "Escape") {
-                      setMode("file");
-                      setUrlInput("");
-                    }
-                  }}
-                />
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  className="shrink-0"
-                  disabled={!urlInput.trim()}
-                  onClick={() => {
-                    setMode("file");
-                    fetchVideoFromUrl(urlInput.trim());
-                  }}
-                >
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : (
+            {mode !== "url" && (
               <p
                 className={cn(
                   "text-muted-foreground text-center max-w-md",
                   (isDragActive || urlLoading) && "invisible",
                 )}
               >
-                {urlError ||
-                  "Drag and drop your video files, record your camera or capture your screen to begin editing in the browser."}
+                {urlError || (
+                  <>
+                    Drag and drop or paste your video files, record your
+                    camera or capture your screen to begin editing in the
+                    browser.{" "}
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        fetchVideoFromUrl(DEMO_VIDEO_URL);
+                      }}
+                    >
+                      Try a demo video
+                    </button>
+                  </>
+                )}
               </p>
             )}
           </div>
 
+          {mode === "url" && (
+            <div
+              className={cn(
+                "flex gap-2 w-full",
+                (isDragActive || urlLoading) && "invisible",
+              )}
+            >
+              <Input
+                type="url"
+                placeholder="https://..."
+                autoFocus
+                className="w-full"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && urlInput.trim()) {
+                    setMode("file");
+                    fetchVideoFromUrl(urlInput.trim());
+                  }
+                  if (e.key === "Escape") {
+                    setMode("file");
+                    setUrlInput("");
+                  }
+                }}
+              />
+              <Button
+                variant="secondary"
+                size="icon"
+                className="shrink-0"
+                disabled={!urlInput.trim()}
+                onClick={() => {
+                  setMode("file");
+                  fetchVideoFromUrl(urlInput.trim());
+                }}
+              >
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
           {/* Action buttons */}
           <div
             className={cn(
-              "flex items-stretch gap-3 w-full max-w-md mt-2 transition-opacity",
-              (isDragActive || urlLoading) && "opacity-0 pointer-events-none",
+              "flex items-stretch gap-3 w-full max-w-md mt-2",
+              (isDragActive || urlLoading) && "invisible",
             )}
           >
             <Button

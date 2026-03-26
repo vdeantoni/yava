@@ -47,6 +47,8 @@ interface AppState {
 
   processing: boolean;
 
+  pendingEditState: UrlEditState | null;
+
   format: Format;
   preset: Preset;
   frameRate: number;
@@ -65,7 +67,7 @@ interface AppActions {
   setCursorCurrent: (cursorCurrent: number) => void;
   setCropRectangle: (cropRectangle: CropRectangle) => void;
 
-  resetCursors: (duration: number, editState?: UrlEditState | null) => void;
+  resetCursors: (duration: number) => void;
   setProcessing: (processing: boolean) => void;
 
   sliceAtCursor: () => void;
@@ -86,8 +88,6 @@ interface AppActions {
   setOutputHeight: (outputHeight: string) => void;
   setNoAudio: (noAudio: boolean) => void;
   resetExportOptions: () => void;
-
-  applyEditState: (editState: UrlEditState) => void;
 
   reset: () => void;
 }
@@ -164,6 +164,8 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
 
   processing: false,
 
+  pendingEditState: null,
+
   ...DEFAULT_EXPORT,
 
   setMultithreading: (multithreading: boolean) =>
@@ -176,8 +178,8 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
   setCursorCurrent: (cursorCurrent) => set(() => ({ cursorCurrent })),
   setCropRectangle: (cropRectangle) => set(() => ({ cropRectangle })),
 
-  resetCursors: (duration, editState) =>
-    set(() => {
+  resetCursors: (duration) =>
+    set((state) => {
       const defaults = {
         cursorStart: 0,
         cursorEnd: duration,
@@ -188,6 +190,7 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
         selectedSegmentId: null as string | null,
         nextSegmentId: 1,
       };
+      const editState = state.pendingEditState;
       if (!editState) return defaults;
       const edits = buildEditStateUpdates(editState, duration);
       return edits ? { ...defaults, ...edits } : defaults;
@@ -361,14 +364,8 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
     }));
   },
 
-  applyEditState: (editState) =>
-    set((state) => {
-      const duration = state.video?.duration;
-      if (!duration) return state;
-      return buildEditStateUpdates(editState, duration) ?? state;
-    }),
-
-  reset: () =>
+  reset: () => {
+    window.history.replaceState({}, "", window.location.pathname);
     set(() => ({
       multithreading: supportsMultithreading,
 
@@ -394,6 +391,9 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
 
       processing: false,
 
+      pendingEditState: null,
+
       ...DEFAULT_EXPORT,
-    })),
+    }));
+  },
 }));
