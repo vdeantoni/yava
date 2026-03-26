@@ -130,20 +130,34 @@ export function parseUrlEditState(): {
 let timer: ReturnType<typeof setTimeout>;
 let lastUrl = "";
 
-useAppStore.subscribe((state) => {
+const unsubscribe = useAppStore.subscribe((state) => {
   clearTimeout(timer);
-  timer = setTimeout(() => {
-    let url: string;
-    if (!state.sourceUrl) {
-      url = window.location.pathname;
-    } else {
-      const encoded = encodeEditState(state);
-      const newHash = encoded ? `#${encoded}` : "";
-      url = window.location.pathname + window.location.search + newHash;
+
+  // Clear URL immediately on reset (no debounce needed)
+  if (!state.sourceUrl) {
+    const url = window.location.pathname;
+    if (url !== lastUrl) {
+      lastUrl = url;
+      window.history.replaceState({}, "", url);
     }
+    return;
+  }
+
+  timer = setTimeout(() => {
+    const encoded = encodeEditState(state);
+    const newHash = encoded ? `#${encoded}` : "";
+    const url = window.location.pathname + window.location.search + newHash;
     if (url !== lastUrl) {
       lastUrl = url;
       window.history.replaceState({}, "", url);
     }
   }, DEBOUNCE_MS);
 });
+
+// Clean up on HMR so stale subscriptions don't persist
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    clearTimeout(timer);
+    unsubscribe();
+  });
+}

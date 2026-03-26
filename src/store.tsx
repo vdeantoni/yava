@@ -65,7 +65,7 @@ interface AppActions {
   setCursorCurrent: (cursorCurrent: number) => void;
   setCropRectangle: (cropRectangle: CropRectangle) => void;
 
-  resetCursors: (duration: number) => void;
+  resetCursors: (duration: number, editState?: UrlEditState | null) => void;
   setProcessing: (processing: boolean) => void;
 
   sliceAtCursor: () => void;
@@ -101,6 +101,42 @@ const DEFAULT_EXPORT = {
   outputHeight: "",
   noAudio: false,
 };
+
+function buildEditStateUpdates(
+  editState: UrlEditState,
+  duration: number,
+): Partial<AppState> | null {
+  const updates: Partial<AppState> = {};
+
+  if (editState.seg?.length) {
+    const segments: Segment[] = [];
+    let nextId = 0;
+    for (const [start, end] of editState.seg) {
+      const s = Math.max(0, Math.min(start, duration));
+      const e = Math.max(0, Math.min(end, duration));
+      if (e - s >= MIN_SLICE_DISTANCE) {
+        segments.push({ id: `s${nextId++}`, sourceStart: s, sourceEnd: e });
+      }
+    }
+    if (segments.length > 0) {
+      segments.sort((a, b) => a.sourceStart - b.sourceStart);
+      updates.segments = segments;
+      updates.nextSegmentId = nextId;
+      updates.cursorStart = segments[0].sourceStart;
+      updates.cursorEnd = segments[segments.length - 1].sourceEnd;
+      updates.cursorCurrent = segments[0].sourceStart;
+      updates.selectedSegmentId = null;
+    }
+  }
+
+  if (editState.fmt) updates.format = editState.fmt;
+  if (editState.pre) updates.preset = editState.pre;
+  if (editState.fps != null) updates.frameRate = editState.fps;
+  if (editState.spd != null) updates.speed = editState.spd;
+  if (editState.na != null) updates.noAudio = editState.na;
+
+  return Object.keys(updates).length > 0 ? updates : null;
+}
 
 export const useAppStore = create<AppState & AppActions>()((set, get) => ({
   ffmpeg: new FFmpeg(),
@@ -140,15 +176,22 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
   setCursorCurrent: (cursorCurrent) => set(() => ({ cursorCurrent })),
   setCropRectangle: (cropRectangle) => set(() => ({ cropRectangle })),
 
-  resetCursors: (duration) =>
-    set(() => ({
-      cursorStart: 0,
-      cursorEnd: duration,
-      cursorCurrent: 0,
-      segments: [{ id: "s0", sourceStart: 0, sourceEnd: duration }],
-      selectedSegmentId: null,
-      nextSegmentId: 1,
-    })),
+  resetCursors: (duration, editState) =>
+    set(() => {
+      const defaults = {
+        cursorStart: 0,
+        cursorEnd: duration,
+        cursorCurrent: 0,
+        segments: [
+          { id: "s0", sourceStart: 0, sourceEnd: duration },
+        ] as Segment[],
+        selectedSegmentId: null as string | null,
+        nextSegmentId: 1,
+      };
+      if (!editState) return defaults;
+      const edits = buildEditStateUpdates(editState, duration);
+      return edits ? { ...defaults, ...edits } : defaults;
+    }),
 
   setProcessing: (processing) => set(() => ({ processing })),
 
@@ -322,44 +365,7 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
     set((state) => {
       const duration = state.video?.duration;
       if (!duration) return state;
-
-      const updates: Partial<AppState> = {};
-
-      // Restore segments with clamping
-      if (editState.seg?.length) {
-        const segments: Segment[] = [];
-        let nextId = 0;
-        for (const [start, end] of editState.seg) {
-          const s = Math.max(0, Math.min(start, duration));
-          const e = Math.max(0, Math.min(end, duration));
-          if (e - s >= MIN_SLICE_DISTANCE) {
-            segments.push({
-              id: `s${nextId++}`,
-              sourceStart: s,
-              sourceEnd: e,
-            });
-          }
-        }
-
-        if (segments.length > 0) {
-          segments.sort((a, b) => a.sourceStart - b.sourceStart);
-          updates.segments = segments;
-          updates.nextSegmentId = nextId;
-          updates.cursorStart = segments[0].sourceStart;
-          updates.cursorEnd = segments[segments.length - 1].sourceEnd;
-          updates.cursorCurrent = segments[0].sourceStart;
-          updates.selectedSegmentId = null;
-        }
-      }
-
-      // Restore export options (only override if present)
-      if (editState.fmt) updates.format = editState.fmt;
-      if (editState.pre) updates.preset = editState.pre;
-      if (editState.fps != null) updates.frameRate = editState.fps;
-      if (editState.spd != null) updates.speed = editState.spd;
-      if (editState.na != null) updates.noAudio = editState.na;
-
-      return updates;
+      return buildEditStateUpdates(editState, duration) ?? state;
     }),
 
   reset: () =>

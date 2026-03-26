@@ -10,6 +10,7 @@ import {
 import VideoThumbnails from "@/components/timeline/VideoThumbnails.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 import { useShallow } from "zustand/react/shallow";
+import { pendingEditState } from "@/components/NewVideo";
 import {
   cn,
   isMobile,
@@ -132,7 +133,7 @@ const VideoTimeline = () => {
   };
 
   useEffect(() => {
-    resetCursors(video.duration);
+    resetCursors(video.duration, pendingEditState);
   }, [video, resetCursors]);
 
   const marks = useMemo(() => {
