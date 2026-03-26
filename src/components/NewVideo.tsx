@@ -189,7 +189,7 @@ const NewVideo = () => {
 
         <div
           className={cn(
-            "relative flex flex-col items-center gap-6 rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm px-8 py-12 md:p-16 transition-all",
+            "relative flex flex-col items-center gap-6 rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm p-8 transition-all",
             isDragActive && "border-primary/60 bg-primary/5 scale-[1.01]",
           )}
         >
@@ -239,19 +239,11 @@ const NewVideo = () => {
               >
                 {urlError || (
                   <>
-                    Drag and drop or paste your video files, record your
-                    camera or capture your screen to begin editing in the
-                    browser.{" "}
-                    <button
-                      type="button"
-                      className="text-primary hover:underline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        fetchVideoFromUrl(DEMO_VIDEO_URL);
-                      }}
-                    >
-                      Try a demo video
-                    </button>
+                    <p>
+                      Drag and drop or paste your video files, record your
+                      camera or capture your screen to begin editing in the
+                      browser.
+                    </p>
                   </>
                 )}
               </p>
@@ -301,51 +293,55 @@ const NewVideo = () => {
           {/* Action buttons */}
           <div
             className={cn(
-              "flex items-stretch gap-3 w-full max-w-md mt-2",
+              "flex flex-col md:flex-row items-center gap-3 mt-2",
               (isDragActive || urlLoading) && "invisible",
             )}
           >
-            <Button
-              size="lg"
-              className="flex-1 h-14 gap-2 text-sm font-semibold uppercase tracking-wider"
-              onClick={open}
-            >
-              <FolderOpen className="h-4 w-4" />
-              Browse Files
-            </Button>
-            <Button
-              variant="secondary"
-              className="h-14 w-14 shrink-0 flex flex-col gap-1 p-0"
-              onClick={() => {
-                setUrlError(null);
-                setMode("url");
-              }}
-            >
-              <Link className="h-4 w-4" />
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                URL
-              </span>
-            </Button>
-            <Button
-              variant="secondary"
-              className="h-14 w-14 shrink-0 flex flex-col gap-1 p-0"
-              onClick={() => setMode("camera")}
-            >
-              <Webcam className="h-4 w-4" />
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Record
-              </span>
-            </Button>
-            <Button
-              variant="secondary"
-              className="h-14 w-14 shrink-0 flex flex-col gap-1 p-0"
-              onClick={() => setMode("screen")}
-            >
-              <MonitorUp className="h-4 w-4" />
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                Screen
-              </span>
-            </Button>
+            <div className="flex">
+              <Button
+                size="lg"
+                className="h-14 gap-2 text-sm font-semibold uppercase tracking-wider"
+                onClick={open}
+              >
+                <FolderOpen className="h-4 w-4" />
+                Browse Files
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                className="h-14 w-14 shrink-0 flex flex-col gap-1 p-0"
+                onClick={() => {
+                  setUrlError(null);
+                  setMode("url");
+                }}
+              >
+                <Link className="h-4 w-4" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  URL
+                </span>
+              </Button>
+              <Button
+                variant="secondary"
+                className="h-14 w-14 shrink-0 flex flex-col gap-1 p-0"
+                onClick={() => setMode("camera")}
+              >
+                <Webcam className="h-4 w-4" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Record
+                </span>
+              </Button>
+              <Button
+                variant="secondary"
+                className="h-14 w-14 shrink-0 flex flex-col gap-1 p-0"
+                onClick={() => setMode("screen")}
+              >
+                <MonitorUp className="h-4 w-4" />
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Screen
+                </span>
+              </Button>
+            </div>
           </div>
 
           {/* Feature badges */}
@@ -364,6 +360,13 @@ const NewVideo = () => {
               </span>
             ))}
           </div>
+
+          <a
+            href={"/?v=" + DEMO_VIDEO_URL}
+            className="text-primary hover:underline"
+          >
+            Try a demo video
+          </a>
         </div>
 
         {/* Supported formats */}
