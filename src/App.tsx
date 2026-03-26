@@ -5,6 +5,8 @@ import VideoPlayer from "@/components/player/VideoPlayer.tsx";
 import { Github, Upload } from "lucide-react";
 import YavaLogo from "@/components/YavaLogo";
 import NewVideo from "./components/NewVideo";
+import { pendingEditState } from "./components/NewVideo";
+import "@/lib/url-state"; // activate store → URL sync
 import { Button } from "@/components/ui/button.tsx";
 import { Analytics } from "@vercel/analytics/react";
 import TrimPanel from "@/components/panels/TrimPanel.tsx";
@@ -16,13 +18,13 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion.tsx";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 const triggerClass =
   "px-4 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground hover:no-underline";
 
 function App() {
-  const { file, reset, video } = useAppStore();
+  const { file, reset, video, applyEditState } = useAppStore();
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -43,6 +45,14 @@ function App() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // Apply URL edit state once after video loads
+  const editStateApplied = useRef(false);
+  useEffect(() => {
+    if (!video || !pendingEditState || editStateApplied.current) return;
+    editStateApplied.current = true;
+    applyEditState(pendingEditState);
+  }, [video, applyEditState]);
 
   return (
     <>

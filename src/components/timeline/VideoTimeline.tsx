@@ -29,7 +29,6 @@ import {
 export const STEP_SIZE = 0.1;
 
 const MIN_MARK_SPACING_PX = 80;
-const HANDLE_WIDTH = 16;
 
 const MARK_OPTIONS = [
   1, 5, 10, 15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480, 540, 600,
@@ -464,9 +463,7 @@ const VideoTimeline = () => {
           <div
             className="absolute pointer-events-none z-30"
             style={{
-              left:
-                (cursorCurrent / video.duration) * (trackWidth - HANDLE_WIDTH) +
-                HANDLE_WIDTH / 2,
+              left: (cursorCurrent / video.duration) * trackWidth,
               top: 0,
             }}
           >

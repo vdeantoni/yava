@@ -18,12 +18,23 @@ export interface Segment {
   sourceEnd: number;
 }
 
+export interface UrlEditState {
+  v?: string;
+  seg?: [number, number][];
+  fmt?: Format;
+  pre?: Preset;
+  fps?: number;
+  spd?: number;
+  na?: boolean;
+}
+
 interface AppState {
   ffmpeg: FFmpeg;
   multithreading: boolean;
 
   file?: Blob;
   video: HTMLVideoElement;
+  sourceUrl: string | null;
 
   cursorCurrent: number;
   cursorStart: number;
@@ -49,7 +60,7 @@ interface AppActions {
   setMultithreading: (multithreading: boolean) => void;
 
   setVideo: (video: HTMLVideoElement) => void;
-  setFile: (file: Blob) => void;
+  setFile: (file: Blob, sourceUrl?: string) => void;
 
   setCursorCurrent: (cursorCurrent: number) => void;
   setCropRectangle: (cropRectangle: CropRectangle) => void;
@@ -76,6 +87,8 @@ interface AppActions {
   setNoAudio: (noAudio: boolean) => void;
   resetExportOptions: () => void;
 
+  applyEditState: (editState: UrlEditState) => void;
+
   reset: () => void;
 }
 
@@ -95,6 +108,7 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
 
   video: undefined!,
   file: undefined,
+  sourceUrl: null,
 
   cursorCurrent: 0,
   cursorStart: 0,
@@ -120,7 +134,8 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
     set(() => ({ multithreading })),
 
   setVideo: (video) => set(() => ({ video })),
-  setFile: (file) => set(() => ({ file })),
+  setFile: (file, sourceUrl) =>
+    set(() => ({ file, sourceUrl: sourceUrl ?? null })),
 
   setCursorCurrent: (cursorCurrent) => set(() => ({ cursorCurrent })),
   setCropRectangle: (cropRectangle) => set(() => ({ cropRectangle })),
@@ -303,12 +318,57 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
     }));
   },
 
+  applyEditState: (editState) =>
+    set((state) => {
+      const duration = state.video?.duration;
+      if (!duration) return state;
+
+      const updates: Partial<AppState> = {};
+
+      // Restore segments with clamping
+      if (editState.seg?.length) {
+        const segments: Segment[] = [];
+        let nextId = 0;
+        for (const [start, end] of editState.seg) {
+          const s = Math.max(0, Math.min(start, duration));
+          const e = Math.max(0, Math.min(end, duration));
+          if (e - s >= MIN_SLICE_DISTANCE) {
+            segments.push({
+              id: `s${nextId++}`,
+              sourceStart: s,
+              sourceEnd: e,
+            });
+          }
+        }
+
+        if (segments.length > 0) {
+          segments.sort((a, b) => a.sourceStart - b.sourceStart);
+          updates.segments = segments;
+          updates.nextSegmentId = nextId;
+          updates.cursorStart = segments[0].sourceStart;
+          updates.cursorEnd = segments[segments.length - 1].sourceEnd;
+          updates.cursorCurrent = segments[0].sourceStart;
+          updates.selectedSegmentId = null;
+        }
+      }
+
+      // Restore export options (only override if present)
+      if (editState.fmt) updates.format = editState.fmt;
+      if (editState.pre) updates.preset = editState.pre;
+      if (editState.fps != null) updates.frameRate = editState.fps;
+      if (editState.spd != null) updates.speed = editState.spd;
+      if (editState.na != null) updates.noAudio = editState.na;
+
+      return updates;
+    }),
+
   reset: () =>
     set(() => ({
       multithreading: supportsMultithreading,
 
       file: undefined!,
       video: undefined!,
+      sourceUrl: null,
 
       cursorCurrent: 0,
       cursorStart: 0,

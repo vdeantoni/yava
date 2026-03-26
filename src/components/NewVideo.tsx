@@ -4,14 +4,18 @@ import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/components/ui/button";
 import {
+  ArrowRight,
+  FileDown,
   FileVideo,
   FolderOpen,
+  Link,
   LoaderCircle,
   MonitorUp,
   Webcam,
 } from "lucide-react";
 import YavaLogo from "@/components/YavaLogo";
 import { cn } from "@/lib/utils.ts";
+import { parseUrlEditState } from "@/lib/url-state.ts";
 import {
   Dialog,
   DialogContent,
@@ -24,10 +28,11 @@ import CameraRecorder from "./CameraRecorder";
 
 // Start fetch at module level so it survives React strict mode's double-mount
 let pendingVideoFetch: Promise<Blob> | null = null;
-const paramUrl = new URLSearchParams(window.location.search).get("v");
-if (paramUrl) {
-  window.history.replaceState({}, "", window.location.pathname);
-  pendingVideoFetch = fetch(paramUrl).then((res) => {
+const parsedUrl = parseUrlEditState();
+const pendingEditState = parsedUrl.editState;
+export { pendingEditState };
+if (parsedUrl.videoUrl) {
+  pendingVideoFetch = fetch(parsedUrl.videoUrl).then((res) => {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.blob();
   });
@@ -36,9 +41,36 @@ if (paramUrl) {
 const NewVideo = () => {
   const { setFile } = useAppStore();
 
-  const [mode, setMode] = useState<"file" | "camera" | "screen">("file");
+  const [mode, setMode] = useState<"file" | "url" | "camera" | "screen">(
+    "file",
+  );
   const [urlLoading, setUrlLoading] = useState(!!pendingVideoFetch);
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [urlInput, setUrlInput] = useState("");
+
+  const fetchVideoFromUrl = useCallback(
+    async (url: string, signal?: AbortSignal) => {
+      setUrlLoading(true);
+      setUrlError(null);
+      try {
+        const response = await fetch(url, { signal });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const blob = await response.blob();
+        if (blob.type.startsWith("video/")) {
+          setFile(blob, url);
+        } else {
+          setUrlError("URL did not return a video file");
+        }
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setUrlError("Failed to load video from URL");
+        }
+      } finally {
+        setUrlLoading(false);
+      }
+    },
+    [setFile],
+  );
 
   // Observe the module-level fetch result
   useEffect(() => {
@@ -50,7 +82,7 @@ const NewVideo = () => {
       .then((blob) => {
         if (!active) return;
         if (blob.type.startsWith("video/")) {
-          setFile(blob);
+          setFile(blob, parsedUrl.videoUrl!);
         } else {
           setUrlError("URL did not return a video file");
         }
@@ -116,26 +148,7 @@ const NewVideo = () => {
       }
 
       e.preventDefault();
-      setUrlLoading(true);
-      setUrlError(null);
-      try {
-        const response = await fetch(text, {
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const blob = await response.blob();
-        if (blob.type.startsWith("video/")) {
-          setFile(blob);
-        } else {
-          setUrlError("URL did not return a video file");
-        }
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          setUrlError("Failed to load video from URL");
-        }
-      } finally {
-        setUrlLoading(false);
-      }
+      fetchVideoFromUrl(text, controller.signal);
     };
 
     document.addEventListener("paste", handlePaste);
@@ -185,11 +198,11 @@ const NewVideo = () => {
           <div
             className={cn(
               "flex items-center justify-center w-16 h-16 rounded-xl bg-primary/15 transition-all duration-500",
-              isDragActive && "scale-0 h-0 bg-primary/25",
             )}
           >
-            {/* URL loading state */}
-            {urlLoading ? (
+            {isDragActive ? (
+              <FileDown className="h-8 w-8 text-primary animate-bounce translate-y-2" />
+            ) : urlLoading ? (
               <LoaderCircle className="h-8 w-8 text-primary animate-spin" />
             ) : (
               <FileVideo
@@ -203,7 +216,12 @@ const NewVideo = () => {
 
           {/* Heading */}
           <div className="flex flex-col items-center gap-8">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-center">
+            <h2
+              className={cn(
+                "text-3xl md:text-4xl font-bold tracking-tight text-center duration-500",
+                isDragActive && "translate-y-30",
+              )}
+            >
               {isDragActive
                 ? "Drop!"
                 : urlError
@@ -212,15 +230,54 @@ const NewVideo = () => {
                     ? "Loading..."
                     : "Ready?"}
             </h2>
-            <p
-              className={cn(
-                "text-muted-foreground text-center max-w-md",
-                (isDragActive || urlLoading) && "invisible",
-              )}
-            >
-              {urlError ||
-                "Drag and drop your video files, record your camera or capture your screen to begin editing in the browser."}
-            </p>
+            {mode === "url" ? (
+              <div
+                className={cn(
+                  "flex gap-2 w-full max-w-md",
+                  (isDragActive || urlLoading) && "invisible",
+                )}
+              >
+                <Input
+                  type="url"
+                  placeholder="https://..."
+                  autoFocus
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && urlInput.trim()) {
+                      setMode("file");
+                      fetchVideoFromUrl(urlInput.trim());
+                    }
+                    if (e.key === "Escape") {
+                      setMode("file");
+                      setUrlInput("");
+                    }
+                  }}
+                />
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="shrink-0"
+                  disabled={!urlInput.trim()}
+                  onClick={() => {
+                    setMode("file");
+                    fetchVideoFromUrl(urlInput.trim());
+                  }}
+                >
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <p
+                className={cn(
+                  "text-muted-foreground text-center max-w-md",
+                  (isDragActive || urlLoading) && "invisible",
+                )}
+              >
+                {urlError ||
+                  "Drag and drop your video files, record your camera or capture your screen to begin editing in the browser."}
+              </p>
+            )}
           </div>
 
           {/* Action buttons */}
@@ -237,6 +294,19 @@ const NewVideo = () => {
             >
               <FolderOpen className="h-4 w-4" />
               Browse Files
+            </Button>
+            <Button
+              variant="secondary"
+              className="h-14 w-14 shrink-0 flex flex-col gap-1 p-0"
+              onClick={() => {
+                setUrlError(null);
+                setMode("url");
+              }}
+            >
+              <Link className="h-4 w-4" />
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                URL
+              </span>
             </Button>
             <Button
               variant="secondary"
@@ -264,7 +334,6 @@ const NewVideo = () => {
           <div
             className={cn(
               "flex flex-wrap items-center justify-center gap-x-6 gap-y-1 mt-2 transition-opacity",
-              isDragActive && "opacity-0",
             )}
           >
             {["FFmpeg", "No uploads", "WASM"].map((label) => (
