@@ -81,7 +81,6 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
     const numFrames = Math.ceil(maxWidth / w) + 1;
     const step = video.duration / numFrames;
 
-    let completedExtractors = 0;
     let cancelled = false;
     const cleanups: (() => void)[] = [];
     const numExtractors = Math.min(PARALLEL_EXTRACTORS, numFrames);
@@ -121,8 +120,6 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
         slot += numExtractors;
         if (slot < numFrames) {
           thumbVideo.currentTime = slot * step;
-        } else {
-          completedExtractors++;
         }
       };
 

@@ -92,6 +92,7 @@ const VideoTimeline = () => {
   const trackWidth = useTrackResizeObserver(trackRef);
 
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const segDrag = useRef<{
     segId: string;
@@ -119,6 +120,7 @@ const VideoTimeline = () => {
       startX: e.clientX,
       startTime: edge === "start" ? seg.sourceStart : seg.sourceEnd,
     };
+    setIsDragging(true);
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
@@ -253,6 +255,7 @@ const VideoTimeline = () => {
         }}
         onPointerUp={() => {
           segDrag.current = null;
+          setIsDragging(false);
         }}
       >
         <div className="relative timeline-marks w-full">
@@ -285,7 +288,6 @@ const VideoTimeline = () => {
             const isSelected = seg.id === selectedSegmentId;
             const isHovered = seg.id === hoveredSegmentId;
             const segWidthPx = (segEndPct - segStartPct) * trackWidth;
-            const isDragging = segDrag.current !== null;
             const canJoin =
               hasMultipleSegments &&
               ((i > 0 &&
@@ -315,6 +317,7 @@ const VideoTimeline = () => {
                       startTime: seg.sourceStart,
                       endTime: seg.sourceEnd,
                     };
+                    setIsDragging(true);
                     (e.target as HTMLElement).setPointerCapture(e.pointerId);
                   }}
                 />
