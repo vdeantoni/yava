@@ -35,7 +35,8 @@ export function encodeEditState(state: {
   // Only include segments if they differ from the single full-duration default
   const isDefaultSegments =
     state.segments.length === 1 &&
-    Math.abs(state.segments[0].sourceStart - state.cursorStart) < FLUSH_TOLERANCE &&
+    Math.abs(state.segments[0].sourceStart - state.cursorStart) <
+      FLUSH_TOLERANCE &&
     Math.abs(state.segments[0].sourceEnd - state.cursorEnd) < FLUSH_TOLERANCE &&
     state.segments[0].sourceStart === 0;
 
@@ -116,9 +117,7 @@ export function parseUrlEditState(): {
     params.delete("v");
     const qs = params.toString();
     const clean =
-      window.location.pathname +
-      (qs ? `?${qs}` : "") +
-      window.location.hash;
+      window.location.pathname + (qs ? `?${qs}` : "") + window.location.hash;
     window.history.replaceState({}, "", clean);
   }
 

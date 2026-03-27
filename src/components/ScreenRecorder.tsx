@@ -83,10 +83,7 @@ const ScreenRecorder = ({ onDone, onCancel }: ScreenRecorderProps) => {
         playsInline
         muted
       />
-      <Button
-        variant="destructive"
-        onClick={() => screen.stopRecording()}
-      >
+      <Button variant="destructive" onClick={() => screen.stopRecording()}>
         Stop Recording
       </Button>
     </div>

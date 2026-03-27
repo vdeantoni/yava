@@ -55,10 +55,7 @@ function stepDurationSection(
 ): string {
   const parts = value.split(":");
   const current = parseInt(parts[sectionIdx] || "0", 10);
-  const next = Math.max(
-    0,
-    Math.min(config.max[sectionIdx], current + delta),
-  );
+  const next = Math.max(0, Math.min(config.max[sectionIdx], current + delta));
   const padLen = sectionIdx === config.msPadIdx ? 3 : 2;
   parts[sectionIdx] = String(next).padStart(padLen, "0");
   return parts.join(":");
@@ -146,7 +143,10 @@ const TrimPanel = () => {
   const applyTrimStart = (formatted: string) => {
     const value = Math.max(
       0,
-      Math.min(durationToSeconds(formatted), segments[0].sourceEnd - MIN_SLICE_DISTANCE),
+      Math.min(
+        durationToSeconds(formatted),
+        segments[0].sourceEnd - MIN_SLICE_DISTANCE,
+      ),
     );
     updateSegmentBounds(segments[0].id, value, segments[0].sourceEnd);
   };
@@ -154,7 +154,10 @@ const TrimPanel = () => {
   const applyTrimEnd = (formatted: string) => {
     const value = Math.min(
       video.duration,
-      Math.max(durationToSeconds(formatted), segments[0].sourceStart + MIN_SLICE_DISTANCE),
+      Math.max(
+        durationToSeconds(formatted),
+        segments[0].sourceStart + MIN_SLICE_DISTANCE,
+      ),
     );
     updateSegmentBounds(segments[0].id, segments[0].sourceStart, value);
   };
@@ -238,14 +241,15 @@ const MultiSegmentPanel = ({
 
   useEffect(() => {
     if (activeSegment) {
-      setSegStart(
-        secondsToDuration(activeSegment.sourceStart, durationOpts),
-      );
-      setSegEnd(
-        secondsToDuration(activeSegment.sourceEnd, durationOpts),
-      );
+      setSegStart(secondsToDuration(activeSegment.sourceStart, durationOpts));
+      setSegEnd(secondsToDuration(activeSegment.sourceEnd, durationOpts));
     }
-  }, [activeSegment?.id, activeSegment?.sourceStart, activeSegment?.sourceEnd, compact]);
+  }, [
+    activeSegment?.id,
+    activeSegment?.sourceStart,
+    activeSegment?.sourceEnd,
+    compact,
+  ]);
 
   const segDuration = activeSegment
     ? activeSegment.sourceEnd - activeSegment.sourceStart

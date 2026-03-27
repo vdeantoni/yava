@@ -53,7 +53,10 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
             } else {
               // If at end of last segment, restart from beginning
               const lastSeg = segments[segments.length - 1];
-              if (lastSeg && Math.abs(cursorCurrent - lastSeg.sourceEnd) < RESTART_TOLERANCE) {
+              if (
+                lastSeg &&
+                Math.abs(cursorCurrent - lastSeg.sourceEnd) < RESTART_TOLERANCE
+              ) {
                 setCursorCurrent(segments[0].sourceStart);
               }
               video.play();

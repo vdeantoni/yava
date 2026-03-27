@@ -134,9 +134,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         const cropY = Math.round(yFrac * video.videoHeight);
 
         // Normalize to intrinsic dimensions first (handles non-square SAR)
-        videoFilters.push(
-          `scale=${video.videoWidth}:${video.videoHeight}`,
-        );
+        videoFilters.push(`scale=${video.videoWidth}:${video.videoHeight}`);
         videoFilters.push(`crop=${cropW}:${cropH}:${cropX}:${cropY}`);
       }
       const scaleW = Number(outputWidth) || -2;
@@ -171,14 +169,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
 
       const codecArgs: string[] = [];
       if (format === "webm") {
-        codecArgs.push(
-          "-c:v",
-          "libvpx",
-          "-crf",
-          "10",
-          "-b:v",
-          "1M",
-        );
+        codecArgs.push("-c:v", "libvpx", "-crf", "10", "-b:v", "1M");
         if (!noAudio && !audioFilters.length) {
           codecArgs.push("-c:a", "libvorbis");
         }
@@ -221,7 +212,9 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
       if (segments.length <= 1) {
         // Single segment — original export path
         const trimDuration = cursorEnd - cursorStart;
-        await ffmpeg.exec(buildSegmentArgs(cursorStart, trimDuration, filename));
+        await ffmpeg.exec(
+          buildSegmentArgs(cursorStart, trimDuration, filename),
+        );
       } else {
         // Multi-segment — extract each, then concat
         const segmentFiles: string[] = [];
@@ -238,9 +231,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         }
 
         // Write concat list to WASM filesystem
-        const concatContent = segmentFiles
-          .map((f) => `file '${f}'`)
-          .join("\n");
+        const concatContent = segmentFiles.map((f) => `file '${f}'`).join("\n");
         await ffmpeg.writeFile(
           "concat_list.txt",
           new TextEncoder().encode(concatContent),

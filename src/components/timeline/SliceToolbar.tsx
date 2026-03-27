@@ -47,8 +47,7 @@ const SliceToolbar = () => {
           </TooltipTrigger>
           <TooltipContent>
             <p className="text-xs">
-              Slice video segment into two on the current position of the
-              needle
+              Slice video segment into two on the current position of the needle
             </p>
           </TooltipContent>
         </Tooltip>

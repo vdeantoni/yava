@@ -70,9 +70,7 @@ export function durationToSeconds(duration: string): number {
   }
 
   // MM:SS
-  return (
-    parseInt(parts[0] || "0", 10) * 60 + parseInt(parts[1] || "0", 10)
-  );
+  return parseInt(parts[0] || "0", 10) * 60 + parseInt(parts[1] || "0", 10);
 }
 
 /** Minimum distance from a segment edge to allow a slice (seconds). */
@@ -99,8 +97,7 @@ export function findSegmentIndexAt<T extends SegmentLike>(
   tolerance = 0,
 ): number {
   return segments.findIndex(
-    (s) =>
-      time >= s.sourceStart - tolerance && time <= s.sourceEnd + tolerance,
+    (s) => time >= s.sourceStart - tolerance && time <= s.sourceEnd + tolerance,
   );
 }
 

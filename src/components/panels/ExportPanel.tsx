@@ -239,9 +239,7 @@ const ExportPanel = () => {
       )}
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">
-          Output Duration
-        </label>
+        <label className="text-xs text-muted-foreground">Output Duration</label>
         <Input
           type="text"
           className="font-mono text-sm h-8 bg-background"

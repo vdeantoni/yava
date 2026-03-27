@@ -31,9 +31,7 @@ const CameraRecorder = ({ onDone, onCancel }: CameraRecorderProps) => {
   const previewStreamRef = useRef<MediaStream | null>(null);
 
   const recorder = useReactMediaRecorder({
-    video: selectedDeviceId
-      ? { deviceId: { exact: selectedDeviceId } }
-      : true,
+    video: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true,
     onStop: (_: string, blob: Blob) => {
       setRecording(false);
       onDone(blob);

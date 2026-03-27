@@ -157,9 +157,7 @@ const VideoTimeline = () => {
 
   const hasMultipleSegments = segments.length > 1;
 
-  const getTimeFromEvent = (
-    e: React.MouseEvent<HTMLDivElement>,
-  ): number => {
+  const getTimeFromEvent = (e: React.MouseEvent<HTMLDivElement>): number => {
     const { width, left } = e.currentTarget.getBoundingClientRect();
     return ((e.clientX - left) / width) * video.duration;
   };
@@ -291,13 +289,11 @@ const VideoTimeline = () => {
             const canJoin =
               hasMultipleSegments &&
               ((i > 0 &&
-                Math.abs(
-                  segments[i - 1].sourceEnd - seg.sourceStart,
-                ) <= FLUSH_TOLERANCE) ||
+                Math.abs(segments[i - 1].sourceEnd - seg.sourceStart) <=
+                  FLUSH_TOLERANCE) ||
                 (i < segments.length - 1 &&
-                  Math.abs(
-                    seg.sourceEnd - segments[i + 1].sourceStart,
-                  ) <= FLUSH_TOLERANCE));
+                  Math.abs(seg.sourceEnd - segments[i + 1].sourceStart) <=
+                    FLUSH_TOLERANCE));
 
             return (
               <Fragment key={seg.id}>
@@ -319,9 +315,7 @@ const VideoTimeline = () => {
                       startTime: seg.sourceStart,
                       endTime: seg.sourceEnd,
                     };
-                    (e.target as HTMLElement).setPointerCapture(
-                      e.pointerId,
-                    );
+                    (e.target as HTMLElement).setPointerCapture(e.pointerId);
                   }}
                 />
                 {/* Segment actions (top-right) — in track stacking context */}
@@ -359,21 +353,21 @@ const VideoTimeline = () => {
                           </Tooltip>
                         )}
                         <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div
-                                className="cursor-pointer text-destructive hover:text-destructive/80"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteSegment(seg.id);
-                                }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="text-xs">Delete segment</p>
-                            </TooltipContent>
-                          </Tooltip>
+                          <TooltipTrigger asChild>
+                            <div
+                              className="cursor-pointer text-destructive hover:text-destructive/80"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteSegment(seg.id);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Delete segment</p>
+                          </TooltipContent>
+                        </Tooltip>
                       </TooltipProvider>
                     </div>
                   )}
@@ -447,14 +441,16 @@ const VideoTimeline = () => {
                 e.stopPropagation();
                 e.preventDefault();
                 handleDrag.current = true;
-                dragRect.current =
-                  trackRef.current!.getBoundingClientRect();
+                dragRect.current = trackRef.current!.getBoundingClientRect();
                 (e.target as HTMLElement).setPointerCapture(e.pointerId);
               }}
               onPointerMove={(e) => {
                 if (!handleDrag.current || !dragRect.current) return;
                 const rect = dragRect.current;
-                const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+                const x = Math.max(
+                  0,
+                  Math.min(e.clientX - rect.left, rect.width),
+                );
                 const time = (x / rect.width) * video.duration;
                 if (time >= cursorStart && time <= cursorEnd) {
                   const seg = findSegmentAt(segments, time);
