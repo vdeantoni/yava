@@ -27,7 +27,7 @@ import ScreenRecorder from "./ScreenRecorder";
 import CameraRecorder from "./CameraRecorder";
 
 const DEMO_VIDEO_URL =
-  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+  "https://videos.pexels.com/video-files/39048938/16615910_2560_1440_59fps.mp4";
 
 // Start fetch at module level so it survives React strict mode's double-mount
 let pendingVideoFetch: Promise<Blob> | null = null;
@@ -119,6 +119,9 @@ const NewVideo = () => {
     noKeyboard: true,
   });
 
+  // The drop zone hides its idle chrome while either of these is happening.
+  const busy = isDragActive || urlLoading;
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -194,11 +197,7 @@ const NewVideo = () => {
           )}
         >
           {/* Icon */}
-          <div
-            className={cn(
-              "flex items-center justify-center w-16 h-16 rounded-xl bg-primary/15 transition-all duration-500",
-            )}
-          >
+          <div className="flex items-center justify-center w-16 h-16 rounded-xl bg-primary/15 transition-all duration-500">
             {isDragActive ? (
               <FileDown className="h-8 w-8 text-primary animate-bounce translate-y-2" />
             ) : urlLoading ? (
@@ -234,7 +233,7 @@ const NewVideo = () => {
               <p
                 className={cn(
                   "text-muted-foreground text-center max-w-md",
-                  (isDragActive || urlLoading) && "invisible",
+                  busy && "invisible",
                 )}
               >
                 {urlError || (
@@ -251,12 +250,7 @@ const NewVideo = () => {
           </div>
 
           {mode === "url" && (
-            <div
-              className={cn(
-                "flex gap-2 w-full",
-                (isDragActive || urlLoading) && "invisible",
-              )}
-            >
+            <div className={cn("flex gap-2 w-full", busy && "invisible")}>
               <Input
                 type="url"
                 placeholder="https://..."
@@ -294,7 +288,7 @@ const NewVideo = () => {
           <div
             className={cn(
               "flex flex-col md:flex-row items-center gap-3 mt-2",
-              (isDragActive || urlLoading) && "invisible",
+              busy && "invisible",
             )}
           >
             <div className="flex">
@@ -344,12 +338,8 @@ const NewVideo = () => {
             </div>
           </div>
 
-          {/* Feature badges */}
-          <div
-            className={cn(
-              "flex flex-wrap items-center justify-center gap-x-6 gap-y-1 mt-2 transition-opacity",
-            )}
-          >
+          {/* Feature badges — deliberately stay visible while busy */}
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 mt-2 transition-opacity">
             {["FFmpeg", "No uploads", "WASM"].map((label) => (
               <span
                 key={label}
@@ -363,7 +353,7 @@ const NewVideo = () => {
 
           <a
             href={"/?v=" + DEMO_VIDEO_URL}
-            className="text-primary hover:underline"
+            className={cn("text-primary hover:underline", busy && "invisible")}
           >
             Try a demo video
           </a>
