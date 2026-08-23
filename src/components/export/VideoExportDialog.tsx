@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { cn } from "@/lib/utils.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { fetchFile } from "@ffmpeg/util";
 import { Progress } from "@/components/ui/progress.tsx";
@@ -316,7 +315,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
-        className="max-h-full overflow-scroll"
+        className="max-h-full overflow-auto"
       >
         <DialogHeader>
           <DialogTitle>
@@ -340,17 +339,21 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
 
               {outputUrl && (
                 <div className="flex flex-col gap-3">
-                  <div className="max-h-[35vh] flex justify-center">
+                  {/* Bound both axes on the media itself. The container has no
+                      definite height, so h-full here wouldn't resolve and the
+                      element would lay out at its intrinsic size (2560px wide
+                      for a 1440p export) and overflow the dialog. */}
+                  <div className="flex justify-center">
                     {format === "gif" && (
                       <img
                         ref={outputImageRef}
-                        className={cn("h-full shadow rounded")}
+                        className="max-h-[35vh] max-w-full rounded shadow"
                       />
                     )}
                     {format !== "gif" && (
                       <video
                         ref={outputVideoRef}
-                        className={cn("h-full shadow rounded")}
+                        className="max-h-[35vh] max-w-full rounded shadow"
                         controls
                         playsInline
                       />
