@@ -43,9 +43,7 @@ test("shows Reset button when trim is applied", async ({ mount }) => {
     withTrimStore({ cursorStart: 5, cursorEnd: 30 }),
   );
 
-  await expect(
-    component.getByRole("button", { name: "Reset" }),
-  ).toBeVisible();
+  await expect(component.getByRole("button", { name: "Reset" })).toBeVisible();
 });
 
 test("Reset button restores inputs to full duration", async ({ mount }) => {

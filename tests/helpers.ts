@@ -11,9 +11,9 @@ export const defaultEditorStore = {
   nextSegmentId: 1,
 };
 
-export function withStore(
-  overrides: Record<string, unknown> = {},
-): { hooksConfig: HooksConfig } {
+export function withStore(overrides: Record<string, unknown> = {}): {
+  hooksConfig: HooksConfig;
+} {
   return {
     hooksConfig: {
       storeState: { ...defaultEditorStore, ...overrides },

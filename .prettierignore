@@ -1,0 +1,9 @@
+# Prettier 3 honors .gitignore, so build output, coverage, and caches are
+# already excluded. Listed here are paths that are not gitignored but should
+# still never be rewritten.
+
+# Lockfiles are generated; reformatting them creates noise and merge conflicts.
+pnpm-lock.yaml
+
+# Local editor/agent settings, not project source.
+.claude/

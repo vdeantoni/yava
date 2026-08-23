@@ -5,9 +5,7 @@ test("renders heading and description text", async ({ mount }) => {
   const component = await mount(<NewVideo />);
 
   await expect(component.getByText("Ready?")).toBeVisible();
-  await expect(
-    component.getByText("no files leave your device"),
-  ).toBeVisible();
+  await expect(component.getByText("no files leave your device")).toBeVisible();
 });
 
 test("shows action buttons", async ({ mount }) => {
@@ -15,12 +13,8 @@ test("shows action buttons", async ({ mount }) => {
 
   await expect(component.getByText("Browse Files")).toBeVisible();
   await expect(component.getByRole("button", { name: "URL" })).toBeVisible();
-  await expect(
-    component.getByRole("button", { name: "Record" }),
-  ).toBeVisible();
-  await expect(
-    component.getByRole("button", { name: "Screen" }),
-  ).toBeVisible();
+  await expect(component.getByRole("button", { name: "Record" })).toBeVisible();
+  await expect(component.getByRole("button", { name: "Screen" })).toBeVisible();
 });
 
 test("clicking URL button shows the URL input field", async ({ mount }) => {
