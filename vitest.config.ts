@@ -6,7 +6,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": import.meta.dirname + "/src",
-      "@ffmpeg/ffmpeg": import.meta.dirname + "/src/__mocks__/@ffmpeg/ffmpeg.ts",
+      "@ffmpeg/ffmpeg":
+        import.meta.dirname + "/src/__mocks__/@ffmpeg/ffmpeg.ts",
     },
   },
   test: {

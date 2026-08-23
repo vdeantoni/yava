@@ -21,7 +21,12 @@ test("renders multiple segment highlights for 2 segments", async ({
     <VideoTimeline />,
     withStore({
       // Use pendingEditState so resetCursors creates multiple segments
-      pendingEditState: { seg: [[0, 25], [35, 60]] },
+      pendingEditState: {
+        seg: [
+          [0, 25],
+          [35, 60],
+        ],
+      },
     }),
   );
 
@@ -31,13 +36,16 @@ test("renders multiple segment highlights for 2 segments", async ({
   await expect(highlights).toHaveCount(2);
 });
 
-test("renders gap overlay between non-adjacent segments", async ({
-  mount,
-}) => {
+test("renders gap overlay between non-adjacent segments", async ({ mount }) => {
   const component = await mount(
     <VideoTimeline />,
     withStore({
-      pendingEditState: { seg: [[0, 25], [35, 60]] },
+      pendingEditState: {
+        seg: [
+          [0, 25],
+          [35, 60],
+        ],
+      },
     }),
   );
 
@@ -71,7 +79,12 @@ test("shows delete action button when multiple segments and hovered", async ({
   const component = await mount(
     <VideoTimeline />,
     withStore({
-      pendingEditState: { seg: [[0, 25], [35, 60]] },
+      pendingEditState: {
+        seg: [
+          [0, 25],
+          [35, 60],
+        ],
+      },
     }),
   );
 
