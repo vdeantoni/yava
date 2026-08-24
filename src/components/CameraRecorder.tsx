@@ -224,7 +224,7 @@ const CameraRecorder = ({ onDone, onCancel }: CameraRecorderProps) => {
 
         <video
           ref={previewRef}
-          className="w-full h-full shadow rounded"
+          className="w-full max-h-[50vh] object-contain shadow rounded"
           autoPlay
           playsInline
           muted

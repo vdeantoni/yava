@@ -78,7 +78,7 @@ const ScreenRecorder = ({ onDone, onCancel }: ScreenRecorderProps) => {
     <div className="flex flex-col gap-3">
       <video
         ref={videoRef}
-        className="w-full h-full shadow rounded"
+        className="w-full max-h-[50vh] object-contain shadow rounded"
         autoPlay
         playsInline
         muted
