@@ -381,7 +381,7 @@ const NewVideo = () => {
             onPointerDownOutside={(e) => e.preventDefault()}
             onInteractOutside={(e) => e.preventDefault()}
             onOpenAutoFocus={(e) => e.preventDefault()}
-            className="max-h-full overflow-scroll"
+            className="max-h-full overflow-auto"
           >
             <DialogHeader>
               <DialogTitle>
