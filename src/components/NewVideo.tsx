@@ -17,6 +17,12 @@ import YavaLogo from "@/components/YavaLogo";
 import { cn } from "@/lib/utils.ts";
 import { parseUrlEditState } from "@/lib/url-state.ts";
 import {
+  fetchBlobWithProgress,
+  formatBytes,
+  type DownloadProgress,
+} from "@/lib/fetch-progress.ts";
+import { Progress } from "@/components/ui/progress.tsx";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -32,14 +38,19 @@ const DEMO_VIDEO_URL =
 // Start fetch at module level so it survives React strict mode's double-mount
 let pendingVideoFetch: Promise<Blob> | null = null;
 let pendingVideoFetchConsumed = false;
+// Bytes can land before the component mounts, so keep the latest value here and
+// let NewVideo subscribe for the rest.
+let pendingProgress: DownloadProgress = { received: 0, total: null };
+let onPendingProgress: ((progress: DownloadProgress) => void) | null = null;
+
 const parsedUrl = parseUrlEditState();
 if (parsedUrl.editState) {
   useAppStore.setState({ pendingEditState: parsedUrl.editState });
 }
 if (parsedUrl.videoUrl) {
-  pendingVideoFetch = fetch(parsedUrl.videoUrl).then((res) => {
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.blob();
+  pendingVideoFetch = fetchBlobWithProgress(parsedUrl.videoUrl, (progress) => {
+    pendingProgress = progress;
+    onPendingProgress?.(progress);
   });
 }
 
@@ -52,15 +63,16 @@ const NewVideo = () => {
   const [urlLoading, setUrlLoading] = useState(!!pendingVideoFetch);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [urlInput, setUrlInput] = useState("");
+  // Seeded from the module-level fetch, which may already be underway.
+  const [download, setDownload] = useState<DownloadProgress>(pendingProgress);
 
   const fetchVideoFromUrl = useCallback(
     async (url: string, signal?: AbortSignal) => {
       setUrlLoading(true);
       setUrlError(null);
+      setDownload({ received: 0, total: null });
       try {
-        const response = await fetch(url, { signal });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const blob = await response.blob();
+        const blob = await fetchBlobWithProgress(url, setDownload, signal);
         if (blob.type.startsWith("video/")) {
           setFile(blob, url);
         } else {
@@ -76,6 +88,14 @@ const NewVideo = () => {
     },
     [setFile],
   );
+
+  // Take over progress reporting from the module-level fetch.
+  useEffect(() => {
+    onPendingProgress = setDownload;
+    return () => {
+      onPendingProgress = null;
+    };
+  }, []);
 
   // Observe the module-level fetch result (once only)
   useEffect(() => {
@@ -121,6 +141,12 @@ const NewVideo = () => {
 
   // The drop zone hides its idle chrome while either of these is happening.
   const busy = isDragActive || urlLoading;
+
+  // Held in a local so the null check narrows for the JSX below.
+  const downloadTotal = download.total;
+  const downloadPercent = downloadTotal
+    ? Math.min(100, Math.round((download.received / downloadTotal) * 100))
+    : null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -218,7 +244,6 @@ const NewVideo = () => {
               className={cn(
                 "text-3xl md:text-4xl font-bold tracking-tight text-center duration-500",
                 isDragActive && "translate-y-30",
-                urlLoading && "translate-y-15",
               )}
             >
               {isDragActive
@@ -229,23 +254,37 @@ const NewVideo = () => {
                     ? "Loading..."
                     : "Ready?"}
             </h2>
-            {mode !== "url" && (
-              <p
-                className={cn(
-                  "text-muted-foreground text-center max-w-md",
-                  busy && "invisible",
-                )}
-              >
-                {urlError || (
-                  <>
-                    <p>
-                      Drag and drop or paste your video files, record your
-                      camera or capture your screen to begin editing in the
-                      browser.
-                    </p>
-                  </>
-                )}
-              </p>
+            {urlLoading ? (
+              <div className="flex flex-col items-center gap-2 w-full max-w-xs">
+                <Progress
+                  value={downloadPercent ?? 0}
+                  indeterminate={downloadPercent === null}
+                />
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {downloadTotal !== null
+                    ? `${downloadPercent}% of ${formatBytes(downloadTotal)}`
+                    : formatBytes(download.received)}
+                </span>
+              </div>
+            ) : (
+              mode !== "url" && (
+                <p
+                  className={cn(
+                    "text-muted-foreground text-center max-w-md",
+                    busy && "invisible",
+                  )}
+                >
+                  {urlError || (
+                    <>
+                      <p>
+                        Drag and drop or paste your video files, record your
+                        camera or capture your screen to begin editing in the
+                        browser.
+                      </p>
+                    </>
+                  )}
+                </p>
+              )
             )}
           </div>
 
@@ -381,7 +420,7 @@ const NewVideo = () => {
             onPointerDownOutside={(e) => e.preventDefault()}
             onInteractOutside={(e) => e.preventDefault()}
             onOpenAutoFocus={(e) => e.preventDefault()}
-            className="max-h-full overflow-scroll"
+            className="max-h-full overflow-auto"
           >
             <DialogHeader>
               <DialogTitle>

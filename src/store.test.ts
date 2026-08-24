@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach } from "vitest";
-import { useAppStore } from "./store";
+import { useAppStore, type UrlEditState } from "./store";
+import { FLUSH_TOLERANCE, MIN_SLICE_DISTANCE } from "./lib/utils";
 
 const initSegments = (duration: number) => {
   useAppStore.getState().resetCursors(duration);
@@ -7,6 +8,8 @@ const initSegments = (duration: number) => {
 
 describe("useAppStore", () => {
   beforeEach(() => {
+    // Reset every field the tests touch. Segment/cursor state alone is not
+    // enough: export options leak between tests otherwise.
     useAppStore.setState({
       cursorCurrent: 0,
       cursorStart: 0,
@@ -14,6 +17,18 @@ describe("useAppStore", () => {
       segments: [],
       selectedSegmentId: null,
       nextSegmentId: 0,
+      cropRectangle: { x: 0, y: 0, w: 0, h: 0, vw: 0, vh: 0 },
+      pendingEditState: null,
+      file: undefined,
+      video: undefined!,
+      sourceUrl: null,
+      format: "mp4",
+      preset: "ultrafast",
+      frameRate: 30,
+      speed: 1,
+      outputWidth: "",
+      outputHeight: "",
+      noAudio: false,
     });
   });
 
@@ -268,6 +283,332 @@ describe("useAppStore", () => {
       useAppStore.getState().selectSegment("s0");
       useAppStore.getState().selectSegment(null);
       expect(useAppStore.getState().selectedSegmentId).toBeNull();
+    });
+  });
+
+  describe("joinSegment", () => {
+    /** Seed arbitrary segments, bypassing slice/delete. */
+    const seed = (bounds: [number, number][]) => {
+      useAppStore.setState({
+        segments: bounds.map(([sourceStart, sourceEnd], i) => ({
+          id: `s${i}`,
+          sourceStart,
+          sourceEnd,
+        })),
+        nextSegmentId: bounds.length,
+        cursorStart: bounds[0][0],
+        cursorEnd: bounds[bounds.length - 1][1],
+      });
+    };
+
+    test("merges two flush segments into one", () => {
+      seed([
+        [0, 10],
+        [10, 20],
+      ]);
+      useAppStore.getState().joinSegment("s1");
+
+      const { segments } = useAppStore.getState();
+      expect(segments).toHaveLength(1);
+      expect(segments[0].sourceStart).toBe(0);
+      expect(segments[0].sourceEnd).toBe(20);
+    });
+
+    test("merges an entire run of flush segments", () => {
+      seed([
+        [0, 5],
+        [5, 10],
+        [10, 15],
+      ]);
+      useAppStore.getState().joinSegment("s1");
+
+      const { segments } = useAppStore.getState();
+      expect(segments).toHaveLength(1);
+      expect(segments[0].sourceEnd).toBe(15);
+    });
+
+    test("stops at a gap, leaving the far segment alone", () => {
+      seed([
+        [0, 10],
+        [10, 20],
+        [30, 40],
+      ]);
+      useAppStore.getState().joinSegment("s0");
+
+      const { segments } = useAppStore.getState();
+      expect(segments).toHaveLength(2);
+      expect(segments[0]).toMatchObject({ sourceStart: 0, sourceEnd: 20 });
+      expect(segments[1]).toMatchObject({ sourceStart: 30, sourceEnd: 40 });
+    });
+
+    test("treats a sub-tolerance gap as flush", () => {
+      seed([
+        [0, 10],
+        [10 + FLUSH_TOLERANCE / 2, 20],
+      ]);
+      useAppStore.getState().joinSegment("s0");
+      expect(useAppStore.getState().segments).toHaveLength(1);
+    });
+
+    test("does not join across a gap wider than the tolerance", () => {
+      seed([
+        [0, 10],
+        [10 + FLUSH_TOLERANCE * 2, 20],
+      ]);
+      useAppStore.getState().joinSegment("s0");
+      expect(useAppStore.getState().segments).toHaveLength(2);
+    });
+
+    test("does nothing when the segment has no flush neighbour", () => {
+      seed([
+        [0, 10],
+        [20, 30],
+      ]);
+      const before = useAppStore.getState().segments;
+      useAppStore.getState().joinSegment("s0");
+      expect(useAppStore.getState().segments).toBe(before);
+    });
+
+    test("does nothing for a lone segment", () => {
+      seed([[0, 10]]);
+      const before = useAppStore.getState().segments;
+      useAppStore.getState().joinSegment("s0");
+      expect(useAppStore.getState().segments).toBe(before);
+    });
+
+    test("does nothing for an unknown id", () => {
+      seed([
+        [0, 10],
+        [10, 20],
+      ]);
+      const before = useAppStore.getState().segments;
+      useAppStore.getState().joinSegment("nope");
+      expect(useAppStore.getState().segments).toBe(before);
+    });
+
+    test("selects the merged segment under a fresh id", () => {
+      seed([
+        [0, 10],
+        [10, 20],
+      ]);
+      useAppStore.getState().joinSegment("s1");
+
+      const { segments, selectedSegmentId, nextSegmentId } =
+        useAppStore.getState();
+      expect(selectedSegmentId).toBe(segments[0].id);
+      expect(segments[0].id).toBe("s2");
+      expect(nextSegmentId).toBe(3);
+    });
+
+    test("recomputes the cursors from the merged result", () => {
+      seed([
+        [2, 10],
+        [10, 20],
+        [30, 42],
+      ]);
+      useAppStore.getState().joinSegment("s0");
+
+      const { cursorStart, cursorEnd } = useAppStore.getState();
+      expect(cursorStart).toBe(2);
+      expect(cursorEnd).toBe(42);
+    });
+  });
+
+  describe("resetCursors with a restored URL state", () => {
+    const withPending = (editState: UrlEditState, duration = 60) => {
+      useAppStore.setState({ pendingEditState: editState });
+      useAppStore.getState().resetCursors(duration);
+      return useAppStore.getState();
+    };
+
+    test("clamps a segment end beyond the duration", () => {
+      const { segments } = withPending({ seg: [[10, 9999]] });
+      expect(segments).toEqual([{ id: "s0", sourceStart: 10, sourceEnd: 60 }]);
+    });
+
+    test("clamps a negative segment start to zero", () => {
+      const { segments } = withPending({ seg: [[-30, 20]] });
+      expect(segments[0].sourceStart).toBe(0);
+    });
+
+    test("drops segments shorter than the minimum slice distance", () => {
+      const { segments } = withPending({
+        seg: [
+          [0, 10],
+          [20, 20 + MIN_SLICE_DISTANCE / 2],
+          [30, 40],
+        ],
+      });
+      expect(segments.map((s) => [s.sourceStart, s.sourceEnd])).toEqual([
+        [0, 10],
+        [30, 40],
+      ]);
+    });
+
+    test("keeps a segment exactly at the minimum slice distance", () => {
+      const { segments } = withPending({
+        seg: [[0, MIN_SLICE_DISTANCE]],
+      });
+      expect(segments).toHaveLength(1);
+    });
+
+    test("sorts segments that arrive out of order", () => {
+      const { segments } = withPending({
+        seg: [
+          [30, 40],
+          [0, 10],
+        ],
+      });
+      expect(segments.map((s) => s.sourceStart)).toEqual([0, 30]);
+    });
+
+    test("falls back to the full-duration default when every segment is dropped", () => {
+      const { segments } = withPending({ seg: [[5, 5.1]] });
+      expect(segments).toEqual([{ id: "s0", sourceStart: 0, sourceEnd: 60 }]);
+    });
+
+    test("parks the cursor at the first segment's start", () => {
+      const { cursorCurrent, cursorStart, cursorEnd } = withPending({
+        seg: [
+          [12, 20],
+          [30, 44],
+        ],
+      });
+      expect(cursorCurrent).toBe(12);
+      expect(cursorStart).toBe(12);
+      expect(cursorEnd).toBe(44);
+    });
+
+    test("restores the export options", () => {
+      const s = withPending({
+        fmt: "webm",
+        pre: "slow",
+        fps: 24,
+        spd: 1.5,
+        na: true,
+      });
+      expect(s.format).toBe("webm");
+      expect(s.preset).toBe("slow");
+      expect(s.frameRate).toBe(24);
+      expect(s.speed).toBe(1.5);
+      expect(s.noAudio).toBe(true);
+    });
+
+    test("leaves defaults in place for an empty restored state", () => {
+      const s = withPending({});
+      expect(s.format).toBe("mp4");
+      expect(s.segments).toHaveLength(1);
+      expect(s.segments[0].sourceEnd).toBe(60);
+    });
+  });
+
+  describe("resetExportOptions", () => {
+    test("restores the export defaults", () => {
+      useAppStore.setState({
+        format: "gif",
+        preset: "slow",
+        frameRate: 12,
+        speed: 4,
+        noAudio: true,
+      });
+      useAppStore.getState().resetExportOptions();
+
+      const s = useAppStore.getState();
+      expect(s.format).toBe("mp4");
+      expect(s.preset).toBe("ultrafast");
+      expect(s.frameRate).toBe(30);
+      expect(s.speed).toBe(1);
+      expect(s.noAudio).toBe(false);
+    });
+
+    test("seeds the output size from the source's intrinsic dimensions", () => {
+      useAppStore.setState({
+        video: { videoWidth: 1920, videoHeight: 1080 } as HTMLVideoElement,
+      });
+      useAppStore.getState().resetExportOptions();
+
+      const s = useAppStore.getState();
+      expect(s.outputWidth).toBe("1920");
+      expect(s.outputHeight).toBe("1080");
+    });
+
+    test("leaves the output size blank with no video loaded", () => {
+      useAppStore.setState({ video: undefined! });
+      useAppStore.getState().resetExportOptions();
+
+      const s = useAppStore.getState();
+      expect(s.outputWidth).toBe("");
+      expect(s.outputHeight).toBe("");
+    });
+
+    test("clears the crop rectangle", () => {
+      useAppStore.setState({
+        cropRectangle: { x: 1, y: 2, w: 3, h: 4, vw: 5, vh: 6 },
+      });
+      useAppStore.getState().resetExportOptions();
+
+      expect(useAppStore.getState().cropRectangle).toEqual({
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+        vw: 0,
+        vh: 0,
+      });
+    });
+  });
+
+  describe("reset", () => {
+    test("clears the loaded file and its source URL", () => {
+      useAppStore.setState({
+        file: new Blob(["x"]),
+        sourceUrl: "https://ex.com/a.mp4",
+      });
+      useAppStore.getState().reset();
+
+      const s = useAppStore.getState();
+      expect(s.file).toBeUndefined();
+      expect(s.sourceUrl).toBeNull();
+    });
+
+    test("clears segments, cursors and selection", () => {
+      initSegments(30);
+      useAppStore.getState().selectSegment("s0");
+      useAppStore.getState().reset();
+
+      const s = useAppStore.getState();
+      expect(s.segments).toEqual([]);
+      expect(s.cursorStart).toBe(0);
+      expect(s.cursorEnd).toBe(0);
+      expect(s.cursorCurrent).toBe(0);
+      expect(s.selectedSegmentId).toBeNull();
+      expect(s.nextSegmentId).toBe(0);
+    });
+
+    test("restores the export defaults", () => {
+      useAppStore.setState({ format: "gif", speed: 4, noAudio: true });
+      useAppStore.getState().reset();
+
+      const s = useAppStore.getState();
+      expect(s.format).toBe("mp4");
+      expect(s.speed).toBe(1);
+      expect(s.noAudio).toBe(false);
+    });
+
+    test("discards any pending restored URL state", () => {
+      useAppStore.setState({ pendingEditState: { fmt: "webm" } });
+      useAppStore.getState().reset();
+      expect(useAppStore.getState().pendingEditState).toBeNull();
+    });
+
+    test("strips the share hash from the address bar", () => {
+      window.history.replaceState({}, "", "/?v=x#abc123");
+      expect(window.location.hash).not.toBe("");
+
+      useAppStore.getState().reset();
+
+      expect(window.location.hash).toBe("");
+      expect(window.location.search).toBe("");
     });
   });
 });

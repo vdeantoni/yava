@@ -1,4 +1,4 @@
-import { useAppStore, type Preset } from "@/store.tsx";
+import { useAppStore } from "@/store.tsx";
 import {
   PropsWithChildren,
   useCallback,
@@ -28,13 +28,14 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFFmpeg } from "@/hooks/useFFmpeg.ts";
 import { Download } from "lucide-react";
+import {
+  buildConcatArgs,
+  buildConcatList,
+  buildSegmentArgs,
+  type ExportSettings,
+} from "@/lib/export-command.ts";
 
-const WEBM_PRESET_MAP: Record<Preset, string[]> = {
-  ultrafast: ["-deadline", "realtime", "-cpu-used", "8"],
-  fast: ["-deadline", "realtime", "-cpu-used", "5"],
-  medium: ["-deadline", "good", "-cpu-used", "4"],
-  slow: ["-deadline", "good", "-cpu-used", "2"],
-};
+const CONCAT_LIST = "concat_list.txt";
 
 const MIME_TYPES: Record<string, string> = {
   mp4: "video/mp4",
@@ -118,101 +119,29 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
       await ffmpeg.writeFile(name, await fetchFile(file));
       const filename = `output_${new Date().getTime()}.${format}`;
 
-      const toEven = (n: number) => n - (n % 2);
-
-      const videoFilters: string[] = [];
-      if (cropRectangle.w && cropRectangle.h) {
-        const xFrac = cropRectangle.x / cropRectangle.vw;
-        const yFrac = cropRectangle.y / cropRectangle.vh;
-        const wFrac = cropRectangle.w / cropRectangle.vw;
-        const hFrac = cropRectangle.h / cropRectangle.vh;
-
-        const cropW = toEven(Math.round(wFrac * video.videoWidth));
-        const cropH = toEven(Math.round(hFrac * video.videoHeight));
-        const cropX = Math.round(xFrac * video.videoWidth);
-        const cropY = Math.round(yFrac * video.videoHeight);
-
-        // Normalize to intrinsic dimensions first (handles non-square SAR)
-        videoFilters.push(`scale=${video.videoWidth}:${video.videoHeight}`);
-        videoFilters.push(`crop=${cropW}:${cropH}:${cropX}:${cropY}`);
-      }
-      const scaleW = Number(outputWidth) || -2;
-      const scaleH = Number(outputHeight) || -2;
-      videoFilters.push(
-        `scale=${scaleW > 0 ? toEven(scaleW) : scaleW}:${scaleH > 0 ? toEven(scaleH) : scaleH}`,
-      );
-      if (speed !== 1) {
-        videoFilters.push(`setpts=${(1 / speed).toFixed(4)}*PTS`);
-      }
-
-      const audioFilters: string[] = [];
-      if (speed !== 1 && !noAudio) {
-        let remaining = speed;
-        while (remaining > 2) {
-          audioFilters.push("atempo=2.0");
-          remaining /= 2;
-        }
-        while (remaining < 0.5) {
-          audioFilters.push("atempo=0.5");
-          remaining /= 0.5;
-        }
-        audioFilters.push(`atempo=${remaining.toFixed(4)}`);
-      }
-
-      const presetArgs: string[] = [];
-      if (format === "mp4" || format === "mov") {
-        presetArgs.push("-preset", preset);
-      } else if (format === "webm") {
-        presetArgs.push(...WEBM_PRESET_MAP[preset]);
-      }
-
-      const codecArgs: string[] = [];
-      if (format === "webm") {
-        codecArgs.push("-c:v", "libvpx", "-crf", "10", "-b:v", "1M");
-        if (!noAudio && !audioFilters.length) {
-          codecArgs.push("-c:a", "libvorbis");
-        }
-      } else if (!noAudio && !audioFilters.length && format !== "gif") {
-        codecArgs.push("-c:a", "copy");
-      }
-
-      const threadCount = multithreading
-        ? format === "webm"
-          ? "2"
-          : "4"
-        : "1";
-
-      const buildSegmentArgs = (start: number, duration: number, out: string) =>
-        [
-          "-ss",
-          String(start),
-          "-i",
-          name,
-          "-t",
-          String(duration),
-          "-threads",
-          threadCount,
-          frameRate && "-r",
-          frameRate && String(frameRate),
-          "-vf",
-          videoFilters.join(","),
-
-          audioFilters.length && "-af",
-          audioFilters.length && audioFilters.join(","),
-
-          noAudio && "-an",
-
-          ...codecArgs,
-          ...presetArgs,
-
-          out,
-        ].filter(Boolean) as string[];
+      const settings: ExportSettings = {
+        format,
+        preset,
+        frameRate,
+        speed,
+        outputWidth,
+        outputHeight,
+        noAudio,
+        multithreading,
+        cropRectangle,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+      };
 
       if (segments.length <= 1) {
         // Single segment — original export path
-        const trimDuration = cursorEnd - cursorStart;
         await ffmpeg.exec(
-          buildSegmentArgs(cursorStart, trimDuration, filename),
+          buildSegmentArgs(settings, {
+            input: name,
+            start: cursorStart,
+            duration: cursorEnd - cursorStart,
+            output: filename,
+          }),
         );
       } else {
         // Multi-segment — extract each, then concat
@@ -223,37 +152,30 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
           const segFile = `segment_${i}.${format}`;
           segmentFiles.push(segFile);
 
-          const segDuration = seg.sourceEnd - seg.sourceStart;
           await ffmpeg.exec(
-            buildSegmentArgs(seg.sourceStart, segDuration, segFile),
+            buildSegmentArgs(settings, {
+              input: name,
+              start: seg.sourceStart,
+              duration: seg.sourceEnd - seg.sourceStart,
+              output: segFile,
+            }),
           );
         }
 
         // Write concat list to WASM filesystem
-        const concatContent = segmentFiles.map((f) => `file '${f}'`).join("\n");
         await ffmpeg.writeFile(
-          "concat_list.txt",
-          new TextEncoder().encode(concatContent),
+          CONCAT_LIST,
+          new TextEncoder().encode(buildConcatList(segmentFiles)),
         );
 
         // Concatenate with stream copy
-        await ffmpeg.exec([
-          "-f",
-          "concat",
-          "-safe",
-          "0",
-          "-i",
-          "concat_list.txt",
-          "-c",
-          "copy",
-          filename,
-        ]);
+        await ffmpeg.exec(buildConcatArgs(CONCAT_LIST, filename));
 
         // Clean up intermediate files
         for (const f of segmentFiles) {
           await ffmpeg.deleteFile(f);
         }
-        await ffmpeg.deleteFile("concat_list.txt");
+        await ffmpeg.deleteFile(CONCAT_LIST);
       }
 
       const data = (await ffmpeg.readFile(filename)) as Uint8Array<ArrayBuffer>;
