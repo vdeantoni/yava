@@ -82,16 +82,19 @@ export const FLUSH_TOLERANCE = 0.01;
 /** Tolerance for matching a time to a segment during playback (seconds). */
 export const PLAYBACK_TOLERANCE = 0.05;
 
+/** Below this difference the playhead is already there, so skip the seek (seconds). */
+export const SEEK_TOLERANCE = 0.01;
+
 /** Tolerance for detecting cursor at segment end for play-restart (seconds). */
 export const RESTART_TOLERANCE = 0.1;
 
-interface SegmentLike {
+export interface SegmentLike {
   sourceStart: number;
   sourceEnd: number;
 }
 
 /** Find the index of the segment containing `time` (within optional tolerance). Returns -1 if none. */
-export function findSegmentIndexAt<T extends SegmentLike>(
+function findSegmentIndexAt<T extends SegmentLike>(
   segments: T[],
   time: number,
   tolerance = 0,

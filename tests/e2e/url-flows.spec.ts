@@ -1,34 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
-import { join } from "node:path";
-
-/**
- * Deliberately unroutable host. Every request to it is fulfilled from the local
- * fixture in beforeEach, so these tests never touch the network. If the route
- * ever fails to register, the request fails loudly instead of silently
- * depending on a third party.
- */
-const VIDEO_URL = "https://videos.invalid/fixtures/tiny.mp4";
-
-/**
- * 2s 160x120 h264 + aac, ~30KB. Regenerate with:
- *   ffmpeg -f lavfi -i testsrc=size=160x120:rate=15:duration=2 \
- *          -f lavfi -i sine=frequency=440:duration=2 \
- *          -c:v libx264 -pix_fmt yuv420p -preset ultrafast \
- *          -c:a aac -b:a 32k -shortest -movflags +faststart tests/fixtures/tiny.mp4
- */
-const FIXTURE = join(import.meta.dirname, "../fixtures/tiny.mp4");
-
-/** Wait for the editor to be ready (the "Start Over" button appears when a file is loaded). */
-async function waitForEditor(page: Page) {
-  await expect(page.getByRole("button", { name: "Start Over" })).toBeVisible({
-    timeout: 10_000,
-  });
-}
-
-/** Poll the URL hash. The store subscription debounces writes by 500ms. */
-function pollHash(page: Page) {
-  return expect.poll(() => new URL(page.url()).hash, { timeout: 5_000 });
-}
+import {
+  pollHash,
+  routeFixtureVideo,
+  VIDEO_URL,
+  waitForEditor,
+} from "./helpers";
 
 /** Load the fixture video via ?v= and wait for the editor and hash to settle. */
 async function loadVideo(page: Page) {
@@ -53,14 +29,7 @@ async function loadVideoAndToggleAudio(page: Page): Promise<string> {
 }
 
 test.describe("URL flows", () => {
-  // Routed on the context, not the page, so tabs opened mid-test are covered too.
-  test.beforeEach(async ({ context }) => {
-    await context.route(VIDEO_URL, (route) =>
-      // contentType is stated explicitly because the app gates on
-      // blob.type.startsWith("video/").
-      route.fulfill({ contentType: "video/mp4", path: FIXTURE }),
-    );
-  });
+  test.beforeEach(({ context }) => routeFixtureVideo(context));
 
   test("?v= param loads a video from the network", async ({ page }) => {
     await loadVideo(page);

@@ -89,11 +89,15 @@ One segment runs a single `exec`. Multiple segments extract each to `segment_N.<
 
 ### Segment-aware playback
 
-`VideoPlayer`'s `onTimeUpdate` handler is the playback engine. It finds the segment containing `currentTime`, jumps to the next segment's start on reaching a segment end, pauses at the last segment's end, and seeks forward out of gaps. Single-segment videos take a simpler path that just clamps to `cursorStart`/`cursorEnd`.
+`VideoPlayer`'s `onTimeUpdate` handler is the playback engine, and every decision it makes comes from `nextPlaybackAction` in `src/lib/playback.ts`. That function takes the segments and the current time and returns `continue`, `seek`, or `stop`: seek forward out of a gap or back to the first segment, stop at the last segment's end, otherwise keep rolling. There is no separate single-segment path.
+
+A time on a cut shared by two flush segments resolves to the later segment, so playback runs straight through the cut. Resolving it to the earlier one instead would end that segment and seek to the timestamp the playhead already holds, and the seek's own `timeupdate` would repeat the decision forever. The handler also skips any seek shorter than `SEEK_TOLERANCE` for the same reason.
 
 ### Shared tolerances
 
-`src/lib/utils.ts` exports named epsilons: `MIN_SLICE_DISTANCE` (0.5s minimum segment length), `FLUSH_TOLERANCE` (0.01s, treats boundaries as touching so segments can be joined), `PLAYBACK_TOLERANCE` (0.05s), `RESTART_TOLERANCE` (0.1s). Reuse them along with `findSegmentAt`, `findSegmentIndexAt`, and `snapToNearestSegmentBoundary` instead of inlining new comparisons.
+`src/lib/utils.ts` exports named epsilons: `MIN_SLICE_DISTANCE` (0.5s minimum segment length), `FLUSH_TOLERANCE` (0.01s, treats boundaries as touching so segments can be joined), `PLAYBACK_TOLERANCE` (0.05s), `SEEK_TOLERANCE` (0.01s, below which a seek is a no-op and gets skipped), `RESTART_TOLERANCE` (0.1s). Reuse them along with `findSegmentAt` and `snapToNearestSegmentBoundary` instead of inlining new comparisons.
+
+`findSegmentAt` resolves a time on a shared cut to the earlier segment, which suits the timeline and the store. `nextPlaybackAction` needs the later one and so runs its own scan; that is the one place a separate lookup is right.
 
 ## Test setup
 
