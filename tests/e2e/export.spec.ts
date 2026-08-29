@@ -1,0 +1,115 @@
+import { test, expect, type Page } from "@playwright/test";
+import { loadWithSegments, routeFixtureVideo } from "./helpers";
+
+/** Open the export dialog and wait for the run to finish either way. */
+async function exportAndWait(page: Page) {
+  // The panel's accordion header is also a button named "Export", and both the
+  // desktop and mobile layouts render a trigger, of which one is visible.
+  await page
+    .locator('button[aria-haspopup="dialog"]')
+    .filter({ hasText: /^Export$/ })
+    .filter({ visible: true })
+    .first()
+    .click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("heading").first()).toHaveText(
+    /Export Complete|Export Failed/,
+    { timeout: 220_000 },
+  );
+
+  return dialog;
+}
+
+/** Duration of the produced file, read off the dialog's preview player. */
+async function previewDuration(page: Page) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            document.querySelector<HTMLVideoElement>('[role="dialog"] video')
+              ?.readyState ?? 0,
+        ),
+      { timeout: 10_000, message: "the preview never loaded metadata" },
+    )
+    .toBeGreaterThan(0);
+
+  return page.evaluate(
+    () =>
+      document.querySelector<HTMLVideoElement>('[role="dialog"] video')!
+        .duration,
+  );
+}
+
+test.beforeEach(({ context }) => routeFixtureVideo(context));
+
+test.describe("export failures", () => {
+  test("says so when the encoder cannot be fetched", async ({
+    page,
+    context,
+  }) => {
+    await context.route("https://unpkg.com/**", (route) => route.abort());
+    await loadWithSegments(page, [[0, 2]]);
+
+    const dialog = await exportAndWait(page);
+
+    await expect(dialog.getByRole("heading").first()).toHaveText(
+      "Export Failed",
+    );
+    await expect(
+      dialog.getByText("Could not load the video encoder", { exact: false }),
+    ).toBeVisible();
+    // No half-finished result offered, and the run is over, so the footer
+    // says Close rather than Cancel.
+    await expect(dialog.getByRole("button", { name: "Download" })).toBeHidden();
+    await expect(dialog.getByRole("button", { name: "Cancel" })).toHaveCount(0);
+  });
+});
+
+/**
+ * The real FFmpeg pipeline, end to end. Off by default: it pulls the ~32MB WASM
+ * core from unpkg, and the rest of the e2e suite is deliberately hermetic.
+ * Run with YAVA_E2E_FFMPEG=1.
+ */
+test.describe("export", () => {
+  test.skip(
+    !process.env.YAVA_E2E_FFMPEG,
+    "set YAVA_E2E_FFMPEG=1 to run the real FFmpeg export",
+  );
+
+  test("exports a single trimmed segment", async ({ page }) => {
+    test.setTimeout(240_000);
+    await loadWithSegments(page, [[0.5, 1.5]]);
+
+    const dialog = await exportAndWait(page);
+
+    await expect(dialog.getByRole("heading").first()).toHaveText(
+      "Export Complete",
+    );
+    await expect(
+      dialog.getByRole("button", { name: "Download" }),
+    ).toBeVisible();
+    expect(await previewDuration(page)).toBeGreaterThan(0.8);
+  });
+
+  test("concatenates three segments into one file", async ({ page }) => {
+    test.setTimeout(240_000);
+    await loadWithSegments(page, [
+      [0, 0.6],
+      [0.7, 1.2],
+      [1.4, 2],
+    ]);
+
+    const dialog = await exportAndWait(page);
+
+    await expect(dialog.getByRole("heading").first()).toHaveText(
+      "Export Complete",
+    );
+    // 1.7s of kept content, so the gaps were dropped rather than encoded.
+    const duration = await previewDuration(page);
+    expect(duration).toBeGreaterThan(1.4);
+    expect(duration).toBeLessThan(2);
+  });
+});

@@ -7,7 +7,6 @@ import {
   useState,
 } from "react";
 import { Button } from "@/components/ui/button.tsx";
-import { fetchFile } from "@ffmpeg/util";
 import { Progress } from "@/components/ui/progress.tsx";
 // @ts-expect-error no type declarations available
 import { LogEvent, ProgressEvent } from "@ffmpeg/ffmpeg/dist/esm/types";
@@ -28,14 +27,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useFFmpeg } from "@/hooks/useFFmpeg.ts";
 import { Download } from "lucide-react";
-import {
-  buildConcatArgs,
-  buildConcatList,
-  buildSegmentArgs,
-  type ExportSettings,
-} from "@/lib/export-command.ts";
-
-const CONCAT_LIST = "concat_list.txt";
+import { type ExportSettings } from "@/lib/export-command.ts";
+import { runExport } from "@/lib/export-run.ts";
 
 const MIME_TYPES: Record<string, string> = {
   mp4: "video/mp4",
@@ -49,8 +42,6 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     file,
     ffmpeg,
     video,
-    cursorStart,
-    cursorEnd,
     segments,
     cropRectangle,
     format,
@@ -69,10 +60,14 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [outputUrl, setOutputUrl] = useState("");
+  const [error, setError] = useState("");
 
   const [log, setLog] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
   const [, setTime] = useState(0);
+
+  /** Identifies the in-flight run, so a cancelled one cannot report anything. */
+  const runIdRef = useRef(0);
 
   const { load } = useFFmpeg(
     useCallback((p) => {
@@ -97,7 +92,10 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
   }, [format, outputUrl]);
 
   const exportHandler = async () => {
+    const runId = ++runIdRef.current;
+
     setExporting(true);
+    setError("");
 
     const logCb = ({ message }: LogEvent) => {
       setLog((log) => log.concat(message));
@@ -112,12 +110,12 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     ffmpeg.on("progress", progressCb);
 
     try {
-      await load();
-
-      const name = "video_file";
-
-      await ffmpeg.writeFile(name, await fetchFile(file));
-      const filename = `output_${new Date().getTime()}.${format}`;
+      await load().catch((e) => {
+        throw new Error(
+          "Could not load the video encoder. Check your connection and try again.",
+          { cause: e },
+        );
+      });
 
       const settings: ExportSettings = {
         format,
@@ -133,63 +131,29 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         videoHeight: video.videoHeight,
       };
 
-      if (segments.length <= 1) {
-        // Single segment — original export path
-        await ffmpeg.exec(
-          buildSegmentArgs(settings, {
-            input: name,
-            start: cursorStart,
-            duration: cursorEnd - cursorStart,
-            output: filename,
-          }),
-        );
-      } else {
-        // Multi-segment — extract each, then concat
-        const segmentFiles: string[] = [];
+      const data = await runExport({
+        ffmpeg,
+        input: new Uint8Array(await file!.arrayBuffer()),
+        settings,
+        segments,
+      });
 
-        for (let i = 0; i < segments.length; i++) {
-          const seg = segments[i];
-          const segFile = `segment_${i}.${format}`;
-          segmentFiles.push(segFile);
+      if (runId !== runIdRef.current) return;
 
-          await ffmpeg.exec(
-            buildSegmentArgs(settings, {
-              input: name,
-              start: seg.sourceStart,
-              duration: seg.sourceEnd - seg.sourceStart,
-              output: segFile,
-            }),
-          );
-        }
-
-        // Write concat list to WASM filesystem
-        await ffmpeg.writeFile(
-          CONCAT_LIST,
-          new TextEncoder().encode(buildConcatList(segmentFiles)),
-        );
-
-        // Concatenate with stream copy
-        await ffmpeg.exec(buildConcatArgs(CONCAT_LIST, filename));
-
-        // Clean up intermediate files
-        for (const f of segmentFiles) {
-          await ffmpeg.deleteFile(f);
-        }
-        await ffmpeg.deleteFile(CONCAT_LIST);
-      }
-
-      const data = (await ffmpeg.readFile(filename)) as Uint8Array<ArrayBuffer>;
       setOutputUrl(
         URL.createObjectURL(
-          new Blob([data], {
-            type: MIME_TYPES[format] ?? "video/mp4",
-          }),
+          new Blob([data], { type: MIME_TYPES[format] ?? "video/mp4" }),
         ),
       );
+    } catch (e) {
+      // A cancelled run rejects because the dialog terminated FFmpeg.
+      if (runId !== runIdRef.current) return;
 
-      // Clean up WASM filesystem to free memory between exports
-      await ffmpeg.deleteFile(name);
-      await ffmpeg.deleteFile(filename);
+      setError(
+        e instanceof Error
+          ? e.message
+          : "The export failed. The log below may say why.",
+      );
     } finally {
       ffmpeg.off("log", logCb);
       ffmpeg.off("progress", progressCb);
@@ -212,6 +176,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     URL.revokeObjectURL(previousOutputUrlRef.current);
     previousOutputUrlRef.current = "";
     setOutputUrl("");
+    setError("");
     setLog([]);
     setProgress(0);
     setTime(0);
@@ -221,6 +186,8 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     if (!open) {
       reset();
       if (exporting) {
+        // Retires the run so its rejection stays silent.
+        runIdRef.current++;
         ffmpeg.terminate();
       }
     } else {
@@ -241,7 +208,11 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
       >
         <DialogHeader>
           <DialogTitle>
-            {outputUrl ? "Export Complete" : "Exporting..."}
+            {error
+              ? "Export Failed"
+              : outputUrl
+                ? "Export Complete"
+                : "Exporting..."}
           </DialogTitle>
           <DialogDescription asChild>
             <div className="flex flex-col gap-4 py-4">
@@ -257,6 +228,12 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                     {Math.round(progress * 100)}%
                   </span>
                 </div>
+              )}
+
+              {error && (
+                <p className="rounded border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
               )}
 
               {outputUrl && (
@@ -313,7 +290,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         </DialogHeader>
         <DialogFooter>
           <Button variant="secondary" onClick={() => onOpenChange(false)}>
-            {outputUrl ? "Close" : "Cancel"}
+            {outputUrl || error ? "Close" : "Cancel"}
           </Button>
         </DialogFooter>
       </DialogContent>

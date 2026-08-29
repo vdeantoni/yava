@@ -34,7 +34,13 @@ npx playwright test -c playwright-ct.config.ts tests/components/VideoTimeline.sp
 npx playwright test -c playwright-e2e.config.ts -g "hash URL round-trip"
 ```
 
-The e2e suite starts the dev server itself (`reuseExistingServer: true`) and downloads a real sample video over the network, so it needs connectivity and is slower than the rest.
+The e2e suite starts the dev server itself (`reuseExistingServer: true`) and serves `tests/fixtures/tiny.mp4` from a routed, unroutable host, so it never touches the network.
+
+`tests/e2e/export.spec.ts` is the exception. Its two real-FFmpeg tests pull the ~32MB WASM core from unpkg and are skipped unless `YAVA_E2E_FFMPEG=1` is set:
+
+```bash
+YAVA_E2E_FFMPEG=1 npx playwright test -c playwright-e2e.config.ts tests/e2e/export.spec.ts
+```
 
 ## Architecture
 
@@ -76,7 +82,7 @@ Multithreading requires `crossOriginIsolated`, which requires COOP/COEP headers.
 
 ### Export pipeline
 
-`VideoExportDialog.tsx` is the whole command builder. Filter order is deliberate:
+`src/lib/export-command.ts` builds every argument list and `src/lib/export-run.ts` runs them. The dialog only wires the store to those two and renders progress, so both are testable without React. Filter order is deliberate:
 
 1. `scale=<intrinsic w>:<intrinsic h>` first when cropping, to normalize non-square SAR before crop coordinates are applied
 2. `crop=w:h:x:y`, computed from the fractional crop rect against intrinsic dimensions
@@ -85,15 +91,21 @@ Multithreading requires `crossOriginIsolated`, which requires COOP/COEP headers.
 
 Widths and heights are rounded down to even numbers because x264 requires it. Codec choice: mp4/mov use x264 `-preset`, webm uses libvpx with `-deadline`/`-cpu-used` mapped from the same preset names, gif is native. Audio is `-c:a copy` only when no audio filter is active.
 
-One segment runs a single `exec`. Multiple segments extract each to `segment_N.<fmt>`, write a `concat_list.txt`, then run the concat demuxer with `-c copy`, and clean up the intermediates. Files are deleted from the WASM filesystem after every export to keep memory from growing.
+One segment runs a single `exec`. Multiple segments extract each to `segment_N.<fmt>`, write a `concat_list.txt`, then run the concat demuxer with `-c copy`. `runExport` owns every name it writes inside the WASM filesystem and deletes them all in a `finally`, so a failed run leaks nothing.
+
+`ffmpeg.exec` resolves with an exit code instead of rejecting, so `runExport` checks it and throws a message naming the step that broke. The dialog catches that and shows "Export Failed", except when the failure came from the user closing the dialog, which terminates FFmpeg on purpose.
 
 ### Segment-aware playback
 
-`VideoPlayer`'s `onTimeUpdate` handler is the playback engine. It finds the segment containing `currentTime`, jumps to the next segment's start on reaching a segment end, pauses at the last segment's end, and seeks forward out of gaps. Single-segment videos take a simpler path that just clamps to `cursorStart`/`cursorEnd`.
+`VideoPlayer`'s `onTimeUpdate` handler is the playback engine, and every decision it makes comes from `nextPlaybackAction` in `src/lib/playback.ts`. That function takes the segments and the current time and returns `continue`, `seek`, or `stop`: seek forward out of a gap or back to the first segment, stop at the last segment's end, otherwise keep rolling. There is no separate single-segment path.
+
+A time on a cut shared by two flush segments resolves to the later segment, so playback runs straight through the cut. Resolving it to the earlier one instead would end that segment and seek to the timestamp the playhead already holds, and the seek's own `timeupdate` would repeat the decision forever. The handler also skips any seek shorter than `SEEK_TOLERANCE` for the same reason.
 
 ### Shared tolerances
 
-`src/lib/utils.ts` exports named epsilons: `MIN_SLICE_DISTANCE` (0.5s minimum segment length), `FLUSH_TOLERANCE` (0.01s, treats boundaries as touching so segments can be joined), `PLAYBACK_TOLERANCE` (0.05s), `RESTART_TOLERANCE` (0.1s). Reuse them along with `findSegmentAt`, `findSegmentIndexAt`, and `snapToNearestSegmentBoundary` instead of inlining new comparisons.
+`src/lib/utils.ts` exports named epsilons: `MIN_SLICE_DISTANCE` (0.5s minimum segment length), `FLUSH_TOLERANCE` (0.01s, treats boundaries as touching so segments can be joined), `PLAYBACK_TOLERANCE` (0.05s), `SEEK_TOLERANCE` (0.01s, below which a seek is a no-op and gets skipped), `RESTART_TOLERANCE` (0.1s). Reuse them along with `findSegmentAt` and `snapToNearestSegmentBoundary` instead of inlining new comparisons.
+
+`findSegmentAt` resolves a time on a shared cut to the earlier segment, which suits the timeline and the store. `nextPlaybackAction` needs the later one and so runs its own scan; that is the one place a separate lookup is right.
 
 ## Test setup
 
