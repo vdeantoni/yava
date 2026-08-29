@@ -34,7 +34,13 @@ npx playwright test -c playwright-ct.config.ts tests/components/VideoTimeline.sp
 npx playwright test -c playwright-e2e.config.ts -g "hash URL round-trip"
 ```
 
-The e2e suite starts the dev server itself (`reuseExistingServer: true`) and downloads a real sample video over the network, so it needs connectivity and is slower than the rest.
+The e2e suite starts the dev server itself (`reuseExistingServer: true`) and serves `tests/fixtures/tiny.mp4` from a routed, unroutable host, so it never touches the network.
+
+`tests/e2e/export.spec.ts` is the exception. Its two real-FFmpeg tests pull the ~32MB WASM core from unpkg and are skipped unless `YAVA_E2E_FFMPEG=1` is set:
+
+```bash
+YAVA_E2E_FFMPEG=1 npx playwright test -c playwright-e2e.config.ts tests/e2e/export.spec.ts
+```
 
 ## Architecture
 
@@ -76,7 +82,7 @@ Multithreading requires `crossOriginIsolated`, which requires COOP/COEP headers.
 
 ### Export pipeline
 
-`VideoExportDialog.tsx` is the whole command builder. Filter order is deliberate:
+`src/lib/export-command.ts` builds every argument list and `src/lib/export-run.ts` runs them. The dialog only wires the store to those two and renders progress, so both are testable without React. Filter order is deliberate:
 
 1. `scale=<intrinsic w>:<intrinsic h>` first when cropping, to normalize non-square SAR before crop coordinates are applied
 2. `crop=w:h:x:y`, computed from the fractional crop rect against intrinsic dimensions
@@ -85,7 +91,9 @@ Multithreading requires `crossOriginIsolated`, which requires COOP/COEP headers.
 
 Widths and heights are rounded down to even numbers because x264 requires it. Codec choice: mp4/mov use x264 `-preset`, webm uses libvpx with `-deadline`/`-cpu-used` mapped from the same preset names, gif is native. Audio is `-c:a copy` only when no audio filter is active.
 
-One segment runs a single `exec`. Multiple segments extract each to `segment_N.<fmt>`, write a `concat_list.txt`, then run the concat demuxer with `-c copy`, and clean up the intermediates. Files are deleted from the WASM filesystem after every export to keep memory from growing.
+One segment runs a single `exec`. Multiple segments extract each to `segment_N.<fmt>`, write a `concat_list.txt`, then run the concat demuxer with `-c copy`. `runExport` owns every name it writes inside the WASM filesystem and deletes them all in a `finally`, so a failed run leaks nothing.
+
+`ffmpeg.exec` resolves with an exit code instead of rejecting, so `runExport` checks it and throws a message naming the step that broke. The dialog catches that and shows "Export Failed", except when the failure came from the user closing the dialog, which terminates FFmpeg on purpose.
 
 ### Segment-aware playback
 
