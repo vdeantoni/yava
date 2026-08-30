@@ -1,5 +1,5 @@
 import VideoTimeline from "@/components/timeline/VideoTimeline.tsx";
-import SliceToolbar from "@/components/timeline/SliceToolbar.tsx";
+import TimelineToolbar from "@/components/timeline/TimelineToolbar.tsx";
 import { useAppStore } from "@/store.tsx";
 import { useShallow } from "zustand/react/shallow";
 import VideoPlayer from "@/components/player/VideoPlayer.tsx";
@@ -174,8 +174,8 @@ function App() {
               </aside>
             )}
 
-            {/* Slice toolbar + Timeline — full width */}
-            {video && <SliceToolbar />}
+            {/* Toolbar + Timeline — full width */}
+            {video && <TimelineToolbar />}
             {video && <VideoTimeline />}
           </main>
         )}

@@ -1,7 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import {
+  fadeInButton,
   loadWithSegments,
+  movePlayhead,
   routeFixtureVideo,
   TEN_BIT_FIXTURE,
 } from "./helpers";
@@ -54,6 +56,62 @@ async function previewDuration(page: Page) {
       document.querySelector<HTMLVideoElement>('[role="dialog"] video')!
         .duration,
   );
+}
+
+/** Download what the dialog produced and hand back the local path. */
+async function saveExport(page: Page) {
+  const download = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("button", { name: "Download" }).click(),
+  ]).then(([d]) => d);
+
+  return (await download.path())!;
+}
+
+/** Decode from `at` seconds to stdout, however `args` asks for it. */
+function decodeAt(path: string, at: number, args: string[]): Buffer {
+  return execFileSync(
+    "ffmpeg",
+    ["-v", "error", "-ss", String(at), "-i", path, ...args, "-"],
+    { maxBuffer: 64 * 1024 * 1024 },
+  );
+}
+
+/** Brightest luma in the frame at `at` seconds, 0 to 255. */
+function brightestLuma(path: string, at: number): number {
+  const frame = decodeAt(path, at, [
+    "-frames:v",
+    "1",
+    "-f",
+    "rawvideo",
+    "-pix_fmt",
+    "gray",
+  ]);
+
+  let brightest = 0;
+  for (const luma of frame) if (luma > brightest) brightest = luma;
+  return brightest;
+}
+
+/** Loudest sample in the 100ms of audio starting at `at`, 0 to 32767. */
+function peakAmplitude(path: string, at: number): number {
+  const pcm = decodeAt(path, at, [
+    "-t",
+    "0.1",
+    "-vn",
+    "-f",
+    "s16le",
+    "-ac",
+    "1",
+    "-ar",
+    "8000",
+  ]);
+
+  let peak = 0;
+  for (let i = 0; i + 1 < pcm.length; i += 2) {
+    peak = Math.max(peak, Math.abs(pcm.readInt16LE(i)));
+  }
+  return peak;
 }
 
 test.beforeEach(({ context }) => routeFixtureVideo(context));
@@ -163,11 +221,7 @@ test.describe("export", () => {
       "Export Complete",
     );
 
-    const download = await Promise.all([
-      page.waitForEvent("download"),
-      dialog.getByRole("button", { name: "Download" }).click(),
-    ]).then(([d]) => d);
-    const path = (await download.path())!;
+    const path = await saveExport(page);
 
     const probed = execFileSync("ffprobe", [
       "-v",
@@ -185,5 +239,29 @@ test.describe("export", () => {
 
     expect(probed).toContain("yuv420p");
     expect(probed).not.toContain("10");
+  });
+
+  test("bakes a fade to black into the exported frames", async ({ page }) => {
+    test.setTimeout(240_000);
+    await loadWithSegments(page, [[0, 2]]);
+
+    // Fade the first half of the clip up from black.
+    await movePlayhead(page, 0.5);
+    await fadeInButton(page).click();
+
+    const dialog = await exportAndWait(page);
+    await expect(dialog.getByRole("heading").first()).toHaveText(
+      "Export Complete",
+    );
+
+    const path = await saveExport(page);
+
+    // The source is a test pattern with white in it, so the first frame being
+    // dark can only be the fade. Past the fade it is back to full brightness.
+    expect(brightestLuma(path, 0)).toBeLessThan(40);
+    expect(brightestLuma(path, 1.5)).toBeGreaterThan(150);
+
+    // The sine tone fades with the picture rather than opening at full volume.
+    expect(peakAmplitude(path, 0)).toBeLessThan(peakAmplitude(path, 1.5) / 4);
   });
 });

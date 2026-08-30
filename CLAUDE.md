@@ -52,6 +52,14 @@ YAVA_E2E_FFMPEG=1 npx playwright test -c playwright-e2e.config.ts tests/e2e/expo
 
 Deleting a middle segment leaves a gap in source time. Playback skips gaps and export concatenates around them, so segments do not have to be contiguous.
 
+### Fades
+
+A segment can also carry `fadeIn` and `fadeOut`, each a length in seconds rather than a timestamp: `fadeIn` runs from `sourceStart`, `fadeOut` ends at `sourceEnd`. Storing lengths means a fade survives the segment being dragged and only needs clamping when it stops fitting, which `clampFades` does on every slice, join and resize. A segment shorter than its own fade would otherwise encode as a clip that never reaches full brightness.
+
+`src/lib/fade.ts` holds the whole model. `fadeIntent` answers what a click at a time would do. Each fade is a toggle: a segment that already has one gives back a zero length, meaning remove it, from anywhere inside that segment, and only setting a new fade needs room for it. So the toolbar buttons carry `aria-pressed` and a filled look rather than a separate clear control, and a length is changed by clearing and setting again. Which segment owns a time on a cut differs by kind, which is why `fadeIntent` does not use `findSegmentAt`: a fade-in belongs to the segment ending there, a fade-out to the one starting there, and `findSegmentAt` always answers with the earlier.
+
+Audio fades with the picture. There is no separate control, and `afade` mirrors `fade` exactly.
+
 ### Bootstrap order
 
 Nothing in the editor exists until video metadata is available, and the chain matters:
@@ -74,6 +82,8 @@ So restored share links land in `resetCursors`, not at file load. That is also w
 
 Adding a shareable field means touching four places: the `UrlEditState` type and `buildEditStateUpdates` in `store.tsx`, plus `encodeEditState` and `decodeEditState` in `url-state.ts`. `decodeEditState` validates every field by type and swallows malformed input, since hashes come from untrusted URLs.
 
+A `seg` entry is `[start, end]`, or `[start, end, fadeIn, fadeOut]` once either fade is set. Both lengths travel together so the tuple only ever has two shapes, and links written before fades existed still decode.
+
 ### FFmpeg
 
 One `FFmpeg` instance lives in the store, unloaded until first export. `useFFmpeg` fetches the core from unpkg (`@ffmpeg/core@0.12.10`, or `core-mt` when multithreading is available) and reports per-file download progress against hardcoded byte sizes in `FILE_SIZES`. They are hardcoded because unpkg serves these chunked with no `Content-Length`, so `@ffmpeg/util` reports `total: -1` and cannot compute progress itself. The two builds differ in size, so re-measure both sets when bumping the version.
@@ -93,9 +103,12 @@ Multithreading requires `crossOriginIsolated`, which requires COOP/COEP headers.
 1. `scale=<intrinsic w>:<intrinsic h>` first when cropping, to normalize non-square SAR before crop coordinates are applied
 2. `crop=w:h:x:y`, computed from the fractional crop rect against intrinsic dimensions
 3. output `scale`, resolved to two concrete even numbers by `effectiveOutputSize`
-4. `setpts` for speed, plus chained `atempo` on audio (2.0 or 0.5 steps, since a single `atempo` only covers 0.5 to 2.0)
+4. `fade`, and `afade` on the audio, offset against the segment's own duration
+5. `setpts` for speed, plus chained `atempo` on audio (2.0 or 0.5 steps, since a single `atempo` only covers 0.5 to 2.0)
 
-Widths and heights are rounded down to even numbers because x264 requires it. Codec choice: mp4/mov use x264 `-preset`, webm uses libvpx with `-deadline`/`-cpu-used` mapped from the same preset names, gif is native. Audio is `-c:a copy` only when no audio filter is active.
+Fades come before the retiming so their lengths stay in source seconds and cover the same frames whatever the speed is; at 2x a 1.5s fade plays in 0.75s. They are the one filter that varies per segment, which is why `buildSegmentArgs` passes its `SegmentRange` down to both filter builders.
+
+Widths and heights are rounded down to even numbers because x264 requires it. Codec choice: mp4/mov use x264 `-preset`, webm uses libvpx with `-deadline`/`-cpu-used` mapped from the same preset names, gif is native. Audio is `-c:a copy` only when no audio filter is active, so a fade re-encodes it without any extra plumbing.
 
 `effectiveOutputSize` answers what size an export will be, from the crop rect, the source and the two override fields. `buildVideoFilters` calls it, and so does the export panel, so the number on screen is the number that comes out and there is no second resolution to keep in step. Blank fields mean "work it out"; setting one axis and leaving the other blank keeps the aspect ratio, which is why the blank axis resolves to a real number here rather than being left to ffmpeg's `-2`. Nothing writes derived dimensions back into the store: doing that cost two store writes per pointer move during a crop drag.
 
@@ -141,11 +154,13 @@ the segment runs away.
 
 A time on a cut shared by two flush segments resolves to the later segment, so playback runs straight through the cut. Resolving it to the earlier one instead would end that segment and seek to the timestamp the playhead already holds, and the seek's own `timeupdate` would repeat the decision forever. The handler also skips any seek shorter than `SEEK_TOLERANCE` for the same reason.
 
+The fade preview is a black overlay over the player. `fadeGainAt` returns what the fade leaves of the picture and the sound, so the overlay takes `1 - gain` for its opacity and the element takes the gain as its volume. While playback runs it is driven by `requestAnimationFrame` rather than `timeupdate`, which fires a handful of times a second and makes a fade step visibly. The level is written straight onto the node and skipped when unchanged, so nothing re-renders per frame and a playhead outside a fade costs nothing.
+
 ### Shared tolerances
 
-`src/lib/utils.ts` exports named epsilons: `MIN_SLICE_DISTANCE` (0.5s minimum segment length), `FLUSH_TOLERANCE` (0.01s, treats boundaries as touching so segments can be joined), `PLAYBACK_TOLERANCE` (0.05s), `SEEK_TOLERANCE` (0.01s, below which a seek is a no-op and gets skipped), `RESTART_TOLERANCE` (0.1s). Reuse them along with `findSegmentAt` and `snapToNearestSegmentBoundary` instead of inlining new comparisons.
+`src/lib/utils.ts` exports named epsilons: `MIN_SLICE_DISTANCE` (0.5s minimum segment length), `MIN_FADE_DURATION` (0.1s, the shortest fade worth keeping), `FLUSH_TOLERANCE` (0.01s, treats boundaries as touching so segments can be joined), `PLAYBACK_TOLERANCE` (0.05s), `SEEK_TOLERANCE` (0.01s, below which a seek is a no-op and gets skipped), `RESTART_TOLERANCE` (0.1s). Reuse them along with `findSegmentAt` and `snapToNearestSegmentBoundary` instead of inlining new comparisons.
 
-`findSegmentAt` resolves a time on a shared cut to the earlier segment, which suits the timeline and the store. `nextPlaybackAction` needs the later one and so runs its own scan; that is the one place a separate lookup is right.
+`findSegmentAt` resolves a time on a shared cut to the earlier segment, which suits the timeline and the store. Two callers need something else and scan for themselves: `nextPlaybackAction` wants the later segment, and `fadeIntent` wants a different one per fade kind. Those are the only two places a separate lookup is right.
 
 ## Test setup
 

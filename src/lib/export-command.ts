@@ -1,4 +1,5 @@
 import { cropToSource, hasArea, type CropRectangle } from "@/lib/crop";
+import { fadeFilters, type FadeRange } from "@/lib/fade";
 import type { Format, Preset } from "@/store";
 
 /**
@@ -35,6 +36,8 @@ export interface ExportSettings {
   videoWidth: number;
   videoHeight: number;
 }
+
+const NO_FADES: FadeRange = { duration: 0 };
 
 /** x264 rejects odd dimensions, so round down rather than up. */
 const toEven = (n: number) => n - (n % 2);
@@ -86,9 +89,14 @@ export function effectiveOutputSize({
 /**
  * Filter order is deliberate. The leading scale normalizes a non-square SAR to
  * intrinsic pixels before crop coordinates are applied, otherwise the crop
- * lands in the wrong place on anamorphic sources.
+ * lands in the wrong place on anamorphic sources. Fades come before `setpts`,
+ * so their lengths stay in source seconds and cover the same frames whatever
+ * the speed is set to.
  */
-export function buildVideoFilters(settings: ExportSettings): string[] {
+export function buildVideoFilters(
+  settings: ExportSettings,
+  range: FadeRange = NO_FADES,
+): string[] {
   const { cropRectangle: crop, videoWidth, videoHeight, speed } = settings;
 
   const filters: string[] = [];
@@ -106,6 +114,8 @@ export function buildVideoFilters(settings: ExportSettings): string[] {
   const { width, height } = effectiveOutputSize(settings);
   filters.push(`scale=${width}:${height}`);
 
+  filters.push(...fadeFilters(range));
+
   if (speed !== 1) {
     filters.push(`setpts=${(1 / speed).toFixed(4)}*PTS`);
   }
@@ -113,12 +123,17 @@ export function buildVideoFilters(settings: ExportSettings): string[] {
   return filters;
 }
 
-/** Empty when the speed is unchanged or the audio is being dropped. */
-export function buildAudioFilters(settings: ExportSettings): string[] {
+/** Empty when the audio is dropped, or when nothing about it changes. */
+export function buildAudioFilters(
+  settings: ExportSettings,
+  range: FadeRange = NO_FADES,
+): string[] {
   const { speed, noAudio } = settings;
-  if (speed === 1 || noAudio) return [];
+  if (noAudio) return [];
 
-  const filters: string[] = [];
+  const filters = fadeFilters(range, "afade");
+  if (speed === 1) return filters;
+
   let remaining = speed;
 
   while (remaining > ATEMPO_MAX) {
@@ -177,21 +192,21 @@ export function threadCount({
   return format === "webm" ? "2" : "4";
 }
 
-export interface SegmentRange {
+export interface SegmentRange extends FadeRange {
   input: string;
   start: number;
-  duration: number;
   output: string;
 }
 
 /** Args for extracting and encoding one contiguous range of the source. */
 export function buildSegmentArgs(
   settings: ExportSettings,
-  { input, start, duration, output }: SegmentRange,
+  range: SegmentRange,
 ): string[] {
+  const { input, start, duration, output } = range;
   const { frameRate, noAudio } = settings;
-  const videoFilters = buildVideoFilters(settings);
-  const audioFilters = buildAudioFilters(settings);
+  const videoFilters = buildVideoFilters(settings, range);
+  const audioFilters = buildAudioFilters(settings, range);
 
   return [
     "-ss",

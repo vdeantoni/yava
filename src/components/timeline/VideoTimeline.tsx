@@ -169,6 +169,9 @@ const VideoTimeline = () => {
   const getTimeFromEvent = (e: React.MouseEvent<HTMLDivElement>): number =>
     timeAtX(e.clientX, e.currentTarget.getBoundingClientRect(), video.duration);
 
+  /** Seconds of source as a width along the track. */
+  const px = (seconds: number) => (seconds / video.duration) * trackWidth;
+
   return (
     <div className="border-t border-border bg-card px-4 lg:px-8 py-1">
       <div
@@ -308,6 +311,25 @@ const VideoTimeline = () => {
                     (e.target as HTMLElement).setPointerCapture(e.pointerId);
                   }}
                 />
+                {/* Fades, drawn the way they will look: black at the outer edge */}
+                {seg.fadeIn ? (
+                  <div
+                    className="absolute h-16 -top-1 z-[15] bg-gradient-to-r from-black/90 to-transparent pointer-events-none"
+                    style={{
+                      left: px(seg.sourceStart),
+                      width: px(seg.fadeIn),
+                    }}
+                  />
+                ) : null}
+                {seg.fadeOut ? (
+                  <div
+                    className="absolute h-16 -top-1 z-[15] bg-gradient-to-l from-black/90 to-transparent pointer-events-none"
+                    style={{
+                      left: px(seg.sourceEnd - seg.fadeOut),
+                      width: px(seg.fadeOut),
+                    }}
+                  />
+                ) : null}
                 {/* Segment actions (top-right) — in track stacking context */}
                 {(isMobile || isHovered || isSelected) &&
                   hasMultipleSegments && (

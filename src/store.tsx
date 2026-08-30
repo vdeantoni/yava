@@ -2,26 +2,29 @@ import { create } from "zustand";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { CropRectangle, EMPTY_CROP } from "./lib/crop";
 import { supportsMultithreading } from "./hooks/useFFmpeg";
+import { clampFades, fadeIntent, withFade, type FadeKind } from "./lib/fade";
 import {
   clamp,
   findSegmentAt,
   snapToNearestSegmentBoundary,
   MIN_SLICE_DISTANCE,
   FLUSH_TOLERANCE,
+  type SegmentLike,
 } from "./lib/utils";
 
 export type Format = "mp4" | "webm" | "mov" | "gif";
 export type Preset = "ultrafast" | "fast" | "medium" | "slow";
 
-export interface Segment {
+export interface Segment extends SegmentLike {
   id: string;
-  sourceStart: number;
-  sourceEnd: number;
 }
+
+/** `[start, end]`, plus both fade lengths once either one is set. */
+export type UrlSegment = [number, number, number?, number?];
 
 export interface UrlEditState {
   v?: string;
-  seg?: [number, number][];
+  seg?: UrlSegment[];
   fmt?: Format;
   pre?: Preset;
   fps?: number;
@@ -72,6 +75,7 @@ interface AppActions {
   setProcessing: (processing: boolean) => void;
 
   sliceAtCursor: () => void;
+  fadeAtCursor: (kind: FadeKind) => void;
   deleteSegment: (id: string) => void;
   joinSegment: (id: string) => void;
   selectSegment: (id: string | null) => void;
@@ -112,11 +116,19 @@ function buildEditStateUpdates(
   if (editState.seg?.length) {
     const segments: Segment[] = [];
     let nextId = 0;
-    for (const [start, end] of editState.seg) {
+    for (const [start, end, fadeIn, fadeOut] of editState.seg) {
       const s = clamp(start, duration);
       const e = clamp(end, duration);
       if (e - s >= MIN_SLICE_DISTANCE) {
-        segments.push({ id: `s${nextId++}`, sourceStart: s, sourceEnd: e });
+        segments.push(
+          clampFades({
+            id: `s${nextId++}`,
+            sourceStart: s,
+            sourceEnd: e,
+            fadeIn,
+            fadeOut,
+          }),
+        );
       }
     }
     if (segments.length > 0) {
@@ -203,16 +215,18 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       if (idx === -1) return state;
 
       const seg = segments[idx];
-      const left: Segment = {
+      const left: Segment = clampFades({
         id: `s${nextSegmentId}`,
         sourceStart: seg.sourceStart,
         sourceEnd: cursorCurrent,
-      };
-      const right: Segment = {
+        fadeIn: seg.fadeIn,
+      });
+      const right: Segment = clampFades({
         id: `s${nextSegmentId + 1}`,
         sourceStart: cursorCurrent,
         sourceEnd: seg.sourceEnd,
-      };
+        fadeOut: seg.fadeOut,
+      });
 
       const newSegments = [...segments];
       newSegments.splice(idx, 1, left, right);
@@ -222,6 +236,21 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
         nextSegmentId: nextSegmentId + 2,
         selectedSegmentId: null,
       };
+    }),
+
+  fadeAtCursor: (kind) =>
+    set((state) => {
+      const intent = fadeIntent(state.segments, state.cursorCurrent, kind);
+      if (!intent) return state;
+
+      const segments = [...state.segments];
+      segments[intent.index] = withFade(
+        segments[intent.index],
+        kind,
+        intent.duration,
+      );
+
+      return { segments };
     }),
 
   deleteSegment: (id) =>
@@ -285,11 +314,13 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       // Nothing to join if it's just the one segment
       if (startIdx === endIdx) return state;
 
-      const merged: Segment = {
+      const merged: Segment = clampFades({
         id: `s${state.nextSegmentId}`,
         sourceStart: state.segments[startIdx].sourceStart,
         sourceEnd: state.segments[endIdx].sourceEnd,
-      };
+        fadeIn: state.segments[startIdx].fadeIn,
+        fadeOut: state.segments[endIdx].fadeOut,
+      });
 
       const newSegments = [
         ...state.segments.slice(0, startIdx),
@@ -324,7 +355,7 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       if (next && sourceEnd > next.sourceStart) sourceEnd = next.sourceStart;
 
       const segments = [...state.segments];
-      segments[idx] = { ...segments[idx], sourceStart, sourceEnd };
+      segments[idx] = clampFades({ ...segments[idx], sourceStart, sourceEnd });
 
       const cursorStart = segments[0].sourceStart;
       const cursorEnd = segments[segments.length - 1].sourceEnd;

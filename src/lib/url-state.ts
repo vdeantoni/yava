@@ -1,7 +1,9 @@
-import { useAppStore, type UrlEditState } from "@/store";
-import { FLUSH_TOLERANCE } from "@/lib/utils";
+import { useAppStore, type UrlEditState, type UrlSegment } from "@/store";
+import { FLUSH_TOLERANCE, type SegmentLike } from "@/lib/utils";
 
 const DEBOUNCE_MS = 500;
+
+const roundMs = (n: number) => Math.round(n * 1000) / 1000;
 
 // --- URL-safe base64 helpers ---
 
@@ -19,7 +21,7 @@ function fromBase64Url(str: string): string {
 
 export function encodeEditState(state: {
   sourceUrl: string | null;
-  segments: { sourceStart: number; sourceEnd: number }[];
+  segments: SegmentLike[];
   cursorStart: number;
   cursorEnd: number;
   format: string;
@@ -38,13 +40,18 @@ export function encodeEditState(state: {
     Math.abs(state.segments[0].sourceStart - state.cursorStart) <
       FLUSH_TOLERANCE &&
     Math.abs(state.segments[0].sourceEnd - state.cursorEnd) < FLUSH_TOLERANCE &&
-    state.segments[0].sourceStart === 0;
+    state.segments[0].sourceStart === 0 &&
+    !state.segments[0].fadeIn &&
+    !state.segments[0].fadeOut;
 
   if (!isDefaultSegments && state.segments.length > 0) {
-    obj.seg = state.segments.map((s) => [
-      Math.round(s.sourceStart * 1000) / 1000,
-      Math.round(s.sourceEnd * 1000) / 1000,
-    ]);
+    obj.seg = state.segments.map((s): UrlSegment => {
+      const start = roundMs(s.sourceStart);
+      const end = roundMs(s.sourceEnd);
+      // Both lengths travel together, so the tuple is either 2 or 4 long.
+      if (!s.fadeIn && !s.fadeOut) return [start, end];
+      return [start, end, roundMs(s.fadeIn ?? 0), roundMs(s.fadeOut ?? 0)];
+    });
   }
 
   if (state.format !== "mp4") obj.fmt = state.format as UrlEditState["fmt"];
@@ -71,15 +78,14 @@ export function decodeEditState(hash: string): UrlEditState | null {
     if (typeof obj.v === "string") state.v = obj.v;
 
     if (Array.isArray(obj.seg)) {
-      const segs: [number, number][] = [];
+      const segs: UrlSegment[] = [];
       for (const s of obj.seg) {
         if (
           Array.isArray(s) &&
-          s.length === 2 &&
-          typeof s[0] === "number" &&
-          typeof s[1] === "number"
+          (s.length === 2 || s.length === 4) &&
+          s.every((n) => typeof n === "number" && Number.isFinite(n))
         ) {
-          segs.push([s[0], s[1]]);
+          segs.push(s as UrlSegment);
         }
       }
       if (segs.length > 0) state.seg = segs;

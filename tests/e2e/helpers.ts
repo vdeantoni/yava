@@ -113,6 +113,30 @@ export function segmentHandle(page: Page, index: number) {
   return page.locator("div.h-16.cursor-grab").nth(index);
 }
 
+/** Click the track at `fraction` of the source duration to park the playhead. */
+export async function movePlayhead(page: Page, fraction: number) {
+  const track = page.locator("div.relative.h-16").first();
+  const box = (await track.boundingBox())!;
+  // Positioned click rather than raw mouse coordinates: the timeline sits below
+  // the fold at the default viewport height, and this scrolls it into view.
+  await track.click({
+    position: { x: box.width * fraction, y: box.height / 2 },
+  });
+}
+
+/** The fade-in toggle, named exactly so "Fade out" cannot match it. */
+export function fadeInButton(page: Page) {
+  return page.getByRole("button", { name: "Fade in", exact: true });
+}
+
+/** The edit state carried by the current hash, decoded. */
+export function editStateFromHash(page: Page) {
+  const hash = new URL(page.url()).hash.slice(1);
+  if (!hash) return null;
+  const b64 = hash.replace(/-/g, "+").replace(/_/g, "/");
+  return JSON.parse(Buffer.from(b64, "base64").toString());
+}
+
 /**
  * The canvas box, once its debounced resize observer has caught up with the
  * player. A `<video>` is 300x150 until its metadata arrives, so a box measured

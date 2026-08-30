@@ -95,6 +95,9 @@ export function clamp(value: number, max: number): number {
 
 /** Minimum distance from a segment edge to allow a slice (seconds). */
 export const MIN_SLICE_DISTANCE = 0.5;
+
+/** Shortest fade worth keeping; anything below this is dropped (seconds). */
+export const MIN_FADE_DURATION = 0.1;
 /** Tolerance for treating adjacent segment boundaries as flush (seconds). */
 export const FLUSH_TOLERANCE = 0.01;
 
@@ -110,6 +113,10 @@ export const RESTART_TOLERANCE = 0.1;
 export interface SegmentLike {
   sourceStart: number;
   sourceEnd: number;
+  /** Seconds of fade from black, measured forward from `sourceStart`. */
+  fadeIn?: number;
+  /** Seconds of fade to black, measured back from `sourceEnd`. */
+  fadeOut?: number;
 }
 
 /** Find the index of the segment containing `time` (within optional tolerance). Returns -1 if none. */

@@ -75,6 +75,29 @@ describe("encodeEditState", () => {
     ).toEqual([[1.235, 9.877]]);
   });
 
+  test("carries fades in a longer tuple, and only when one is set", () => {
+    expect(
+      roundTrip({
+        segments: [{ sourceStart: 0, sourceEnd: 60, fadeIn: 1.5 }],
+      })?.seg,
+    ).toEqual([[0, 60, 1.5, 0]]);
+  });
+
+  test("a fade alone makes the default segment worth encoding", () => {
+    // Bounds untouched, so without the fade this would encode to nothing.
+    expect(
+      encodeEditState(
+        state({ segments: [{ sourceStart: 0, sourceEnd: 60, fadeOut: 2 }] }),
+      ),
+    ).not.toBeNull();
+  });
+
+  test("keeps the short tuple when neither fade is set", () => {
+    expect(
+      roundTrip({ segments: [{ sourceStart: 5, sourceEnd: 20 }] })?.seg,
+    ).toEqual([[5, 20]]);
+  });
+
   test("includes only the export options that differ from the default", () => {
     expect(roundTrip({ format: "webm" })).toEqual({ fmt: "webm" });
     expect(roundTrip({ preset: "slow" })).toEqual({ pre: "slow" });
@@ -194,6 +217,22 @@ describe("decodeEditState", () => {
 
   test("drops the seg key entirely when no entry is well-formed", () => {
     expect(decodeEditState(encode({ seg: [["a", "b"], null] }))).toBeNull();
+  });
+
+  test("accepts the four-number form that carries fades", () => {
+    expect(decodeEditState(encode({ seg: [[0, 10, 1.5, 2]] }))).toEqual({
+      seg: [[0, 10, 1.5, 2]],
+    });
+  });
+
+  test("still reads a link written before fades existed", () => {
+    expect(decodeEditState(encode({ seg: [[0, 10]] }))).toEqual({
+      seg: [[0, 10]],
+    });
+  });
+
+  test("drops a fade tuple with a non-number in it", () => {
+    expect(decodeEditState(encode({ seg: [[0, 10, "1.5", 2]] }))).toBeNull();
   });
 
   test("does not reject negative or out-of-range segment numbers", () => {
