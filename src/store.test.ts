@@ -521,21 +521,15 @@ describe("useAppStore", () => {
       expect(s.noAudio).toBe(false);
     });
 
-    test("seeds the output size from the source's intrinsic dimensions", () => {
+    test("clears the output size back to automatic", () => {
       useAppStore.setState({
         video: { videoWidth: 1920, videoHeight: 1080 } as HTMLVideoElement,
+        outputWidth: "640",
+        outputHeight: "480",
       });
       useAppStore.getState().resetExportOptions();
 
-      const s = useAppStore.getState();
-      expect(s.outputWidth).toBe("1920");
-      expect(s.outputHeight).toBe("1080");
-    });
-
-    test("leaves the output size blank with no video loaded", () => {
-      useAppStore.setState({ video: undefined! });
-      useAppStore.getState().resetExportOptions();
-
+      // Blank means "derive it from the source and the crop".
       const s = useAppStore.getState();
       expect(s.outputWidth).toBe("");
       expect(s.outputHeight).toBe("");

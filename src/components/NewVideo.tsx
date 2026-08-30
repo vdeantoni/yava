@@ -55,7 +55,7 @@ if (parsedUrl.videoUrl) {
 }
 
 const NewVideo = () => {
-  const { setFile } = useAppStore();
+  const setFile = useAppStore((s) => s.setFile);
 
   const [mode, setMode] = useState<"file" | "url" | "camera" | "screen">(
     "file",

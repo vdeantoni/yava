@@ -39,6 +39,7 @@ const SliceToolbar = () => {
               variant="ghost"
               size="icon"
               className="h-7 w-7"
+              aria-label="Slice at the playhead"
               disabled={!canSlice}
               onClick={sliceAtCursor}
             >

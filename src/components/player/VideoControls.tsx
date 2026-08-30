@@ -1,4 +1,5 @@
 import { useAppStore } from "@/store.tsx";
+import { useShallow } from "zustand/react/shallow";
 import { Pause, Play, SkipBack, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { secondsToDuration, RESTART_TOLERANCE } from "@/lib/utils.ts";
@@ -17,7 +18,16 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
     cursorCurrent,
     segments,
     setCursorCurrent,
-  } = useAppStore();
+  } = useAppStore(
+    useShallow((s) => ({
+      video: s.video,
+      cursorStart: s.cursorStart,
+      cursorEnd: s.cursorEnd,
+      cursorCurrent: s.cursorCurrent,
+      segments: s.segments,
+      setCursorCurrent: s.setCursorCurrent,
+    })),
+  );
 
   const compact = video?.duration < COMPACT_THRESHOLD;
   const durationOpts = { ms: true, compact } as const;
@@ -33,6 +43,7 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-foreground hover:text-primary"
+          aria-label="Skip to start"
           onClick={(e) => {
             e.stopPropagation();
             video.pause();
@@ -46,6 +57,7 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-foreground hover:text-primary"
+          aria-label={playing ? "Pause" : "Play"}
           onClick={(e) => {
             e.stopPropagation();
             if (playing) {
@@ -74,6 +86,7 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-foreground hover:text-primary"
+          aria-label="Skip to end"
           onClick={(e) => {
             e.stopPropagation();
             video.pause();

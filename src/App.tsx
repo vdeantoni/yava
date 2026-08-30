@@ -1,6 +1,7 @@
 import VideoTimeline from "@/components/timeline/VideoTimeline.tsx";
 import SliceToolbar from "@/components/timeline/SliceToolbar.tsx";
 import { useAppStore } from "@/store.tsx";
+import { useShallow } from "zustand/react/shallow";
 import VideoPlayer from "@/components/player/VideoPlayer.tsx";
 import { Github, RotateCcw } from "lucide-react";
 import YavaLogo from "@/components/YavaLogo";
@@ -23,7 +24,13 @@ const triggerClass =
   "px-4 py-3 text-xs font-semibold uppercase tracking-widest text-muted-foreground hover:no-underline";
 
 function App() {
-  const { file, reset, video } = useAppStore();
+  const { file, reset, video } = useAppStore(
+    useShallow((s) => ({
+      file: s.file,
+      reset: s.reset,
+      video: s.video,
+    })),
+  );
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -65,6 +72,7 @@ function App() {
             )}
             <a
               href="https://github.com/vdeantoni/yava"
+              aria-label="This project on GitHub"
               className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
             >
               <Github className="w-4 h-4" />

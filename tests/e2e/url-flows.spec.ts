@@ -1,14 +1,22 @@
 import { test, expect, type Page } from "@playwright/test";
 import {
+  gotoVideoUrl,
   pollHash,
   routeFixtureVideo,
-  VIDEO_URL,
+  visiblePanel,
   waitForEditor,
 } from "./helpers";
 
+/** The "Remove audio" switch of whichever layout is visible. */
+function removeAudioSwitch(page: Page) {
+  return visiblePanel(page, "Export").getByRole("switch", {
+    name: "Remove audio",
+  });
+}
+
 /** Load the fixture video via ?v= and wait for the editor and hash to settle. */
 async function loadVideo(page: Page) {
-  await page.goto(`/?v=${encodeURIComponent(VIDEO_URL)}`);
+  await gotoVideoUrl(page);
   await waitForEditor(page);
   await pollHash(page).toBeTruthy();
 }
@@ -19,7 +27,7 @@ async function loadVideoAndToggleAudio(page: Page): Promise<string> {
 
   const hashBeforeEdit = new URL(page.url()).hash;
 
-  const noAudioSwitch = page.locator("#no-audio").first();
+  const noAudioSwitch = removeAudioSwitch(page);
   await noAudioSwitch.click();
   await expect(noAudioSwitch).toBeChecked();
 
@@ -57,7 +65,7 @@ test.describe("URL flows", () => {
     await pollHash(page).toBe(new URL(urlBeforeReload).hash);
 
     // "Remove audio" should still be on
-    await expect(page.locator("#no-audio").first()).toBeChecked();
+    await expect(removeAudioSwitch(page)).toBeChecked();
   });
 
   test("share URL opens with same state in a new tab", async ({
@@ -73,7 +81,7 @@ test.describe("URL flows", () => {
       await waitForEditor(page2);
 
       // "Remove audio" should be on in the new tab
-      await expect(page2.locator("#no-audio").first()).toBeChecked();
+      await expect(removeAudioSwitch(page2)).toBeChecked();
     } finally {
       await page2.close();
     }

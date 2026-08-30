@@ -9,6 +9,8 @@ import {
   buildVideoFilters,
   threadCount,
   type ExportSettings,
+  effectiveOutputSize,
+  type OutputSizeInputs,
 } from "./export-command";
 
 const NO_CROP = { x: 0, y: 0, w: 0, h: 0, vw: 0, vh: 0 };
@@ -32,8 +34,8 @@ function settings(overrides: Partial<ExportSettings> = {}): ExportSettings {
 }
 
 describe("buildVideoFilters", () => {
-  test("emits only a keep-aspect scale by default", () => {
-    expect(buildVideoFilters(settings())).toEqual(["scale=-2:-2"]);
+  test("scales to the source size when neither axis is pinned", () => {
+    expect(buildVideoFilters(settings())).toEqual(["scale=1000:600"]);
   });
 
   test("uses explicit output dimensions when given", () => {
@@ -50,12 +52,14 @@ describe("buildVideoFilters", () => {
     expect(filters).toEqual(["scale=1920:1080"]);
   });
 
-  test("keeps -2 on the axis left blank", () => {
+  test("resolves the axis left blank from the aspect ratio", () => {
+    // 1000x600 is 5:3, and the encoder gets a real number rather than -2, so
+    // the panel can show the same one.
     expect(buildVideoFilters(settings({ outputWidth: "640" }))).toEqual([
-      "scale=640:-2",
+      "scale=640:384",
     ]);
     expect(buildVideoFilters(settings({ outputHeight: "480" }))).toEqual([
-      "scale=-2:480",
+      "scale=800:480",
     ]);
   });
 
@@ -70,7 +74,7 @@ describe("buildVideoFilters", () => {
     expect(filters).toEqual([
       "scale=1000:600",
       "crop=500:300:100:200",
-      "scale=-2:-2",
+      "scale=500:300",
     ]);
   });
 
@@ -105,16 +109,16 @@ describe("buildVideoFilters", () => {
         cropRectangle: { x: 10, y: 10, w: 0, h: 0, vw: 100, vh: 60 },
       }),
     );
-    expect(filters).toEqual(["scale=-2:-2"]);
+    expect(filters).toEqual(["scale=1000:600"]);
   });
 
   test("appends setpts for a speed change, after the scale", () => {
     expect(buildVideoFilters(settings({ speed: 2 }))).toEqual([
-      "scale=-2:-2",
+      "scale=1000:600",
       "setpts=0.5000*PTS",
     ]);
     expect(buildVideoFilters(settings({ speed: 0.5 }))).toEqual([
-      "scale=-2:-2",
+      "scale=1000:600",
       "setpts=2.0000*PTS",
     ]);
   });
@@ -136,7 +140,7 @@ describe("buildVideoFilters", () => {
     expect(filters).toEqual([
       "scale=1000:600",
       "crop=500:300:0:0",
-      "scale=640:-2",
+      "scale=640:384",
       "setpts=0.5000*PTS",
     ]);
   });
@@ -216,25 +220,50 @@ describe("buildPresetArgs", () => {
 
 describe("buildCodecArgs", () => {
   test("stream-copies audio when nothing needs to re-encode it", () => {
-    expect(buildCodecArgs(settings(), [])).toEqual(["-c:a", "copy"]);
+    expect(buildCodecArgs(settings(), [])).toEqual([
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "copy",
+    ]);
   });
 
   test("drops the copy when an audio filter is active", () => {
-    expect(buildCodecArgs(settings({ speed: 2 }), ["atempo=2.0000"])).toEqual(
-      [],
-    );
+    expect(buildCodecArgs(settings({ speed: 2 }), ["atempo=2.0000"])).toEqual([
+      "-pix_fmt",
+      "yuv420p",
+    ]);
   });
 
   test("drops the copy when the audio is removed", () => {
-    expect(buildCodecArgs(settings({ noAudio: true }), [])).toEqual([]);
+    expect(buildCodecArgs(settings({ noAudio: true }), [])).toEqual([
+      "-pix_fmt",
+      "yuv420p",
+    ]);
   });
 
   test("never stream-copies audio into a gif", () => {
     expect(buildCodecArgs(settings({ format: "gif" }), [])).toEqual([]);
   });
 
+  test("pins 8-bit 4:2:0, since no browser decodes H.264 High 10", () => {
+    for (const format of ["mp4", "mov", "webm"] as const) {
+      expect(buildCodecArgs(settings({ format }), [])).toEqual(
+        expect.arrayContaining(["-pix_fmt", "yuv420p"]),
+      );
+    }
+  });
+
+  test("leaves a gif to its own palette", () => {
+    expect(buildCodecArgs(settings({ format: "gif" }), [])).not.toContain(
+      "-pix_fmt",
+    );
+  });
+
   test("selects libvpx for webm, with vorbis when audio passes through", () => {
     expect(buildCodecArgs(settings({ format: "webm" }), [])).toEqual([
+      "-pix_fmt",
+      "yuv420p",
       "-c:v",
       "libvpx",
       "-crf",
@@ -249,7 +278,16 @@ describe("buildCodecArgs", () => {
   test("keeps libvpx but drops vorbis when an audio filter is active", () => {
     expect(
       buildCodecArgs(settings({ format: "webm", speed: 2 }), ["atempo=2.0000"]),
-    ).toEqual(["-c:v", "libvpx", "-crf", "10", "-b:v", "1M"]);
+    ).toEqual([
+      "-pix_fmt",
+      "yuv420p",
+      "-c:v",
+      "libvpx",
+      "-crf",
+      "10",
+      "-b:v",
+      "1M",
+    ]);
   });
 });
 
@@ -345,7 +383,7 @@ describe("buildSegmentArgs", () => {
       range,
     );
     expect(args[args.indexOf("-vf") + 1]).toBe(
-      "scale=1000:600,crop=500:300:0:0,scale=-2:-2,setpts=0.5000*PTS",
+      "scale=1000:600,crop=500:300:0:0,scale=500:300,setpts=0.5000*PTS",
     );
   });
 });
@@ -373,5 +411,93 @@ describe("concat", () => {
       "copy",
       "out.mp4",
     ]);
+  });
+});
+
+describe("effectiveOutputSize", () => {
+  const inputs = (over: Partial<OutputSizeInputs> = {}): OutputSizeInputs => ({
+    cropRectangle: { x: 0, y: 0, w: 0, h: 0, vw: 0, vh: 0 },
+    videoWidth: 1920,
+    videoHeight: 1080,
+    outputWidth: "",
+    outputHeight: "",
+    ...over,
+  });
+
+  test("falls back to the source size", () => {
+    expect(effectiveOutputSize(inputs())).toEqual({
+      width: 1920,
+      height: 1080,
+    });
+  });
+
+  test("rounds an odd source down to even, as the encoder will", () => {
+    expect(
+      effectiveOutputSize(inputs({ videoWidth: 1081, videoHeight: 607 })),
+    ).toEqual({ width: 1080, height: 606 });
+  });
+
+  test("uses the crop rect, scaled against intrinsic dimensions", () => {
+    // Half the width, a third of the height, of a 400x300 display box.
+    const cropRectangle = { x: 0, y: 0, w: 200, h: 100, vw: 400, vh: 300 };
+    expect(effectiveOutputSize(inputs({ cropRectangle }))).toEqual({
+      width: 960,
+      height: 360,
+    });
+  });
+
+  test("ignores a crop rect with no area", () => {
+    const cropRectangle = { x: 10, y: 10, w: 0, h: 0, vw: 400, vh: 300 };
+    expect(effectiveOutputSize(inputs({ cropRectangle }))).toEqual({
+      width: 1920,
+      height: 1080,
+    });
+  });
+
+  test("takes both overrides as given", () => {
+    expect(
+      effectiveOutputSize(inputs({ outputWidth: "640", outputHeight: "480" })),
+    ).toEqual({ width: 640, height: 480 });
+  });
+
+  test("keeps the aspect ratio when only the width is set", () => {
+    expect(effectiveOutputSize(inputs({ outputWidth: "1280" }))).toEqual({
+      width: 1280,
+      height: 720,
+    });
+  });
+
+  test("keeps the aspect ratio when only the height is set", () => {
+    expect(effectiveOutputSize(inputs({ outputHeight: "540" }))).toEqual({
+      width: 960,
+      height: 540,
+    });
+  });
+
+  test("derives the aspect from the crop, not the source", () => {
+    // A square crop out of a 16:9 source: one axis given, the other follows.
+    const cropRectangle = { x: 0, y: 0, w: 100, h: 100, vw: 400, vh: 400 };
+    expect(
+      effectiveOutputSize(
+        inputs({ cropRectangle, videoHeight: 1920, outputWidth: "500" }),
+      ),
+    ).toEqual({ width: 500, height: 500 });
+  });
+
+  test("rounds an override down to even", () => {
+    expect(effectiveOutputSize(inputs({ outputWidth: "641" }))).toEqual({
+      width: 640,
+      height: 360,
+    });
+  });
+
+  test("never returns zero, which no encoder accepts", () => {
+    expect(effectiveOutputSize(inputs({ outputWidth: "1" }))).toEqual({
+      width: 2,
+      height: 2,
+    });
+    expect(
+      effectiveOutputSize(inputs({ videoWidth: 0, videoHeight: 0 })),
+    ).toEqual({ width: 2, height: 2 });
   });
 });

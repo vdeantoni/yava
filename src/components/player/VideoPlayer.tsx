@@ -1,22 +1,42 @@
 import { useAppStore } from "@/store.tsx";
+import { useShallow } from "zustand/react/shallow";
 import { useEffect, useMemo, useRef, useState } from "react";
 import VideoControls from "@/components/player/VideoControls.tsx";
-import { cn, SEEK_TOLERANCE } from "@/lib/utils.ts";
+import { cn, describeMediaError, SEEK_TOLERANCE } from "@/lib/utils.ts";
 import { nextPlaybackAction } from "@/lib/playback.ts";
 import { LoaderCircle } from "lucide-react";
 import VideoCanvas from "./VideoCanvas";
 
+/** Ten times the slowest first-frame report measured on a working source. */
+const FRAME_CHECK_MS = 2000;
+
+const NO_FRAMES_MESSAGE =
+  "This browser decoded no frames from this video, so there is no preview. Exporting still works, because FFmpeg decodes the file itself.";
+
 const VideoPlayer = () => {
   const {
     file,
+    video,
     cursorCurrent,
     segments,
     processing,
     setVideo,
     setCursorCurrent,
-  } = useAppStore();
+  } = useAppStore(
+    useShallow((s) => ({
+      file: s.file,
+      video: s.video,
+      cursorCurrent: s.cursorCurrent,
+      segments: s.segments,
+      processing: s.processing,
+      setVideo: s.setVideo,
+      setCursorCurrent: s.setCursorCurrent,
+    })),
+  );
 
   const [playing, setPlaying] = useState(false);
+  const [mediaError, setMediaError] = useState("");
+  const [noFrames, setNoFrames] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const videoSrc = useMemo(() => URL.createObjectURL(file!), [file]);
@@ -29,6 +49,22 @@ const VideoPlayer = () => {
   const videoLoadedDataHandler = () => {
     setVideo(videoRef.current!);
   };
+
+  /**
+   * A codec the browser cannot decode does not always raise an error. It can
+   * report metadata and readyState 4, fire loadeddata, and then produce no
+   * frames at all, which looks like a black player and an empty timeline.
+   * A working source counts its first frame within ~200ms of loadeddata.
+   */
+  useEffect(() => {
+    if (!video?.getVideoPlaybackQuality) return;
+
+    const timer = setTimeout(() => {
+      setNoFrames(video.getVideoPlaybackQuality().totalVideoFrames === 0);
+    }, FRAME_CHECK_MS);
+
+    return () => clearTimeout(timer);
+  }, [video]);
 
   const videoTimeUpdateHandler = () => {
     const el = videoRef.current;
@@ -53,6 +89,8 @@ const VideoPlayer = () => {
     seekTo(el, cursorCurrent);
   }, [cursorCurrent, processing]);
 
+  const warning = mediaError || (noFrames ? NO_FRAMES_MESSAGE : "");
+
   return (
     <div className="flex flex-col bg-background">
       <div className="relative overflow-hidden">
@@ -65,6 +103,9 @@ const VideoPlayer = () => {
             )}
             onLoadedData={videoLoadedDataHandler}
             onTimeUpdate={videoTimeUpdateHandler}
+            onError={(e) =>
+              setMediaError(describeMediaError(e.currentTarget.error?.code))
+            }
             onPlaying={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             playsInline={true}
@@ -79,6 +120,14 @@ const VideoPlayer = () => {
         {processing && (
           <div className="absolute inset-0 flex items-center justify-center">
             <LoaderCircle className="animate-spin text-primary h-8 w-8" />
+          </div>
+        )}
+
+        {warning && !processing && (
+          <div className="absolute inset-0 flex items-center justify-center p-6 pointer-events-none">
+            <p className="max-w-sm text-center text-sm text-destructive">
+              {warning}
+            </p>
           </div>
         )}
       </div>

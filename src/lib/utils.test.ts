@@ -1,5 +1,19 @@
 import { describe, test, expect } from "vitest";
-import { secondsToDuration, durationToSeconds } from "./utils";
+import {
+  clamp,
+  secondsToDuration,
+  durationToSeconds,
+  describeMediaError,
+} from "./utils";
+
+describe("clamp", () => {
+  test("holds a value inside the range", () => {
+    // A pointer dragged past either end of the player or the timeline.
+    expect(clamp(-5, 400)).toBe(0);
+    expect(clamp(500, 400)).toBe(400);
+    expect(clamp(200, 400)).toBe(200);
+  });
+});
 
 describe("secondsToDuration", () => {
   test("formats zero", () => {
@@ -85,5 +99,27 @@ describe("durationToSeconds", () => {
         secondsToDuration(seconds, { ms: true, compact: true }),
       ),
     ).toBe(seconds);
+  });
+});
+
+describe("describeMediaError", () => {
+  test("blames the network for a network error", () => {
+    expect(describeMediaError(2)).toMatch(/connection/i);
+  });
+
+  test("points at the pixel format for a decode failure", () => {
+    for (const code of [3, 4]) {
+      expect(describeMediaError(code)).toMatch(/cannot decode/i);
+      expect(describeMediaError(code)).toMatch(/10-bit/);
+    }
+  });
+
+  test("assumes an unsupported codec when the element reports no code", () => {
+    // Chromium fires error with a null MediaError for a codec it cannot use.
+    expect(describeMediaError(undefined)).toMatch(/cannot decode/i);
+  });
+
+  test("says so when loading was interrupted", () => {
+    expect(describeMediaError(1)).toMatch(/interrupted/i);
   });
 });

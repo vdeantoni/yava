@@ -1,5 +1,12 @@
-import { useAppStore, type Format, type Preset } from "@/store.tsx";
-import { useEffect } from "react";
+import {
+  useAppStore,
+  DEFAULT_EXPORT,
+  type Format,
+  type Preset,
+} from "@/store.tsx";
+import { useShallow } from "zustand/react/shallow";
+import { effectiveOutputSize } from "@/lib/export-command.ts";
+import { useEffect, useId } from "react";
 import { Input } from "@/components/ui/input.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Slider } from "@/components/ui/slider.tsx";
@@ -23,6 +30,7 @@ import { supportsMultithreading } from "@/hooks/useFFmpeg.ts";
 import { FileOutput } from "lucide-react";
 
 const ExportPanel = () => {
+  const id = useId();
   const {
     video,
     cropRectangle,
@@ -44,24 +52,30 @@ const ExportPanel = () => {
     multithreading,
     setMultithreading,
     resetExportOptions,
-  } = useAppStore();
-
-  useEffect(() => {
-    if (!video) return;
-    if (cropRectangle.w && cropRectangle.h) {
-      const w = Math.round(
-        (cropRectangle.w / cropRectangle.vw) * video.videoWidth,
-      );
-      const h = Math.round(
-        (cropRectangle.h / cropRectangle.vh) * video.videoHeight,
-      );
-      setOutputWidth(String(w - (w % 2)));
-      setOutputHeight(String(h - (h % 2)));
-    } else {
-      setOutputWidth(String(video.videoWidth));
-      setOutputHeight(String(video.videoHeight));
-    }
-  }, [video, cropRectangle, setOutputWidth, setOutputHeight]);
+  } = useAppStore(
+    useShallow((s) => ({
+      video: s.video,
+      cropRectangle: s.cropRectangle,
+      segments: s.segments,
+      format: s.format,
+      setFormat: s.setFormat,
+      preset: s.preset,
+      setPreset: s.setPreset,
+      frameRate: s.frameRate,
+      setFrameRate: s.setFrameRate,
+      speed: s.speed,
+      setSpeed: s.setSpeed,
+      outputWidth: s.outputWidth,
+      setOutputWidth: s.setOutputWidth,
+      outputHeight: s.outputHeight,
+      setOutputHeight: s.setOutputHeight,
+      noAudio: s.noAudio,
+      setNoAudio: s.setNoAudio,
+      multithreading: s.multithreading,
+      setMultithreading: s.setMultithreading,
+      resetExportOptions: s.resetExportOptions,
+    })),
+  );
 
   useEffect(() => {
     if (video) video.playbackRate = speed;
@@ -73,34 +87,55 @@ const ExportPanel = () => {
 
   if (!video) return null;
 
+  // Blank inputs show what the export will be; typing pins that axis.
+  const size = effectiveOutputSize({
+    cropRectangle,
+    videoWidth: video.videoWidth,
+    videoHeight: video.videoHeight,
+    outputWidth,
+    outputHeight,
+  });
+
   const hasChanges =
-    format !== "mp4" ||
-    preset !== "ultrafast" ||
-    frameRate !== 30 ||
-    speed !== 1 ||
-    outputWidth !== String(video.videoWidth) ||
-    outputHeight !== String(video.videoHeight) ||
-    noAudio;
+    format !== DEFAULT_EXPORT.format ||
+    preset !== DEFAULT_EXPORT.preset ||
+    frameRate !== DEFAULT_EXPORT.frameRate ||
+    speed !== DEFAULT_EXPORT.speed ||
+    outputWidth !== DEFAULT_EXPORT.outputWidth ||
+    outputHeight !== DEFAULT_EXPORT.outputHeight ||
+    noAudio !== DEFAULT_EXPORT.noAudio;
 
   return (
     <div className="flex flex-col gap-4 px-4">
       <div className="grid grid-cols-2 gap-2">
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Width</label>
+          <label
+            htmlFor={`${id}-width`}
+            className="text-xs text-muted-foreground"
+          >
+            Width
+          </label>
           <Input
+            id={`${id}-width`}
             type="number"
             className="font-mono text-sm h-8 bg-background"
-            value={outputWidth}
+            value={outputWidth || String(size.width)}
             min={0}
             onChange={(e) => setOutputWidth(e.currentTarget.value)}
           />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Height</label>
+          <label
+            htmlFor={`${id}-height`}
+            className="text-xs text-muted-foreground"
+          >
+            Height
+          </label>
           <Input
+            id={`${id}-height`}
             type="number"
             className="font-mono text-sm h-8 bg-background"
-            value={outputHeight}
+            value={outputHeight || String(size.height)}
             min={0}
             onChange={(e) => setOutputHeight(e.currentTarget.value)}
           />
@@ -108,9 +143,14 @@ const ExportPanel = () => {
       </div>
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">Format</label>
+        <label
+          htmlFor={`${id}-format`}
+          className="text-xs text-muted-foreground"
+        >
+          Format
+        </label>
         <Select value={format} onValueChange={(v) => setFormat(v as Format)}>
-          <SelectTrigger className="h-8 bg-background">
+          <SelectTrigger id={`${id}-format`} className="h-8 bg-background">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -124,9 +164,14 @@ const ExportPanel = () => {
 
       {format !== "gif" && (
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Preset</label>
+          <label
+            htmlFor={`${id}-preset`}
+            className="text-xs text-muted-foreground"
+          >
+            Preset
+          </label>
           <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
-            <SelectTrigger className="h-8 bg-background">
+            <SelectTrigger id={`${id}-preset`} className="h-8 bg-background">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -157,8 +202,12 @@ const ExportPanel = () => {
       )}
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs text-muted-foreground">Frame Rate</label>
+        <label htmlFor={`${id}-fps`} className="text-xs text-muted-foreground">
+          Frame Rate
+        </label>
         <Slider
+          id={`${id}-fps`}
+          aria-label="Frame Rate"
           value={[frameRate]}
           max={60}
           step={1}
@@ -170,8 +219,15 @@ const ExportPanel = () => {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs text-muted-foreground">Speed</label>
+        <label
+          htmlFor={`${id}-speed`}
+          className="text-xs text-muted-foreground"
+        >
+          Speed
+        </label>
         <Slider
+          id={`${id}-speed`}
+          aria-label="Speed"
           value={[speed]}
           min={0.25}
           max={2}
@@ -186,13 +242,13 @@ const ExportPanel = () => {
       {format !== "gif" && (
         <div className="flex items-center justify-between">
           <label
-            htmlFor="no-audio"
+            htmlFor={`${id}-no-audio`}
             className="text-xs text-muted-foreground cursor-pointer"
           >
             Remove audio
           </label>
           <Switch
-            id="no-audio"
+            id={`${id}-no-audio`}
             checked={noAudio}
             onCheckedChange={setNoAudio}
           />
@@ -201,14 +257,14 @@ const ExportPanel = () => {
 
       <div className="flex items-center justify-between">
         <label
-          htmlFor="multithreading"
+          htmlFor={`${id}-multithreading`}
           className="text-xs text-muted-foreground cursor-pointer"
         >
           Multithreading
         </label>
         {supportsMultithreading ? (
           <Switch
-            id="multithreading"
+            id={`${id}-multithreading`}
             checked={multithreading}
             onCheckedChange={setMultithreading}
           />
@@ -217,7 +273,11 @@ const ExportPanel = () => {
             <Tooltip>
               <TooltipTrigger asChild>
                 <span>
-                  <Switch id="multithreading" checked={false} disabled />
+                  <Switch
+                    id={`${id}-multithreading`}
+                    checked={false}
+                    disabled
+                  />
                 </span>
               </TooltipTrigger>
               <TooltipContent>
@@ -239,8 +299,14 @@ const ExportPanel = () => {
       )}
 
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">Output Duration</label>
+        <label
+          htmlFor={`${id}-duration`}
+          className="text-xs text-muted-foreground"
+        >
+          Output Duration
+        </label>
         <Input
+          id={`${id}-duration`}
           type="text"
           className="font-mono text-sm h-8 bg-background"
           value={secondsToDuration(
