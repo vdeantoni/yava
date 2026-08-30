@@ -15,25 +15,19 @@ const NO_FRAMES_MESSAGE =
   "This browser decoded no frames from this video, so there is no preview. Exporting still works, because FFmpeg decodes the file itself.";
 
 const VideoPlayer = () => {
-  const {
-    file,
-    video,
-    cursorCurrent,
-    segments,
-    processing,
-    setVideo,
-    setCursorCurrent,
-  } = useAppStore(
-    useShallow((s) => ({
-      file: s.file,
-      video: s.video,
-      cursorCurrent: s.cursorCurrent,
-      segments: s.segments,
-      processing: s.processing,
-      setVideo: s.setVideo,
-      setCursorCurrent: s.setCursorCurrent,
-    })),
-  );
+  // No cursorCurrent: nothing here renders it, and subscribing would re-render
+  // the player and its canvas on every pointer move of a scrub.
+  const { file, video, segments, processing, setVideo, setCursorCurrent } =
+    useAppStore(
+      useShallow((s) => ({
+        file: s.file,
+        video: s.video,
+        segments: s.segments,
+        processing: s.processing,
+        setVideo: s.setVideo,
+        setCursorCurrent: s.setCursorCurrent,
+      })),
+    );
 
   const [playing, setPlaying] = useState(false);
   const [mediaError, setMediaError] = useState("");
@@ -86,13 +80,6 @@ const VideoPlayer = () => {
     setCursorCurrent(action.time);
   };
 
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el || processing || !el.paused) return;
-
-    seekTo(el, cursorCurrent);
-  }, [cursorCurrent, processing]);
-
   const hasFades = useMemo(
     () => segments.some((s) => s.fadeIn || s.fadeOut),
     [segments],
@@ -112,9 +99,22 @@ const VideoPlayer = () => {
     el.volume = gain;
   }, [segments]);
 
-  // cursorCurrent is the trigger, not the input: paintFade reads the element,
-  // which the seek effect above has already moved.
-  useEffect(paintFade, [paintFade, cursorCurrent]);
+  /** Follow the playhead imperatively, since neither of these is rendered. */
+  useEffect(() => {
+    const follow = (cursorCurrent: number) => {
+      const el = videoRef.current;
+      if (!el) return;
+
+      if (!processing && el.paused) seekTo(el, cursorCurrent);
+      paintFade();
+    };
+
+    follow(useAppStore.getState().cursorCurrent);
+
+    return useAppStore.subscribe((s, previous) => {
+      if (s.cursorCurrent !== previous.cursorCurrent) follow(s.cursorCurrent);
+    });
+  }, [processing, paintFade]);
 
   // timeupdate fires a handful of times a second, which is coarse enough that a
   // fade driven off it visibly steps.

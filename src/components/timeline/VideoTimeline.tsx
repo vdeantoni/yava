@@ -163,6 +163,35 @@ const VideoTimeline = () => {
   /** Seconds of source as a width along the track. */
   const px = (seconds: number) => xAtTime(seconds, video.duration, trackWidth);
 
+  // Held as one element so React can skip it: a segment drag re-renders the
+  // track on every pointer move, and these ~150 nodes only move with the scale.
+  const markRow = useMemo(
+    () => (
+      <div className="relative timeline-marks w-full">
+        {marks.ticks.map((pct, i) => (
+          <span
+            key={`t${i}`}
+            className="absolute bottom-0 w-px h-1.5 bg-muted-foreground/25 -translate-x-1/2"
+            style={{ left: `${pct}%` }}
+          />
+        ))}
+        {marks.major.map(({ time, pct }) => (
+          <span
+            key={time}
+            className="absolute top-1 -translate-x-1/2 whitespace-nowrap"
+            style={{ left: `${pct}%` }}
+          >
+            {secondsToDuration(time, {
+              compact: video.duration < 3600,
+              trimLeft: isMobile,
+            })}
+          </span>
+        ))}
+      </div>
+    ),
+    [marks, video.duration],
+  );
+
   return (
     <div className="border-t border-border bg-card px-4 lg:px-8 py-1">
       <div
@@ -230,27 +259,7 @@ const VideoTimeline = () => {
           setIsDragging(false);
         }}
       >
-        <div className="relative timeline-marks w-full">
-          {marks.ticks.map((pct, i) => (
-            <span
-              key={`t${i}`}
-              className="absolute bottom-0 w-px h-1.5 bg-muted-foreground/25 -translate-x-1/2"
-              style={{ left: `${pct}%` }}
-            />
-          ))}
-          {marks.major.map(({ time, pct }) => (
-            <span
-              key={time}
-              className="absolute top-1 -translate-x-1/2 whitespace-nowrap"
-              style={{ left: `${pct}%` }}
-            >
-              {secondsToDuration(time, {
-                compact: video.duration < 3600,
-                trimLeft: isMobile,
-              })}
-            </span>
-          ))}
-        </div>
+        {markRow}
 
         <div ref={trackRef} className="relative h-16">
           {/* Segment highlights */}
