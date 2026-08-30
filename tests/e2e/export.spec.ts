@@ -6,8 +6,8 @@ import {
   TEN_BIT_FIXTURE,
 } from "./helpers";
 
-/** Open the export dialog and wait for the run to finish either way. */
-async function exportAndWait(page: Page) {
+/** Click the export trigger and wait for the dialog to appear. */
+async function openExportDialog(page: Page) {
   // The panel's accordion header is also a button named "Export", and both the
   // desktop and mobile layouts render a trigger, of which one is visible.
   await page
@@ -19,6 +19,14 @@ async function exportAndWait(page: Page) {
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
+
+  return dialog;
+}
+
+/** Open the export dialog and wait for the run to finish either way. */
+async function exportAndWait(page: Page) {
+  const dialog = await openExportDialog(page);
+
   await expect(dialog.getByRole("heading").first()).toHaveText(
     /Export Complete|Export Failed/,
     { timeout: 220_000 },
@@ -49,6 +57,29 @@ async function previewDuration(page: Page) {
 }
 
 test.beforeEach(({ context }) => routeFixtureVideo(context));
+
+test.describe("export dialog", () => {
+  test("pauses the player when it opens", async ({ page, context }) => {
+    // The dialog starts a run as soon as it opens. Nothing here needs the real
+    // encoder, so the fetch is aborted and the run fails immediately.
+    await context.route("https://unpkg.com/**", (route) => route.abort());
+    await loadWithSegments(page, [[0, 2]]);
+
+    const paused = () =>
+      page.evaluate(() => document.querySelector("video")!.paused);
+
+    await page.getByRole("button", { name: "Play", exact: true }).click();
+    await expect.poll(paused).toBe(false);
+    // The clip is 2s, and reaching its end would pause the player on its own.
+    await page.evaluate(
+      () => (document.querySelector("video")!.playbackRate = 0.25),
+    );
+
+    await openExportDialog(page);
+
+    await expect.poll(paused).toBe(true);
+  });
+});
 
 test.describe("export failures", () => {
   test("says so when the encoder cannot be fetched", async ({
