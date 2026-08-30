@@ -58,6 +58,18 @@ export const HEVC_AUDIO_FIXTURE = join(
 );
 
 /**
+ * Tall enough that the player has to scale it down to leave the timeline on
+ * screen: 960 CSS pixels of picture against a 900 pixel window. Regenerate with:
+ *   ffmpeg -f lavfi -i testsrc=size=540x960:rate=1:duration=1 \
+ *          -c:v libx264 -preset ultrafast -crf 40 -pix_fmt yuv420p \
+ *          -movflags +faststart tests/fixtures/portrait.mp4
+ */
+export const PORTRAIT_FIXTURE = join(
+  import.meta.dirname,
+  "../fixtures/portrait.mp4",
+);
+
+/**
  * Serve a fixture for every request to VIDEO_URL. Routed on the context, not
  * the page, so tabs opened mid-test are covered too. contentType is stated
  * explicitly because the app gates on `blob.type.startsWith("video/")`.

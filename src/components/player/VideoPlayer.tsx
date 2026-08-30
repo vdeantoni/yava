@@ -11,6 +11,13 @@ import VideoCanvas from "./VideoCanvas";
 /** Ten times the slowest first-frame report measured on a working source. */
 const FRAME_CHECK_MS = 2000;
 
+/**
+ * Caps the picture at the room --editor-chrome leaves it. The floor keeps a
+ * short window from clamping the height to nothing and blanking the player.
+ */
+const pictureHeightClass =
+  "max-h-[max(120px,calc(100svh-var(--editor-chrome)))]";
+
 const NO_FRAMES_MESSAGE =
   "This browser decoded no frames from this video, so there is no preview. Exporting still works, because FFmpeg decodes the file itself.";
 
@@ -151,7 +158,8 @@ const VideoPlayer = () => {
           <video
             ref={videoRef}
             className={cn(
-              "max-w-full max-h-full object-contain block",
+              "max-w-full object-contain block",
+              pictureHeightClass,
               processing && "invisible",
             )}
             onLoadedData={videoLoadedDataHandler}

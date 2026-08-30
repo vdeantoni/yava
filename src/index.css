@@ -75,6 +75,11 @@
     --input: 215 25% 15%;
     --ring: 199 89% 48%;
     --radius: 0.5rem;
+
+    /* Everything the editor keeps on screen around the picture: 44px header,
+       45px player controls, 37px toolbar, and a 105px timeline whose mark row
+       is .timeline-marks below. The player caps the video against it. */
+    --editor-chrome: 231px;
   }
 }
 
