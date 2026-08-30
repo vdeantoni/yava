@@ -15,14 +15,16 @@ const NO_FRAMES_MESSAGE =
   "This browser decoded no frames from this video, so there is no preview. Exporting still works, because FFmpeg decodes the file itself.";
 
 const VideoPlayer = () => {
-  // No cursorCurrent: nothing here renders it, and subscribing would re-render
-  // the player and its canvas on every pointer move of a scrub.
-  const { file, video, segments, processing, setVideo, setCursorCurrent } =
+  // Neither the playhead nor the segments are rendered here, so neither is
+  // subscribed to: both change at pointer rate and would re-render the player
+  // and its canvas for nothing. Handlers read them with getState, and the fade
+  // overlay follows them through the subscription below.
+  const { file, video, hasFades, processing, setVideo, setCursorCurrent } =
     useAppStore(
       useShallow((s) => ({
         file: s.file,
         video: s.video,
-        segments: s.segments,
+        hasFades: s.segments.some((seg) => seg.fadeIn || seg.fadeOut),
         processing: s.processing,
         setVideo: s.setVideo,
         setCursorCurrent: s.setCursorCurrent,
@@ -68,6 +70,7 @@ const VideoPlayer = () => {
     const el = videoRef.current;
     if (!el || processing) return;
 
+    const { segments } = useAppStore.getState();
     const action = nextPlaybackAction(segments, el.currentTime);
 
     if (action.type === "continue") {
@@ -80,39 +83,47 @@ const VideoPlayer = () => {
     setCursorCurrent(action.time);
   };
 
-  const hasFades = useMemo(
-    () => segments.some((s) => s.fadeIn || s.fadeOut),
-    [segments],
-  );
-
   /** Darken the picture and duck the volume the way the export will. */
   const paintFade = useCallback(() => {
     const overlay = fadeRef.current;
     const el = videoRef.current;
     if (!overlay || !el) return;
 
+    const { segments } = useAppStore.getState();
     const gain = fadeGainAt(segments, el.currentTime);
     if (gain === lastGainRef.current) return;
     lastGainRef.current = gain;
 
     overlay.style.opacity = String(1 - gain);
     el.volume = gain;
-  }, [segments]);
+  }, []);
 
-  /** Follow the playhead imperatively, since neither of these is rendered. */
+  /**
+   * Seek and repaint off the store rather than off a render.
+   *
+   * Segments matter as much as the playhead here: removing a fade the playhead
+   * is sitting inside has to brighten the picture without either moving.
+   */
   useEffect(() => {
-    const follow = (cursorCurrent: number) => {
+    const follow = () => {
       const el = videoRef.current;
       if (!el) return;
 
-      if (!processing && el.paused) seekTo(el, cursorCurrent);
+      if (!processing && el.paused) {
+        seekTo(el, useAppStore.getState().cursorCurrent);
+      }
       paintFade();
     };
 
-    follow(useAppStore.getState().cursorCurrent);
+    follow();
 
     return useAppStore.subscribe((s, previous) => {
-      if (s.cursorCurrent !== previous.cursorCurrent) follow(s.cursorCurrent);
+      if (
+        s.cursorCurrent !== previous.cursorCurrent ||
+        s.segments !== previous.segments
+      ) {
+        follow();
+      }
     });
   }, [processing, paintFade]);
 

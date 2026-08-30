@@ -3,6 +3,7 @@ import {
   draggedSegmentBounds,
   playheadTimeAt,
   timeAtX,
+  timelineMarks,
   timePerPixel,
   xAtTime,
 } from "./timeline";
@@ -36,6 +37,46 @@ describe("timeAtX", () => {
 
   it("survives an unmeasured track", () => {
     expect(timeAtX(300, { left: 0, width: 0 }, 60)).toBe(0);
+  });
+});
+
+describe("timelineMarks", () => {
+  it("spaces labelled marks across the duration", () => {
+    const { major } = timelineMarks(60, 1200);
+    expect(major.map((m) => m.time)).toEqual([
+      5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55,
+    ]);
+  });
+
+  it("positions marks as percentages, not pixels", () => {
+    const { major } = timelineMarks(60, 1200);
+    expect(major[0].pct).toBeCloseTo((5 / 60) * 100);
+  });
+
+  it("widens the interval as the track gets narrower", () => {
+    const wide = timelineMarks(600, 1600).major.length;
+    const narrow = timelineMarks(600, 300).major.length;
+    expect(narrow).toBeLessThan(wide);
+  });
+
+  it("subdivides each labelled mark with ticks", () => {
+    const { major, ticks } = timelineMarks(60, 1200);
+    expect(ticks.length).toBeGreaterThan(major.length);
+  });
+
+  it("caps the ticks a very long video can ask for", () => {
+    // Past the largest interval the scale falls back to one second, which for
+    // four hours would be fourteen thousand nodes without the cap.
+    const { ticks } = timelineMarks(4 * 3600, 1200);
+    expect(ticks.length).toBeLessThanOrEqual(150);
+  });
+
+  it("has no ruler to draw before the duration is known", () => {
+    expect(timelineMarks(0, 1200)).toEqual({ major: [], ticks: [] });
+  });
+
+  it("falls back to an assumed width before the track is measured", () => {
+    expect(timelineMarks(60, 0).major.length).toBeGreaterThan(0);
   });
 });
 

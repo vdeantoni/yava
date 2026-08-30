@@ -69,4 +69,21 @@ test.describe("fades", () => {
     await movePlayhead(page, 0.75);
     expect(await overlayOpacity(page)).toBe(0);
   });
+
+  test("removing a fade brightens the picture where the playhead stands", async ({
+    page,
+  }) => {
+    await loadWithSegments(page, [[0, 2]]);
+
+    await movePlayhead(page, 0.5);
+    await fadeInButton(page).click();
+
+    // Park half way through the fade, where the overlay is visibly dark.
+    await movePlayhead(page, 0.25);
+    expect(await overlayOpacity(page)).toBeGreaterThan(0.3);
+
+    // Nothing moves this time: the segment changes and the picture follows.
+    await fadeInButton(page).click();
+    expect(await overlayOpacity(page)).toBe(0);
+  });
 });

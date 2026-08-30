@@ -4,6 +4,65 @@ import type { SegmentLike } from "./utils";
 /** Below this a pointer has not committed to a drag yet. */
 export const DRAG_DEAD_ZONE_PX = 3;
 
+/** Closest two labelled marks may sit before the scale steps up. */
+const MIN_MARK_SPACING_PX = 80;
+
+/** Mark intervals worth showing, in seconds. */
+const MARK_OPTIONS = [
+  1, 5, 10, 15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480, 540, 600,
+  660, 720, 780, 840, 900, 960,
+];
+
+/** Width to assume before the track has been measured. */
+const ASSUMED_TRACK_WIDTH = 600;
+
+export interface TimelineMarks {
+  /** Labelled marks, as a time and a percentage across the track. */
+  major: { time: number; pct: number }[];
+  /** Unlabelled ticks, as percentages across the track. */
+  ticks: number[];
+}
+
+/**
+ * The ruler for a track of `trackWidth` pixels showing `duration` seconds.
+ *
+ * Positions come out as percentages, so they survive a resize between the
+ * measurement and the paint. A duration longer than the largest interval falls
+ * back to the smallest, which is why the tick count is capped: without it, four
+ * hours at one-second marks is fourteen thousand nodes.
+ */
+export function timelineMarks(
+  duration: number,
+  trackWidth: number,
+): TimelineMarks {
+  const width = trackWidth || ASSUMED_TRACK_WIDTH;
+  if (!duration) return { major: [], ticks: [] };
+
+  const totalMarks = Math.max(2, Math.floor(width / MIN_MARK_SPACING_PX));
+  const markLength =
+    MARK_OPTIONS.find((opt) => Math.ceil(duration / totalMarks) <= opt) ??
+    MARK_OPTIONS[0];
+
+  const major: TimelineMarks["major"] = [];
+  for (let t = markLength; t < duration; t += markLength) {
+    major.push({ time: t, pct: (t / duration) * 100 });
+  }
+
+  const maxTicks = Math.max(20, Math.floor(width / 8));
+  const rawTickInterval = markLength / 5;
+  const tickInterval =
+    duration / rawTickInterval > maxTicks
+      ? duration / maxTicks
+      : rawTickInterval;
+
+  const ticks: number[] = [];
+  for (let t = tickInterval; t < duration; t += tickInterval) {
+    ticks.push((t / duration) * 100);
+  }
+
+  return { major, ticks };
+}
+
 /** Seconds per pixel of track, for turning a pointer delta into a time delta. */
 export function timePerPixel(trackWidth: number, duration: number): number {
   if (!trackWidth || !duration) return 0;

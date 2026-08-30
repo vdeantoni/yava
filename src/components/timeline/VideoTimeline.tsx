@@ -18,6 +18,7 @@ import {
   DRAG_DEAD_ZONE_PX,
   playheadTimeAt,
   timeAtX,
+  timelineMarks,
   timePerPixel,
   xAtTime,
 } from "@/lib/timeline.ts";
@@ -28,13 +29,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip.tsx";
-
-const MIN_MARK_SPACING_PX = 80;
-
-const MARK_OPTIONS = [
-  1, 5, 10, 15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480, 540, 600,
-  660, 720, 780, 840, 900, 960,
-];
 
 const TRACK_RESIZE_OBSERVER_DEBOUNCE_TIME = 200;
 
@@ -126,34 +120,10 @@ const VideoTimeline = () => {
     resetCursors(video.duration);
   }, [video, resetCursors]);
 
-  const marks = useMemo(() => {
-    const totalMarks = Math.max(
-      2,
-      Math.floor((trackWidth || 600) / MIN_MARK_SPACING_PX),
-    );
-    const markLength =
-      MARK_OPTIONS.find(
-        (opt) => Math.ceil(video.duration / totalMarks) <= opt,
-      ) ?? MARK_OPTIONS[0];
-
-    const major: { time: number; pct: number }[] = [];
-    for (let t = markLength; t < video.duration; t += markLength) {
-      major.push({ time: t, pct: (t / video.duration) * 100 });
-    }
-
-    const maxTicks = Math.max(20, Math.floor((trackWidth || 600) / 8));
-    const rawTickInterval = markLength / 5;
-    const tickInterval =
-      video.duration / rawTickInterval > maxTicks
-        ? video.duration / maxTicks
-        : rawTickInterval;
-    const ticks: number[] = [];
-    for (let t = tickInterval; t < video.duration; t += tickInterval) {
-      ticks.push((t / video.duration) * 100);
-    }
-
-    return { major, ticks };
-  }, [video.duration, trackWidth]);
+  const marks = useMemo(
+    () => timelineMarks(video.duration, trackWidth),
+    [video.duration, trackWidth],
+  );
 
   const hasMultipleSegments = segments.length > 1;
 
