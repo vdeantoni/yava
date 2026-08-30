@@ -58,6 +58,18 @@ export const HEVC_AUDIO_FIXTURE = join(
 );
 
 /**
+ * Tall enough that the player has to scale it down to leave the timeline on
+ * screen: 960 CSS pixels of picture against a 900 pixel window. Regenerate with:
+ *   ffmpeg -f lavfi -i testsrc=size=540x960:rate=1:duration=1 \
+ *          -c:v libx264 -preset ultrafast -crf 40 -pix_fmt yuv420p \
+ *          -movflags +faststart tests/fixtures/portrait.mp4
+ */
+export const PORTRAIT_FIXTURE = join(
+  import.meta.dirname,
+  "../fixtures/portrait.mp4",
+);
+
+/**
  * Serve a fixture for every request to VIDEO_URL. Routed on the context, not
  * the page, so tabs opened mid-test are covered too. contentType is stated
  * explicitly because the app gates on `blob.type.startsWith("video/")`.
@@ -113,6 +125,75 @@ export function segmentHandle(page: Page, index: number) {
   return page.locator("div.h-16.cursor-grab").nth(index);
 }
 
+/** The timeline track, whichever segments are on it. */
+export function trackLocator(page: Page) {
+  return page.locator("div.relative.h-16").first();
+}
+
+/**
+ * Click the track at `fraction` of the source duration to park the playhead,
+ * and hand back the box it measured. Scrolls first, because the timeline sits
+ * below the fold at the default viewport height and a box measured before that
+ * describes a place the pointer cannot reach.
+ */
+export async function movePlayhead(page: Page, fraction: number) {
+  const track = trackLocator(page);
+  await track.scrollIntoViewIfNeeded();
+
+  const box = (await track.boundingBox())!;
+  await track.click({
+    position: { x: box.width * fraction, y: box.height / 2 },
+  });
+
+  return box;
+}
+
+/** The fade-in toggle, named exactly so "Fade out" cannot match it. */
+export function fadeInButton(page: Page) {
+  return page.getByRole("button", { name: "Fade in", exact: true });
+}
+
+/** The edit state carried by the current hash, decoded. */
+export function editStateFromHash(page: Page) {
+  const hash = new URL(page.url()).hash.slice(1);
+  if (!hash) return null;
+  const b64 = hash.replace(/-/g, "+").replace(/_/g, "/");
+  return JSON.parse(Buffer.from(b64, "base64").toString());
+}
+
+/**
+ * The canvas box, once its debounced resize observer has caught up with the
+ * player. A `<video>` is 300x150 until its metadata arrives, so a box measured
+ * before then is both the wrong size and in the wrong place, and every pointer
+ * fraction computed from it lands somewhere else on the real canvas.
+ */
+export async function settledCanvasBox(page: Page) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const canvas = document.querySelector("canvas");
+          const video = document.querySelector("video");
+          if (!canvas || !video) return "no player";
+          if (video.readyState < 1) return "no metadata";
+
+          const { width, height } = video.getBoundingClientRect();
+          const caughtUp =
+            canvas.width > 0 &&
+            canvas.width === Math.ceil(width) &&
+            canvas.height === Math.ceil(height);
+
+          return caughtUp
+            ? "settled"
+            : `canvas ${canvas.width}x${canvas.height}, player ${width}x${height}`;
+        }),
+      { timeout: 10_000 },
+    )
+    .toBe("settled");
+
+  return (await page.locator("canvas").first().boundingBox())!;
+}
+
 /**
  * Drag a crop rectangle across the player, from one corner to another, as
  * fractions of the canvas box. Returns the canvas box it measured.
@@ -122,13 +203,7 @@ export async function drawCropRect(
   from: { x: number; y: number },
   to: { x: number; y: number },
 ) {
-  const canvas = page.locator("canvas").first();
-  // The canvas sizes itself from a debounced resize observer.
-  await expect
-    .poll(() => page.evaluate(() => document.querySelector("canvas")!.width))
-    .toBeGreaterThan(0);
-
-  const box = (await canvas.boundingBox())!;
+  const box = await settledCanvasBox(page);
   const at = (f: { x: number; y: number }) => ({
     x: box.x + box.width * f.x,
     y: box.y + box.height * f.y,
@@ -138,6 +213,10 @@ export async function drawCropRect(
   await page.mouse.down();
   await page.mouse.move(at(to).x, at(to).y, { steps: 10 });
   await page.mouse.up();
+
+  // A player that resized mid-drag leaves a rectangle nobody asked for, and
+  // the caller would report it as an unexplained number several lines later.
+  expect(await page.locator("canvas").first().boundingBox()).toEqual(box);
 
   return box;
 }

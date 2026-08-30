@@ -1,6 +1,7 @@
 import { test, expect, type Page } from "@playwright/test";
 import {
   loadWithSegments,
+  movePlayhead,
   routeFixtureVideo,
   segmentHandle,
   visiblePanel,
@@ -76,5 +77,34 @@ test.describe("segment dragging", () => {
     expect(
       Number((await bounds.end.inputValue()).split(":").pop()),
     ).toBeGreaterThan(600);
+  });
+
+  test("dragging the playhead moves it and stops at the end of the edit", async ({
+    page,
+  }) => {
+    await loadWithSegments(page, [[0, 2]]);
+
+    // Also scrolls the track into view, so the raw pointer moves below land.
+    const box = await movePlayhead(page, 0.25);
+    const playheadTime = () =>
+      page.evaluate(() => document.querySelector("video")!.currentTime);
+    expect(await playheadTime()).toBeCloseTo(0.5, 1);
+
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + box.width * 0.25, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.75, y, { steps: 10 });
+    await page.mouse.up();
+
+    expect(await playheadTime()).toBeCloseTo(1.5, 1);
+
+    // Past the last segment's end the drag stops following rather than running
+    // off the clip.
+    await page.mouse.move(box.x + box.width * 0.75, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width + 200, y, { steps: 10 });
+    await page.mouse.up();
+
+    expect(await playheadTime()).toBeCloseTo(2, 1);
   });
 });

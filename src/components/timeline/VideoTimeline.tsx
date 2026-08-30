@@ -8,22 +8,19 @@ import {
   useState,
 } from "react";
 import VideoThumbnails from "@/components/timeline/VideoThumbnails.tsx";
+import Playhead from "@/components/timeline/Playhead.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 import { useShallow } from "zustand/react/shallow";
-import {
-  cn,
-  clamp,
-  isMobile,
-  secondsToDuration,
-  findSegmentAt,
-  snapToNearestSegmentBoundary,
-  FLUSH_TOLERANCE,
-} from "@/lib/utils.ts";
+import { cn, isMobile, secondsToDuration, findSegmentAt } from "@/lib/utils.ts";
+import { flushRunAt } from "@/lib/segments.ts";
 import {
   draggedSegmentBounds,
   DRAG_DEAD_ZONE_PX,
+  playheadTimeAt,
   timeAtX,
+  timelineMarks,
   timePerPixel,
+  xAtTime,
 } from "@/lib/timeline.ts";
 import { Merge, Trash2 } from "lucide-react";
 import {
@@ -32,13 +29,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip.tsx";
-
-const MIN_MARK_SPACING_PX = 80;
-
-const MARK_OPTIONS = [
-  1, 5, 10, 15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480, 540, 600,
-  660, 720, 780, 840, 900, 960,
-];
 
 const TRACK_RESIZE_OBSERVER_DEBOUNCE_TIME = 200;
 
@@ -66,8 +56,6 @@ const VideoTimeline = () => {
   const {
     video,
     cursorStart,
-    cursorEnd,
-    cursorCurrent,
     segments,
     selectedSegmentId,
     setCursorCurrent,
@@ -80,8 +68,6 @@ const VideoTimeline = () => {
     useShallow((s) => ({
       video: s.video,
       cursorStart: s.cursorStart,
-      cursorEnd: s.cursorEnd,
-      cursorCurrent: s.cursorCurrent,
       segments: s.segments,
       selectedSegmentId: s.selectedSegmentId,
       setCursorCurrent: s.setCursorCurrent,
@@ -95,7 +81,6 @@ const VideoTimeline = () => {
 
   const trackRef = useRef<HTMLDivElement>(null);
   const handleDrag = useRef(false);
-  const dragRect = useRef<DOMRect | null>(null);
   const trackWidth = useTrackResizeObserver(trackRef);
 
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
@@ -135,39 +120,47 @@ const VideoTimeline = () => {
     resetCursors(video.duration);
   }, [video, resetCursors]);
 
-  const marks = useMemo(() => {
-    const totalMarks = Math.max(
-      2,
-      Math.floor((trackWidth || 600) / MIN_MARK_SPACING_PX),
-    );
-    const markLength =
-      MARK_OPTIONS.find(
-        (opt) => Math.ceil(video.duration / totalMarks) <= opt,
-      ) ?? MARK_OPTIONS[0];
-
-    const major: { time: number; pct: number }[] = [];
-    for (let t = markLength; t < video.duration; t += markLength) {
-      major.push({ time: t, pct: (t / video.duration) * 100 });
-    }
-
-    const maxTicks = Math.max(20, Math.floor((trackWidth || 600) / 8));
-    const rawTickInterval = markLength / 5;
-    const tickInterval =
-      video.duration / rawTickInterval > maxTicks
-        ? video.duration / maxTicks
-        : rawTickInterval;
-    const ticks: number[] = [];
-    for (let t = tickInterval; t < video.duration; t += tickInterval) {
-      ticks.push((t / video.duration) * 100);
-    }
-
-    return { major, ticks };
-  }, [video.duration, trackWidth]);
+  const marks = useMemo(
+    () => timelineMarks(video.duration, trackWidth),
+    [video.duration, trackWidth],
+  );
 
   const hasMultipleSegments = segments.length > 1;
 
   const getTimeFromEvent = (e: React.MouseEvent<HTMLDivElement>): number =>
     timeAtX(e.clientX, e.currentTarget.getBoundingClientRect(), video.duration);
+
+  /** Seconds of source as a width along the track. */
+  const px = (seconds: number) => xAtTime(seconds, video.duration, trackWidth);
+
+  // Held as one element so React can skip it: a segment drag re-renders the
+  // track on every pointer move, and these ~150 nodes only move with the scale.
+  const markRow = useMemo(
+    () => (
+      <div className="relative timeline-marks w-full">
+        {marks.ticks.map((pct, i) => (
+          <span
+            key={`t${i}`}
+            className="absolute bottom-0 w-px h-1.5 bg-muted-foreground/25 -translate-x-1/2"
+            style={{ left: `${pct}%` }}
+          />
+        ))}
+        {marks.major.map(({ time, pct }) => (
+          <span
+            key={time}
+            className="absolute top-1 -translate-x-1/2 whitespace-nowrap"
+            style={{ left: `${pct}%` }}
+          >
+            {secondsToDuration(time, {
+              compact: video.duration < 3600,
+              trimLeft: isMobile,
+            })}
+          </span>
+        ))}
+      </div>
+    ),
+    [marks, video.duration],
+  );
 
   return (
     <div className="border-t border-border bg-card px-4 lg:px-8 py-1">
@@ -179,18 +172,9 @@ const VideoTimeline = () => {
             return;
           }
           video.pause();
-          const time = getTimeFromEvent(e);
-
-          const seg = findSegmentAt(segments, time);
-          if (seg) {
-            setCursorCurrent(
-              Math.max(seg.sourceStart, Math.min(seg.sourceEnd, time)),
-            );
-          } else {
-            setCursorCurrent(
-              snapToNearestSegmentBoundary(segments, time, cursorStart),
-            );
-          }
+          setCursorCurrent(
+            playheadTimeAt(segments, getTimeFromEvent(e), cursorStart),
+          );
         }}
         onMouseMove={(e) => {
           const time = getTimeFromEvent(e);
@@ -245,27 +229,7 @@ const VideoTimeline = () => {
           setIsDragging(false);
         }}
       >
-        <div className="relative timeline-marks w-full">
-          {marks.ticks.map((pct, i) => (
-            <span
-              key={`t${i}`}
-              className="absolute bottom-0 w-px h-1.5 bg-muted-foreground/25 -translate-x-1/2"
-              style={{ left: `${pct}%` }}
-            />
-          ))}
-          {marks.major.map(({ time, pct }) => (
-            <span
-              key={time}
-              className="absolute top-1 -translate-x-1/2 whitespace-nowrap"
-              style={{ left: `${pct}%` }}
-            >
-              {secondsToDuration(time, {
-                compact: video.duration < 3600,
-                trimLeft: isMobile,
-              })}
-            </span>
-          ))}
-        </div>
+        {markRow}
 
         <div ref={trackRef} className="relative h-16">
           {/* Segment highlights */}
@@ -275,14 +239,8 @@ const VideoTimeline = () => {
             const isSelected = seg.id === selectedSegmentId;
             const isHovered = seg.id === hoveredSegmentId;
             const segWidthPx = (segEndPct - segStartPct) * trackWidth;
-            const canJoin =
-              hasMultipleSegments &&
-              ((i > 0 &&
-                Math.abs(segments[i - 1].sourceEnd - seg.sourceStart) <=
-                  FLUSH_TOLERANCE) ||
-                (i < segments.length - 1 &&
-                  Math.abs(seg.sourceEnd - segments[i + 1].sourceStart) <=
-                    FLUSH_TOLERANCE));
+            const [runStart, runEnd] = flushRunAt(segments, i);
+            const canJoin = hasMultipleSegments && runStart !== runEnd;
 
             return (
               <Fragment key={seg.id}>
@@ -308,6 +266,25 @@ const VideoTimeline = () => {
                     (e.target as HTMLElement).setPointerCapture(e.pointerId);
                   }}
                 />
+                {/* Fades, drawn the way they will look: black at the outer edge */}
+                {seg.fadeIn ? (
+                  <div
+                    className="absolute h-16 -top-1 z-[15] bg-gradient-to-r from-black/90 to-transparent pointer-events-none"
+                    style={{
+                      left: px(seg.sourceStart),
+                      width: px(seg.fadeIn),
+                    }}
+                  />
+                ) : null}
+                {seg.fadeOut ? (
+                  <div
+                    className="absolute h-16 -top-1 z-[15] bg-gradient-to-l from-black/90 to-transparent pointer-events-none"
+                    style={{
+                      left: px(seg.sourceEnd - seg.fadeOut),
+                      width: px(seg.fadeOut),
+                    }}
+                  />
+                ) : null}
                 {/* Segment actions (top-right) — in track stacking context */}
                 {(isMobile || isHovered || isSelected) &&
                   hasMultipleSegments && (
@@ -421,53 +398,11 @@ const VideoTimeline = () => {
               );
             })}
 
-          <div
-            className="absolute z-20"
-            style={{
-              left: (cursorCurrent / video.duration) * trackWidth,
-              top: 0,
-            }}
-          >
-            {/* Invisible wider hit area for dragging */}
-            <div
-              className="absolute -translate-x-1/2 w-4 h-14 cursor-grab pointer-events-auto"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                handleDrag.current = true;
-                dragRect.current = trackRef.current!.getBoundingClientRect();
-                (e.target as HTMLElement).setPointerCapture(e.pointerId);
-              }}
-              onPointerMove={(e) => {
-                if (!handleDrag.current || !dragRect.current) return;
-                const rect = dragRect.current;
-                const time = clamp(
-                  timeAtX(e.clientX, rect, video.duration),
-                  video.duration,
-                );
-                if (time >= cursorStart && time <= cursorEnd) {
-                  const seg = findSegmentAt(segments, time);
-                  if (seg) {
-                    setCursorCurrent(time);
-                  } else {
-                    setCursorCurrent(
-                      snapToNearestSegmentBoundary(segments, time, cursorStart),
-                    );
-                  }
-                }
-              }}
-              onPointerUp={() => {
-                handleDrag.current = false;
-                dragRect.current = null;
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDrag.current = false;
-              }}
-            />
-            {/* Visual cursor line */}
-            <div className="w-0.5 h-14 bg-primary rounded-full -translate-x-1/2 pointer-events-none shadow-[0_0_6px_hsl(var(--primary)/0.4)]" />
-          </div>
+          <Playhead
+            trackRef={trackRef}
+            trackWidth={trackWidth}
+            duration={video.duration}
+          />
         </div>
       </div>
     </div>

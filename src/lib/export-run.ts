@@ -64,6 +64,8 @@ export async function runExport({
           input: INPUT_FILE,
           start: segment.sourceStart,
           duration: segment.sourceEnd - segment.sourceStart,
+          fadeIn: segment.fadeIn,
+          fadeOut: segment.fadeOut,
           output: to,
         }),
         step,

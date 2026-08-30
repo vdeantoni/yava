@@ -144,6 +144,24 @@ describe("buildVideoFilters", () => {
       "setpts=0.5000*PTS",
     ]);
   });
+
+  test("has no fade filters without a range", () => {
+    expect(buildVideoFilters(settings()).join(",")).not.toContain("fade");
+  });
+
+  test("fades between the output scale and setpts", () => {
+    const filters = buildVideoFilters(settings({ speed: 2 }), {
+      duration: 8,
+      fadeIn: 1,
+      fadeOut: 2,
+    });
+    expect(filters).toEqual([
+      "scale=1000:600",
+      "fade=t=in:st=0:d=1.000",
+      "fade=t=out:st=6.000:d=2.000",
+      "setpts=0.5000*PTS",
+    ]);
+  });
 });
 
 describe("buildAudioFilters", () => {
@@ -155,6 +173,27 @@ describe("buildAudioFilters", () => {
     expect(buildAudioFilters(settings({ speed: 2, noAudio: true }))).toEqual(
       [],
     );
+  });
+
+  test("fades the audio at 1x, where nothing else touches it", () => {
+    expect(
+      buildAudioFilters(settings({ speed: 1 }), { duration: 8, fadeIn: 1 }),
+    ).toEqual(["afade=t=in:st=0:d=1.000"]);
+  });
+
+  test("fades before atempo, so the length is in source seconds", () => {
+    expect(
+      buildAudioFilters(settings({ speed: 2 }), { duration: 8, fadeOut: 2 }),
+    ).toEqual(["afade=t=out:st=6.000:d=2.000", "atempo=2.0000"]);
+  });
+
+  test("has nothing to fade when the audio is dropped", () => {
+    expect(
+      buildAudioFilters(settings({ noAudio: true }), {
+        duration: 8,
+        fadeIn: 1,
+      }),
+    ).toEqual([]);
   });
 
   test("uses a single atempo inside the 0.5x-2x range", () => {
@@ -385,6 +424,27 @@ describe("buildSegmentArgs", () => {
     expect(args[args.indexOf("-vf") + 1]).toBe(
       "scale=1000:600,crop=500:300:0:0,scale=500:300,setpts=0.5000*PTS",
     );
+  });
+
+  test("fades the picture over the range's own duration", () => {
+    const args = buildSegmentArgs(settings(), {
+      ...range,
+      fadeIn: 1,
+      fadeOut: 1.5,
+    });
+    expect(args[args.indexOf("-vf") + 1]).toBe(
+      "scale=1000:600,fade=t=in:st=0:d=1.000,fade=t=out:st=6.750:d=1.500",
+    );
+  });
+
+  test("a fade alone is enough to bring in -af", () => {
+    const args = buildSegmentArgs(settings(), { ...range, fadeOut: 1.5 });
+    expect(args[args.indexOf("-af") + 1]).toBe("afade=t=out:st=6.750:d=1.500");
+  });
+
+  test("a faded segment cannot stream-copy its audio", () => {
+    const args = buildSegmentArgs(settings(), { ...range, fadeIn: 1 });
+    expect(args.join(" ")).not.toContain("-c:a copy");
   });
 });
 

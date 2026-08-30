@@ -2,26 +2,23 @@ import { create } from "zustand";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { CropRectangle, EMPTY_CROP } from "./lib/crop";
 import { supportsMultithreading } from "./hooks/useFFmpeg";
-import {
-  clamp,
-  findSegmentAt,
-  snapToNearestSegmentBoundary,
-  MIN_SLICE_DISTANCE,
-  FLUSH_TOLERANCE,
-} from "./lib/utils";
+import { fadeIntent, withFade, type FadeKind } from "./lib/fade";
+import { commitSegments, flushRunAt, sliceIndexAt } from "./lib/segments";
+import { clamp, MIN_SLICE_DISTANCE, type SegmentLike } from "./lib/utils";
 
 export type Format = "mp4" | "webm" | "mov" | "gif";
 export type Preset = "ultrafast" | "fast" | "medium" | "slow";
 
-export interface Segment {
+export interface Segment extends SegmentLike {
   id: string;
-  sourceStart: number;
-  sourceEnd: number;
 }
+
+/** `[start, end]`, plus both fade lengths once either one is set. */
+export type UrlSegment = [number, number, number?, number?];
 
 export interface UrlEditState {
   v?: string;
-  seg?: [number, number][];
+  seg?: UrlSegment[];
   fmt?: Format;
   pre?: Preset;
   fps?: number;
@@ -72,6 +69,7 @@ interface AppActions {
   setProcessing: (processing: boolean) => void;
 
   sliceAtCursor: () => void;
+  fadeAtCursor: (kind: FadeKind) => void;
   deleteSegment: (id: string) => void;
   joinSegment: (id: string) => void;
   selectSegment: (id: string | null) => void;
@@ -112,20 +110,23 @@ function buildEditStateUpdates(
   if (editState.seg?.length) {
     const segments: Segment[] = [];
     let nextId = 0;
-    for (const [start, end] of editState.seg) {
+    for (const [start, end, fadeIn, fadeOut] of editState.seg) {
       const s = clamp(start, duration);
       const e = clamp(end, duration);
       if (e - s >= MIN_SLICE_DISTANCE) {
-        segments.push({ id: `s${nextId++}`, sourceStart: s, sourceEnd: e });
+        segments.push({
+          id: `s${nextId++}`,
+          sourceStart: s,
+          sourceEnd: e,
+          fadeIn,
+          fadeOut,
+        });
       }
     }
     if (segments.length > 0) {
-      segments.sort((a, b) => a.sourceStart - b.sourceStart);
-      updates.segments = segments;
+      // Zero, so the playhead lands on the start of the restored edit.
+      Object.assign(updates, commitSegments(segments, 0));
       updates.nextSegmentId = nextId;
-      updates.cursorStart = segments[0].sourceStart;
-      updates.cursorEnd = segments[segments.length - 1].sourceEnd;
-      updates.cursorCurrent = segments[0].sourceStart;
       updates.selectedSegmentId = null;
     }
   }
@@ -175,12 +176,10 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
   resetCursors: (duration) =>
     set((state) => {
       const defaults = {
-        cursorStart: 0,
-        cursorEnd: duration,
-        cursorCurrent: 0,
-        segments: [
-          { id: "s0", sourceStart: 0, sourceEnd: duration },
-        ] as Segment[],
+        ...commitSegments(
+          [{ id: "s0", sourceStart: 0, sourceEnd: duration }],
+          0,
+        ),
         selectedSegmentId: null as string | null,
         nextSegmentId: 1,
       };
@@ -195,33 +194,49 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
   sliceAtCursor: () =>
     set((state) => {
       const { cursorCurrent, segments, nextSegmentId } = state;
-      const idx = segments.findIndex(
-        (s) =>
-          cursorCurrent > s.sourceStart + MIN_SLICE_DISTANCE &&
-          cursorCurrent < s.sourceEnd - MIN_SLICE_DISTANCE,
-      );
+      const idx = sliceIndexAt(segments, cursorCurrent);
       if (idx === -1) return state;
 
+      // Each half keeps the fade whose edge it still owns.
       const seg = segments[idx];
       const left: Segment = {
         id: `s${nextSegmentId}`,
         sourceStart: seg.sourceStart,
         sourceEnd: cursorCurrent,
+        fadeIn: seg.fadeIn,
       };
       const right: Segment = {
         id: `s${nextSegmentId + 1}`,
         sourceStart: cursorCurrent,
         sourceEnd: seg.sourceEnd,
+        fadeOut: seg.fadeOut,
       };
 
-      const newSegments = [...segments];
-      newSegments.splice(idx, 1, left, right);
-
       return {
-        segments: newSegments,
+        ...commitSegments(
+          segments.toSpliced(idx, 1, left, right),
+          cursorCurrent,
+        ),
         nextSegmentId: nextSegmentId + 2,
         selectedSegmentId: null,
       };
+    }),
+
+  fadeAtCursor: (kind) =>
+    set((state) => {
+      const intent = fadeIntent(state.segments, state.cursorCurrent, kind);
+      if (!intent) return state;
+
+      const faded = withFade(
+        state.segments[intent.index],
+        kind,
+        intent.duration,
+      );
+
+      return commitSegments(
+        state.segments.with(intent.index, faded),
+        state.cursorCurrent,
+      );
     }),
 
   deleteSegment: (id) =>
@@ -231,24 +246,8 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       const newSegments = state.segments.filter((s) => s.id !== id);
       if (newSegments.length === state.segments.length) return state;
 
-      const newStart = newSegments[0].sourceStart;
-      const newEnd = newSegments[newSegments.length - 1].sourceEnd;
-
-      // Snap cursor if it was inside the deleted segment
-      let { cursorCurrent } = state;
-      if (!findSegmentAt(newSegments, cursorCurrent)) {
-        cursorCurrent = snapToNearestSegmentBoundary(
-          newSegments,
-          cursorCurrent,
-          newStart,
-        );
-      }
-
       return {
-        segments: newSegments,
-        cursorStart: newStart,
-        cursorEnd: newEnd,
-        cursorCurrent,
+        ...commitSegments(newSegments, state.cursorCurrent),
         selectedSegmentId: null,
       };
     }),
@@ -258,50 +257,28 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       const idx = state.segments.findIndex((s) => s.id === id);
       if (idx === -1) return state;
 
-      // Walk left to find all flush neighbors
-      let startIdx = idx;
-      while (startIdx > 0) {
-        const prev = state.segments[startIdx - 1];
-        const curr = state.segments[startIdx];
-        if (Math.abs(prev.sourceEnd - curr.sourceStart) <= FLUSH_TOLERANCE) {
-          startIdx--;
-        } else {
-          break;
-        }
-      }
-
-      // Walk right to find all flush neighbors
-      let endIdx = idx;
-      while (endIdx < state.segments.length - 1) {
-        const curr = state.segments[endIdx];
-        const next = state.segments[endIdx + 1];
-        if (Math.abs(curr.sourceEnd - next.sourceStart) <= FLUSH_TOLERANCE) {
-          endIdx++;
-        } else {
-          break;
-        }
-      }
-
-      // Nothing to join if it's just the one segment
+      const [startIdx, endIdx] = flushRunAt(state.segments, idx);
+      // A run of one has no flush neighbour to join with.
       if (startIdx === endIdx) return state;
 
+      // The outer fades survive; the ones on the cuts being closed do not.
       const merged: Segment = {
         id: `s${state.nextSegmentId}`,
         sourceStart: state.segments[startIdx].sourceStart,
         sourceEnd: state.segments[endIdx].sourceEnd,
+        fadeIn: state.segments[startIdx].fadeIn,
+        fadeOut: state.segments[endIdx].fadeOut,
       };
 
-      const newSegments = [
-        ...state.segments.slice(0, startIdx),
+      const joined = state.segments.toSpliced(
+        startIdx,
+        endIdx - startIdx + 1,
         merged,
-        ...state.segments.slice(endIdx + 1),
-      ];
+      );
 
       return {
-        segments: newSegments,
+        ...commitSegments(joined, state.cursorCurrent),
         nextSegmentId: state.nextSegmentId + 1,
-        cursorStart: newSegments[0].sourceStart,
-        cursorEnd: newSegments[newSegments.length - 1].sourceEnd,
         selectedSegmentId: merged.id,
       };
     }),
@@ -323,22 +300,16 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       if (prev && sourceStart < prev.sourceEnd) sourceStart = prev.sourceEnd;
       if (next && sourceEnd > next.sourceStart) sourceEnd = next.sourceStart;
 
-      const segments = [...state.segments];
-      segments[idx] = { ...segments[idx], sourceStart, sourceEnd };
-
-      const cursorStart = segments[0].sourceStart;
-      const cursorEnd = segments[segments.length - 1].sourceEnd;
-
-      let { cursorCurrent } = state;
-      if (!findSegmentAt(segments, cursorCurrent)) {
-        cursorCurrent = snapToNearestSegmentBoundary(
-          segments,
-          cursorCurrent,
-          cursorStart,
-        );
+      const seg = state.segments[idx];
+      // A drag pinned against a neighbour keeps firing; nothing has moved.
+      if (seg.sourceStart === sourceStart && seg.sourceEnd === sourceEnd) {
+        return state;
       }
 
-      return { segments, cursorStart, cursorEnd, cursorCurrent };
+      return commitSegments(
+        state.segments.with(idx, { ...seg, sourceStart, sourceEnd }),
+        state.cursorCurrent,
+      );
     }),
 
   setFormat: (format) => set(() => ({ format })),

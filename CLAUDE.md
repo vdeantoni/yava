@@ -48,9 +48,21 @@ YAVA_E2E_FFMPEG=1 npx playwright test -c playwright-e2e.config.ts tests/e2e/expo
 
 `src/store.tsx` holds a `Segment[]` (each `{id, sourceStart, sourceEnd}`, sorted, non-overlapping). Trimming, slicing, and deleting are all segment operations.
 
-`cursorStart` and `cursorEnd` are cached mirrors of `segments[0].sourceStart` and the last segment's `sourceEnd`. They have no setters. Every segment mutation recomputes them, and the cursor snaps to the nearest boundary if it lands in a gap. To move a trim edge, call `updateSegmentBounds`, never assign the cursors. Single-segment mode in `TrimPanel` is just editing `segments[0]`.
+`cursorStart` and `cursorEnd` are cached mirrors of `segments[0].sourceStart` and the last segment's `sourceEnd`. They have no setters. To move a trim edge, call `updateSegmentBounds`, never assign the cursors. Single-segment mode in `TrimPanel` is just editing `segments[0]`.
+
+Every reducer that writes segments returns `commitSegments(segments, cursorCurrent)` from `src/lib/segments.ts` rather than assembling the state itself. It sorts, recomputes the two mirrors, clamps each segment's fades, and snaps the cursor to the nearest boundary when the edit has stranded it in a gap. None of those invariants is expressible in the type, so a new mutation that skips the door gets them wrong silently. Write through it. Disjointness is the one list invariant it does not enforce: `updateSegmentBounds` clamps against its neighbours, and nothing in the door would catch an overlap.
+
+`segments.ts` also holds the questions the UI and the store both ask, so the two cannot drift: `sliceIndexAt` decides whether a slice is possible and where, and `flushRunAt` returns the run of touching segments a join would swallow. The toolbar and the timeline use them for enabled state; `sliceAtCursor` and `joinSegment` use them to act.
 
 Deleting a middle segment leaves a gap in source time. Playback skips gaps and export concatenates around them, so segments do not have to be contiguous.
+
+### Fades
+
+A segment can also carry `fadeIn` and `fadeOut`, each a length in seconds rather than a timestamp: `fadeIn` runs from `sourceStart`, `fadeOut` ends at `sourceEnd`. Storing lengths means a fade survives the segment being dragged and only needs clamping when it stops fitting, which `commitSegments` handles for every write. A segment shorter than its own fade would otherwise encode as a clip that never reaches full brightness.
+
+`src/lib/fade.ts` holds the whole model. `fadeIntent` answers what a click at a time would do. Each fade is a toggle: a segment that already has one gives back a zero length, meaning remove it, from anywhere inside that segment, and only setting a new fade needs room for it. So the toolbar buttons carry `aria-pressed` and a filled look rather than a separate clear control, and a length is changed by clearing and setting again. Which segment owns a time on a cut differs by kind, which is why `fadeIntent` does not use `findSegmentAt`: a fade-in belongs to the segment ending there, a fade-out to the one starting there, and `findSegmentAt` always answers with the earlier.
+
+Audio fades with the picture. There is no separate control, and `afade` mirrors `fade` exactly.
 
 ### Bootstrap order
 
@@ -74,6 +86,8 @@ So restored share links land in `resetCursors`, not at file load. That is also w
 
 Adding a shareable field means touching four places: the `UrlEditState` type and `buildEditStateUpdates` in `store.tsx`, plus `encodeEditState` and `decodeEditState` in `url-state.ts`. `decodeEditState` validates every field by type and swallows malformed input, since hashes come from untrusted URLs.
 
+A `seg` entry is `[start, end]`, or `[start, end, fadeIn, fadeOut]` once either fade is set. Both lengths travel together so the tuple only ever has two shapes, and links written before fades existed still decode.
+
 ### FFmpeg
 
 One `FFmpeg` instance lives in the store, unloaded until first export. `useFFmpeg` fetches the core from unpkg (`@ffmpeg/core@0.12.10`, or `core-mt` when multithreading is available) and reports per-file download progress against hardcoded byte sizes in `FILE_SIZES`. They are hardcoded because unpkg serves these chunked with no `Content-Length`, so `@ffmpeg/util` reports `total: -1` and cannot compute progress itself. The two builds differ in size, so re-measure both sets when bumping the version.
@@ -93,9 +107,12 @@ Multithreading requires `crossOriginIsolated`, which requires COOP/COEP headers.
 1. `scale=<intrinsic w>:<intrinsic h>` first when cropping, to normalize non-square SAR before crop coordinates are applied
 2. `crop=w:h:x:y`, computed from the fractional crop rect against intrinsic dimensions
 3. output `scale`, resolved to two concrete even numbers by `effectiveOutputSize`
-4. `setpts` for speed, plus chained `atempo` on audio (2.0 or 0.5 steps, since a single `atempo` only covers 0.5 to 2.0)
+4. `fade`, and `afade` on the audio, offset against the segment's own duration
+5. `setpts` for speed, plus chained `atempo` on audio (2.0 or 0.5 steps, since a single `atempo` only covers 0.5 to 2.0)
 
-Widths and heights are rounded down to even numbers because x264 requires it. Codec choice: mp4/mov use x264 `-preset`, webm uses libvpx with `-deadline`/`-cpu-used` mapped from the same preset names, gif is native. Audio is `-c:a copy` only when no audio filter is active.
+Fades come before the retiming so their lengths stay in source seconds and cover the same frames whatever the speed is; at 2x a 1.5s fade plays in 0.75s. They are the one filter that varies per segment, which is why `buildSegmentArgs` passes its `SegmentRange` down to both filter builders.
+
+Widths and heights are rounded down to even numbers because x264 requires it. Codec choice: mp4/mov use x264 `-preset`, webm uses libvpx with `-deadline`/`-cpu-used` mapped from the same preset names, gif is native. Audio is `-c:a copy` only when no audio filter is active, so a fade re-encodes it without any extra plumbing.
 
 `effectiveOutputSize` answers what size an export will be, from the crop rect, the source and the two override fields. `buildVideoFilters` calls it, and so does the export panel, so the number on screen is the number that comes out and there is no second resolution to keep in step. Blank fields mean "work it out"; setting one axis and leaving the other blank keeps the aspect ratio, which is why the blank axis resolves to a real number here rather than being left to ffmpeg's `-2`. Nothing writes derived dimensions back into the store: doing that cost two store writes per pointer move during a crop drag.
 
@@ -119,8 +136,8 @@ The harder case raises nothing at all. A file whose video track the browser cann
 
 `src/lib/crop.ts` and `src/lib/timeline.ts` hold the geometry the canvas and the
 timeline used to compute inline: corner hit-testing, drag anchors, clamping a
-moved rectangle or segment against its bounds and neighbours, and reproportioning
-a crop when the player is resized. The components keep the refs, the drawing and
+moved rectangle or segment against its bounds and neighbours, the ruler's mark
+intervals, and reproportioning a crop when the player is resized. The components keep the refs, the drawing and
 the event wiring. Both modules take plain numbers so the edges are unit-testable,
 which is where the guards against dividing by an unmeasured track width or
 reference box are asserted.
@@ -141,11 +158,13 @@ the segment runs away.
 
 A time on a cut shared by two flush segments resolves to the later segment, so playback runs straight through the cut. Resolving it to the earlier one instead would end that segment and seek to the timestamp the playhead already holds, and the seek's own `timeupdate` would repeat the decision forever. The handler also skips any seek shorter than `SEEK_TOLERANCE` for the same reason.
 
+The fade preview is a black overlay over the player. `fadeGainAt` returns what the fade leaves of the picture and the sound, so the overlay takes `1 - gain` for its opacity and the element takes the gain as its volume. While playback runs it is driven by `requestAnimationFrame` rather than `timeupdate`, which fires a handful of times a second and makes a fade step visibly. The level is written straight onto the node and skipped when unchanged, so nothing re-renders per frame and a playhead outside a fade costs nothing.
+
 ### Shared tolerances
 
-`src/lib/utils.ts` exports named epsilons: `MIN_SLICE_DISTANCE` (0.5s minimum segment length), `FLUSH_TOLERANCE` (0.01s, treats boundaries as touching so segments can be joined), `PLAYBACK_TOLERANCE` (0.05s), `SEEK_TOLERANCE` (0.01s, below which a seek is a no-op and gets skipped), `RESTART_TOLERANCE` (0.1s). Reuse them along with `findSegmentAt` and `snapToNearestSegmentBoundary` instead of inlining new comparisons.
+`src/lib/utils.ts` exports named epsilons: `MIN_SLICE_DISTANCE` (0.5s minimum segment length), `MIN_FADE_DURATION` (0.1s, the shortest fade worth keeping), `FLUSH_TOLERANCE` (0.01s, treats boundaries as touching so segments can be joined), `PLAYBACK_TOLERANCE` (0.05s), `SEEK_TOLERANCE` (0.01s, below which a seek is a no-op and gets skipped), `RESTART_TOLERANCE` (0.1s). Reuse them along with `findSegmentAt` and `snapToNearestSegmentBoundary`, and the segment-list rules in `src/lib/segments.ts`, instead of inlining new comparisons.
 
-`findSegmentAt` resolves a time on a shared cut to the earlier segment, which suits the timeline and the store. `nextPlaybackAction` needs the later one and so runs its own scan; that is the one place a separate lookup is right.
+`findSegmentAt` resolves a time on a shared cut to the earlier segment, which suits the timeline and the store. Two callers need something else and scan for themselves: `nextPlaybackAction` wants the later segment, and `fadeIntent` wants a different one per fade kind. Those are the only two places a separate lookup is right.
 
 ## Test setup
 
@@ -162,6 +181,9 @@ E2E tests wait on the "Start Over" button as the editor-ready signal, and poll `
 - `src/components/ui/` is shadcn/ui output managed by the CLI (`components.json`: default style, slate base). Do not hand-edit.
 - Every control needs an accessible name, and `tests/e2e/accessible-names.spec.ts` fails if one does not have it. Icon-only buttons carry `aria-label`; inputs get an id from `useId` and a label pointing at it, which also keeps the ids unique, since both the desktop and mobile layouts mount every panel. The two `Slider` thumbs are the one exception: Radix renders them inside the primitive and `src/components/ui` is not hand-edited. Playwright matches accessible names by substring, so `{ exact: true }` matters when one name contains another.
 - Never subscribe with a bare `useAppStore()`. Zustand rebuilds state on every `set`, so a selectorless component re-renders on every store write. Select with `useShallow` for several keys, or `useAppStore((s) => s.thing)` for one. This matters most in `App`: it renders the whole editor, and nothing below it can opt out of a re-render while it re-renders, so a selectorless `App` defeats every child's selector. Read one-shot values inside a handler with `useAppStore.getState()` instead of subscribing.
+- `cursorCurrent` changes at pointer rate while scrubbing, so what each consumer does with it follows one question: does it render the value? `Playhead` and the timecode in `VideoControls` do, so they subscribe narrowly and repaint on every move, which is the work. `TimelineToolbar` renders a coarse projection, so it derives each button's enabled and pressed state inside its selector and the equality check absorbs the churn. `VideoPlayer` never renders it, so it does not subscribe at all: its seek and its fade overlay run off a `useAppStore.subscribe`, and its handlers read `segments` with `useAppStore.getState()`. Measured over a 20-move drag, a scrub re-renders `Playhead` and the timecode and nothing else, and a segment drag no longer touches the player.
+- `VideoTimeline` holds its tick and mark row in a `useMemo`. A segment drag re-renders the track on every pointer move, and those ~150 nodes move only with the scale, so handing React the same element lets it skip the subtree. The ruler itself comes from `timelineMarks` in `src/lib/timeline.ts`, where its fallbacks are tested: a duration past the largest interval drops to one-second marks, and only the tick cap keeps four hours from being fourteen thousand nodes.
+- `playheadTimeAt` in `src/lib/timeline.ts` decides where a pointer time parks the playhead, for both the track's click and the playhead's own drag. They have to agree, or clicking and dragging to the same pixel land in different places.
 - ESLint flat config turns off three React Compiler rules (`preserve-manual-memoization`, `set-state-in-effect`, `immutability`) that the codebase does not satisfy yet. Do not re-enable them for a local fix.
 - Icons come from `lucide-react`. Vite env access uses `import.meta.env.DEV`.
 - Prettier defaults, enforced by `npm run check`.

@@ -199,6 +199,129 @@ describe("useAppStore", () => {
     });
   });
 
+  describe("fadeAtCursor", () => {
+    test("fades in from the start of the segment to the cursor", () => {
+      initSegments(10);
+      useAppStore.setState({ cursorCurrent: 3 });
+      useAppStore.getState().fadeAtCursor("in");
+      expect(useAppStore.getState().segments[0].fadeIn).toBe(3);
+    });
+
+    test("fades out from the cursor to the end of the segment", () => {
+      initSegments(10);
+      useAppStore.setState({ cursorCurrent: 7 });
+      useAppStore.getState().fadeAtCursor("out");
+      expect(useAppStore.getState().segments[0].fadeOut).toBe(3);
+    });
+
+    test("removes the fade from anywhere in the segment, not just its edge", () => {
+      initSegments(10);
+      useAppStore.setState({ cursorCurrent: 3 });
+      useAppStore.getState().fadeAtCursor("in");
+      useAppStore.setState({ cursorCurrent: 8 });
+      useAppStore.getState().fadeAtCursor("in");
+      expect(useAppStore.getState().segments[0].fadeIn).toBeUndefined();
+    });
+
+    test("slicing leaves each fade on the half that still has its edge", () => {
+      initSegments(20);
+      useAppStore.setState({ cursorCurrent: 3 });
+      useAppStore.getState().fadeAtCursor("in");
+      useAppStore.setState({ cursorCurrent: 18 });
+      useAppStore.getState().fadeAtCursor("out");
+
+      useAppStore.setState({ cursorCurrent: 10 });
+      useAppStore.getState().sliceAtCursor();
+
+      const { segments } = useAppStore.getState();
+      expect(segments[0].fadeIn).toBe(3);
+      expect(segments[0].fadeOut).toBeUndefined();
+      expect(segments[1].fadeIn).toBeUndefined();
+      expect(segments[1].fadeOut).toBe(2);
+    });
+
+    test("slicing cuts back a fade the new half cannot hold", () => {
+      initSegments(20);
+      useAppStore.setState({ cursorCurrent: 15 });
+      useAppStore.getState().fadeAtCursor("in");
+
+      useAppStore.setState({ cursorCurrent: 10 });
+      useAppStore.getState().sliceAtCursor();
+
+      expect(useAppStore.getState().segments[0].fadeIn).toBe(10);
+    });
+
+    test("joining keeps the fades on the outer edges", () => {
+      initSegments(20);
+      useAppStore.setState({ cursorCurrent: 10 });
+      useAppStore.getState().sliceAtCursor();
+
+      useAppStore.setState({ cursorCurrent: 2 });
+      useAppStore.getState().fadeAtCursor("in");
+      useAppStore.setState({ cursorCurrent: 18 });
+      useAppStore.getState().fadeAtCursor("out");
+      // Fades on the inner cut have nowhere to go once the cut is gone.
+      useAppStore.setState({ cursorCurrent: 9 });
+      useAppStore.getState().fadeAtCursor("out");
+      useAppStore.setState({ cursorCurrent: 11 });
+      useAppStore.getState().fadeAtCursor("in");
+
+      const first = useAppStore.getState().segments[0].id;
+      useAppStore.getState().joinSegment(first);
+
+      const { segments } = useAppStore.getState();
+      expect(segments).toHaveLength(1);
+      expect(segments[0].fadeIn).toBe(2);
+      expect(segments[0].fadeOut).toBe(2);
+    });
+
+    test("dragging a segment shorter cuts its fade back to fit", () => {
+      initSegments(20);
+      useAppStore.setState({ cursorCurrent: 8 });
+      useAppStore.getState().fadeAtCursor("in");
+
+      const { segments } = useAppStore.getState();
+      useAppStore.getState().updateSegmentBounds(segments[0].id, 0, 5);
+
+      expect(useAppStore.getState().segments[0].fadeIn).toBe(5);
+    });
+  });
+
+  describe("segment invariants", () => {
+    // Slicing and fading do not move the outer bounds, so these would pass
+    // whether or not those reducers recompute anything. Feeding them drifted
+    // mirrors is what pins them to going through commitSegments.
+    test.each([
+      ["sliceAtCursor", () => useAppStore.getState().sliceAtCursor()],
+      ["fadeAtCursor", () => useAppStore.getState().fadeAtCursor("in")],
+    ])("%s repairs cursor mirrors that drifted", (_name, mutate) => {
+      initSegments(10);
+      useAppStore.setState({
+        cursorCurrent: 5,
+        cursorStart: 99,
+        cursorEnd: 99,
+      });
+
+      mutate();
+
+      const { cursorStart, cursorEnd } = useAppStore.getState();
+      expect(cursorStart).toBe(0);
+      expect(cursorEnd).toBe(10);
+    });
+
+    test("a write cuts back a fade left too long by an earlier one", () => {
+      initSegments(10);
+      useAppStore.setState({
+        segments: [{ id: "s0", sourceStart: 0, sourceEnd: 2, fadeIn: 8 }],
+        cursorCurrent: 1,
+      });
+
+      useAppStore.getState().fadeAtCursor("out");
+
+      expect(useAppStore.getState().segments[0].fadeIn).toBe(2);
+    });
+  });
+
   describe("deleteSegment", () => {
     test("removes the specified segment", () => {
       initSegments(10);
@@ -450,6 +573,18 @@ describe("useAppStore", () => {
         seg: [[0, MIN_SLICE_DISTANCE]],
       });
       expect(segments).toHaveLength(1);
+    });
+
+    test("restores the fades carried in the longer tuple", () => {
+      const { segments } = withPending({ seg: [[0, 30, 1.5, 2]] });
+      expect(segments[0].fadeIn).toBe(1.5);
+      expect(segments[0].fadeOut).toBe(2);
+    });
+
+    test("cuts a restored fade back to the segment it landed on", () => {
+      // The end clamps to the duration, which can leave the fade too long.
+      const { segments } = withPending({ seg: [[0, 9999, 90, 0]] });
+      expect(segments[0].fadeIn).toBe(60);
     });
 
     test("sorts segments that arrive out of order", () => {

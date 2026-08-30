@@ -212,6 +212,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
         ffmpeg.terminate();
       }
     } else {
+      video?.pause();
       exportHandler();
     }
     setOpen(open);

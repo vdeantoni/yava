@@ -1,5 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
-import { drawCropRect, loadWithSegments, routeFixtureVideo } from "./helpers";
+import {
+  drawCropRect,
+  loadWithSegments,
+  routeFixtureVideo,
+  settledCanvasBox,
+} from "./helpers";
 
 test.beforeEach(({ context }) => routeFixtureVideo(context));
 
@@ -23,10 +28,7 @@ test.describe("crop overlay", () => {
     await loadWithSegments(page, [[0, 2]]);
 
     const canvas = page.locator("canvas").first();
-    // The canvas sizes itself from a debounced resize observer.
-    await expect
-      .poll(() => canvas.evaluate((el) => el.width))
-      .toBeGreaterThan(0);
+    await settledCanvasBox(page);
     expect(await paintedPixels(page)).toBe(0);
 
     const box = await drawCropRect(

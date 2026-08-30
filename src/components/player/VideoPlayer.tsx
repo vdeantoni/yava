@@ -1,44 +1,51 @@
 import { useAppStore } from "@/store.tsx";
 import { useShallow } from "zustand/react/shallow";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import VideoControls from "@/components/player/VideoControls.tsx";
 import { cn, describeMediaError, SEEK_TOLERANCE } from "@/lib/utils.ts";
 import { nextPlaybackAction } from "@/lib/playback.ts";
+import { fadeGainAt } from "@/lib/fade.ts";
 import { LoaderCircle } from "lucide-react";
 import VideoCanvas from "./VideoCanvas";
 
 /** Ten times the slowest first-frame report measured on a working source. */
 const FRAME_CHECK_MS = 2000;
 
+/**
+ * Caps the picture at the room --editor-chrome leaves it. The floor keeps a
+ * short window from clamping the height to nothing and blanking the player.
+ */
+const pictureHeightClass =
+  "max-h-[max(120px,calc(100svh-var(--editor-chrome)))]";
+
 const NO_FRAMES_MESSAGE =
   "This browser decoded no frames from this video, so there is no preview. Exporting still works, because FFmpeg decodes the file itself.";
 
 const VideoPlayer = () => {
-  const {
-    file,
-    video,
-    cursorCurrent,
-    segments,
-    processing,
-    setVideo,
-    setCursorCurrent,
-  } = useAppStore(
-    useShallow((s) => ({
-      file: s.file,
-      video: s.video,
-      cursorCurrent: s.cursorCurrent,
-      segments: s.segments,
-      processing: s.processing,
-      setVideo: s.setVideo,
-      setCursorCurrent: s.setCursorCurrent,
-    })),
-  );
+  // Neither the playhead nor the segments are rendered here, so neither is
+  // subscribed to: both change at pointer rate and would re-render the player
+  // and its canvas for nothing. Handlers read them with getState, and the fade
+  // overlay follows them through the subscription below.
+  const { file, video, hasFades, processing, setVideo, setCursorCurrent } =
+    useAppStore(
+      useShallow((s) => ({
+        file: s.file,
+        video: s.video,
+        hasFades: s.segments.some((seg) => seg.fadeIn || seg.fadeOut),
+        processing: s.processing,
+        setVideo: s.setVideo,
+        setCursorCurrent: s.setCursorCurrent,
+      })),
+    );
 
   const [playing, setPlaying] = useState(false);
   const [mediaError, setMediaError] = useState("");
   const [noFrames, setNoFrames] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fadeRef = useRef<HTMLDivElement>(null);
+  /** Last painted level, so a playhead that moved outside a fade costs nothing. */
+  const lastGainRef = useRef(-1);
   const videoSrc = useMemo(() => URL.createObjectURL(file!), [file]);
 
   /** Assigning the position the playhead already holds fires another timeupdate. */
@@ -70,6 +77,7 @@ const VideoPlayer = () => {
     const el = videoRef.current;
     if (!el || processing) return;
 
+    const { segments } = useAppStore.getState();
     const action = nextPlaybackAction(segments, el.currentTime);
 
     if (action.type === "continue") {
@@ -82,12 +90,64 @@ const VideoPlayer = () => {
     setCursorCurrent(action.time);
   };
 
-  useEffect(() => {
+  /** Darken the picture and duck the volume the way the export will. */
+  const paintFade = useCallback(() => {
+    const overlay = fadeRef.current;
     const el = videoRef.current;
-    if (!el || processing || !el.paused) return;
+    if (!overlay || !el) return;
 
-    seekTo(el, cursorCurrent);
-  }, [cursorCurrent, processing]);
+    const { segments } = useAppStore.getState();
+    const gain = fadeGainAt(segments, el.currentTime);
+    if (gain === lastGainRef.current) return;
+    lastGainRef.current = gain;
+
+    overlay.style.opacity = String(1 - gain);
+    el.volume = gain;
+  }, []);
+
+  /**
+   * Seek and repaint off the store rather than off a render.
+   *
+   * Segments matter as much as the playhead here: removing a fade the playhead
+   * is sitting inside has to brighten the picture without either moving.
+   */
+  useEffect(() => {
+    const follow = () => {
+      const el = videoRef.current;
+      if (!el) return;
+
+      if (!processing && el.paused) {
+        seekTo(el, useAppStore.getState().cursorCurrent);
+      }
+      paintFade();
+    };
+
+    follow();
+
+    return useAppStore.subscribe((s, previous) => {
+      if (
+        s.cursorCurrent !== previous.cursorCurrent ||
+        s.segments !== previous.segments
+      ) {
+        follow();
+      }
+    });
+  }, [processing, paintFade]);
+
+  // timeupdate fires a handful of times a second, which is coarse enough that a
+  // fade driven off it visibly steps.
+  useEffect(() => {
+    if (!playing || !hasFades) return;
+
+    let raf = 0;
+    const loop = () => {
+      paintFade();
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+
+    return () => cancelAnimationFrame(raf);
+  }, [playing, hasFades, paintFade]);
 
   const warning = mediaError || (noFrames ? NO_FRAMES_MESSAGE : "");
 
@@ -98,7 +158,8 @@ const VideoPlayer = () => {
           <video
             ref={videoRef}
             className={cn(
-              "max-w-full max-h-full object-contain block",
+              "max-w-full object-contain block",
+              pictureHeightClass,
               processing && "invisible",
             )}
             onLoadedData={videoLoadedDataHandler}
@@ -113,6 +174,14 @@ const VideoPlayer = () => {
           >
             <source src={videoSrc} />
           </video>
+
+          <div
+            ref={fadeRef}
+            className={cn(
+              "absolute inset-0 bg-black opacity-0 pointer-events-none",
+              processing && "invisible",
+            )}
+          />
 
           <VideoCanvas videoRef={videoRef} />
         </div>
