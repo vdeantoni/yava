@@ -114,6 +114,39 @@ export function segmentHandle(page: Page, index: number) {
 }
 
 /**
+ * The canvas box, once its debounced resize observer has caught up with the
+ * player. A `<video>` is 300x150 until its metadata arrives, so a box measured
+ * before then is both the wrong size and in the wrong place, and every pointer
+ * fraction computed from it lands somewhere else on the real canvas.
+ */
+export async function settledCanvasBox(page: Page) {
+  await expect
+    .poll(
+      () =>
+        page.evaluate(() => {
+          const canvas = document.querySelector("canvas");
+          const video = document.querySelector("video");
+          if (!canvas || !video) return "no player";
+          if (video.readyState < 1) return "no metadata";
+
+          const { width, height } = video.getBoundingClientRect();
+          const caughtUp =
+            canvas.width > 0 &&
+            canvas.width === Math.ceil(width) &&
+            canvas.height === Math.ceil(height);
+
+          return caughtUp
+            ? "settled"
+            : `canvas ${canvas.width}x${canvas.height}, player ${width}x${height}`;
+        }),
+      { timeout: 10_000 },
+    )
+    .toBe("settled");
+
+  return (await page.locator("canvas").first().boundingBox())!;
+}
+
+/**
  * Drag a crop rectangle across the player, from one corner to another, as
  * fractions of the canvas box. Returns the canvas box it measured.
  */
@@ -122,13 +155,7 @@ export async function drawCropRect(
   from: { x: number; y: number },
   to: { x: number; y: number },
 ) {
-  const canvas = page.locator("canvas").first();
-  // The canvas sizes itself from a debounced resize observer.
-  await expect
-    .poll(() => page.evaluate(() => document.querySelector("canvas")!.width))
-    .toBeGreaterThan(0);
-
-  const box = (await canvas.boundingBox())!;
+  const box = await settledCanvasBox(page);
   const at = (f: { x: number; y: number }) => ({
     x: box.x + box.width * f.x,
     y: box.y + box.height * f.y,
@@ -138,6 +165,10 @@ export async function drawCropRect(
   await page.mouse.down();
   await page.mouse.move(at(to).x, at(to).y, { steps: 10 });
   await page.mouse.up();
+
+  // A player that resized mid-drag leaves a rectangle nobody asked for, and
+  // the caller would report it as an unexplained number several lines later.
+  expect(await page.locator("canvas").first().boundingBox()).toEqual(box);
 
   return box;
 }

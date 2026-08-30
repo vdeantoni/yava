@@ -38,13 +38,14 @@ test.describe("output size", () => {
 
     await drawCrop(page, 0.5);
 
-    // Roughly half of each axis, and even, which the encoder requires.
+    // Half of each axis of the 160x120 source, give or take a rounded pointer
+    // pixel, and even, which the encoder requires.
     const width = Number(await size.width.inputValue());
     const height = Number(await size.height.inputValue());
-    expect(width).toBeGreaterThan(50);
-    expect(width).toBeLessThan(120);
-    expect(height).toBeGreaterThan(30);
-    expect(height).toBeLessThan(100);
+    expect(width).toBeGreaterThanOrEqual(78);
+    expect(width).toBeLessThanOrEqual(82);
+    expect(height).toBeGreaterThanOrEqual(58);
+    expect(height).toBeLessThanOrEqual(62);
     expect(width % 2).toBe(0);
     expect(height % 2).toBe(0);
   });
