@@ -6,6 +6,7 @@ import { clampFades, fadeIntent, withFade, type FadeKind } from "./lib/fade";
 import {
   clamp,
   findSegmentAt,
+  sliceIndexAt,
   snapToNearestSegmentBoundary,
   MIN_SLICE_DISTANCE,
   FLUSH_TOLERANCE,
@@ -230,11 +231,7 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
   sliceAtCursor: () =>
     set((state) => {
       const { cursorCurrent, segments, nextSegmentId } = state;
-      const idx = segments.findIndex(
-        (s) =>
-          cursorCurrent > s.sourceStart + MIN_SLICE_DISTANCE &&
-          cursorCurrent < s.sourceEnd - MIN_SLICE_DISTANCE,
-      );
+      const idx = sliceIndexAt(segments, cursorCurrent);
       if (idx === -1) return state;
 
       // Each half keeps the fade whose edge it still owns.

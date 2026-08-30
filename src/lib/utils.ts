@@ -98,6 +98,7 @@ export const MIN_SLICE_DISTANCE = 0.5;
 
 /** Shortest fade worth keeping; anything below this is dropped (seconds). */
 export const MIN_FADE_DURATION = 0.1;
+
 /** Tolerance for treating adjacent segment boundaries as flush (seconds). */
 export const FLUSH_TOLERANCE = 0.01;
 
@@ -138,6 +139,20 @@ export function findSegmentAt<T extends SegmentLike>(
 ): T | undefined {
   const idx = findSegmentIndexAt(segments, time, tolerance);
   return idx === -1 ? undefined : segments[idx];
+}
+
+/**
+ * Index of the segment a slice at `time` would split, or -1 when none would.
+ *
+ * The store acts on the index and the toolbar only asks whether there is one,
+ * so both go through here rather than each spelling out the rule.
+ */
+export function sliceIndexAt(segments: SegmentLike[], time: number): number {
+  return segments.findIndex(
+    (s) =>
+      time > s.sourceStart + MIN_SLICE_DISTANCE &&
+      time < s.sourceEnd - MIN_SLICE_DISTANCE,
+  );
 }
 
 /** Find the nearest segment boundary (sourceStart or sourceEnd) to `time`. */

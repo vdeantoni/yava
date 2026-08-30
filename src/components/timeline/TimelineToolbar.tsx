@@ -2,7 +2,7 @@ import { useAppStore } from "@/store.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button.tsx";
 import { Scissors, Sunrise, Sunset, type LucideIcon } from "lucide-react";
-import { cn, MIN_SLICE_DISTANCE } from "@/lib/utils.ts";
+import { cn, sliceIndexAt } from "@/lib/utils.ts";
 import { fadeIntent, type FadeKind } from "@/lib/fade.ts";
 import {
   Tooltip,
@@ -82,11 +82,7 @@ const TimelineToolbar = () => {
       const fadeOut = fadeIntent(segments, cursorCurrent, "out");
 
       return {
-        canSlice: segments.some(
-          (seg) =>
-            cursorCurrent > seg.sourceStart + MIN_SLICE_DISTANCE &&
-            cursorCurrent < seg.sourceEnd - MIN_SLICE_DISTANCE,
-        ),
+        canSlice: sliceIndexAt(segments, cursorCurrent) !== -1,
         fadeInEnabled: fadeIn !== null,
         fadeInActive: fadeIn?.duration === 0,
         fadeOutEnabled: fadeOut !== null,

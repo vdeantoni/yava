@@ -8,11 +8,11 @@ import {
   useState,
 } from "react";
 import VideoThumbnails from "@/components/timeline/VideoThumbnails.tsx";
+import Playhead from "@/components/timeline/Playhead.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 import { useShallow } from "zustand/react/shallow";
 import {
   cn,
-  clamp,
   isMobile,
   secondsToDuration,
   findSegmentAt,
@@ -66,8 +66,6 @@ const VideoTimeline = () => {
   const {
     video,
     cursorStart,
-    cursorEnd,
-    cursorCurrent,
     segments,
     selectedSegmentId,
     setCursorCurrent,
@@ -80,8 +78,6 @@ const VideoTimeline = () => {
     useShallow((s) => ({
       video: s.video,
       cursorStart: s.cursorStart,
-      cursorEnd: s.cursorEnd,
-      cursorCurrent: s.cursorCurrent,
       segments: s.segments,
       selectedSegmentId: s.selectedSegmentId,
       setCursorCurrent: s.setCursorCurrent,
@@ -95,7 +91,6 @@ const VideoTimeline = () => {
 
   const trackRef = useRef<HTMLDivElement>(null);
   const handleDrag = useRef(false);
-  const dragRect = useRef<DOMRect | null>(null);
   const trackWidth = useTrackResizeObserver(trackRef);
 
   const [hoveredSegmentId, setHoveredSegmentId] = useState<string | null>(null);
@@ -443,53 +438,12 @@ const VideoTimeline = () => {
               );
             })}
 
-          <div
-            className="absolute z-20"
-            style={{
-              left: (cursorCurrent / video.duration) * trackWidth,
-              top: 0,
-            }}
-          >
-            {/* Invisible wider hit area for dragging */}
-            <div
-              className="absolute -translate-x-1/2 w-4 h-14 cursor-grab pointer-events-auto"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                handleDrag.current = true;
-                dragRect.current = trackRef.current!.getBoundingClientRect();
-                (e.target as HTMLElement).setPointerCapture(e.pointerId);
-              }}
-              onPointerMove={(e) => {
-                if (!handleDrag.current || !dragRect.current) return;
-                const rect = dragRect.current;
-                const time = clamp(
-                  timeAtX(e.clientX, rect, video.duration),
-                  video.duration,
-                );
-                if (time >= cursorStart && time <= cursorEnd) {
-                  const seg = findSegmentAt(segments, time);
-                  if (seg) {
-                    setCursorCurrent(time);
-                  } else {
-                    setCursorCurrent(
-                      snapToNearestSegmentBoundary(segments, time, cursorStart),
-                    );
-                  }
-                }
-              }}
-              onPointerUp={() => {
-                handleDrag.current = false;
-                dragRect.current = null;
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDrag.current = false;
-              }}
-            />
-            {/* Visual cursor line */}
-            <div className="w-0.5 h-14 bg-primary rounded-full -translate-x-1/2 pointer-events-none shadow-[0_0_6px_hsl(var(--primary)/0.4)]" />
-          </div>
+          <Playhead
+            trackRef={trackRef}
+            trackWidth={trackWidth}
+            duration={video.duration}
+            dragging={handleDrag}
+          />
         </div>
       </div>
     </div>
