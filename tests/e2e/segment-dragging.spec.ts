@@ -85,15 +85,11 @@ test.describe("segment dragging", () => {
     await loadWithSegments(page, [[0, 2]]);
 
     // Also scrolls the track into view, so the raw pointer moves below land.
-    await movePlayhead(page, 0.25);
+    const box = await movePlayhead(page, 0.25);
     const playheadTime = () =>
       page.evaluate(() => document.querySelector("video")!.currentTime);
     expect(await playheadTime()).toBeCloseTo(0.5, 1);
 
-    const box = (await page
-      .locator("div.relative.h-16")
-      .first()
-      .boundingBox())!;
     const y = box.y + box.height / 2;
     await page.mouse.move(box.x + box.width * 0.25, y);
     await page.mouse.down();

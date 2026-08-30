@@ -141,20 +141,6 @@ export function findSegmentAt<T extends SegmentLike>(
   return idx === -1 ? undefined : segments[idx];
 }
 
-/**
- * Index of the segment a slice at `time` would split, or -1 when none would.
- *
- * The store acts on the index and the toolbar only asks whether there is one,
- * so both go through here rather than each spelling out the rule.
- */
-export function sliceIndexAt(segments: SegmentLike[], time: number): number {
-  return segments.findIndex(
-    (s) =>
-      time > s.sourceStart + MIN_SLICE_DISTANCE &&
-      time < s.sourceEnd - MIN_SLICE_DISTANCE,
-  );
-}
-
 /** Find the nearest segment boundary (sourceStart or sourceEnd) to `time`. */
 export function snapToNearestSegmentBoundary(
   segments: SegmentLike[],

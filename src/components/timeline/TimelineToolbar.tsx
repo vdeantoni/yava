@@ -2,7 +2,8 @@ import { useAppStore } from "@/store.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button.tsx";
 import { Scissors, Sunrise, Sunset, type LucideIcon } from "lucide-react";
-import { cn, sliceIndexAt } from "@/lib/utils.ts";
+import { cn } from "@/lib/utils.ts";
+import { sliceIndexAt } from "@/lib/segments.ts";
 import { fadeIntent, type FadeKind } from "@/lib/fade.ts";
 import {
   Tooltip,

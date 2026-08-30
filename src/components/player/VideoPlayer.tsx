@@ -112,6 +112,8 @@ const VideoPlayer = () => {
     el.volume = gain;
   }, [segments]);
 
+  // cursorCurrent is the trigger, not the input: paintFade reads the element,
+  // which the seek effect above has already moved.
   useEffect(paintFade, [paintFade, cursorCurrent]);
 
   // timeupdate fires a handful of times a second, which is coarse enough that a

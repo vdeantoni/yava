@@ -2,16 +2,9 @@ import { create } from "zustand";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { CropRectangle, EMPTY_CROP } from "./lib/crop";
 import { supportsMultithreading } from "./hooks/useFFmpeg";
-import { clampFades, fadeIntent, withFade, type FadeKind } from "./lib/fade";
-import {
-  clamp,
-  findSegmentAt,
-  sliceIndexAt,
-  snapToNearestSegmentBoundary,
-  MIN_SLICE_DISTANCE,
-  FLUSH_TOLERANCE,
-  type SegmentLike,
-} from "./lib/utils";
+import { fadeIntent, withFade, type FadeKind } from "./lib/fade";
+import { commitSegments, flushRunAt, sliceIndexAt } from "./lib/segments";
+import { clamp, MIN_SLICE_DISTANCE, type SegmentLike } from "./lib/utils";
 
 export type Format = "mp4" | "webm" | "mov" | "gif";
 export type Preset = "ultrafast" | "fast" | "medium" | "slow";
@@ -107,36 +100,6 @@ export const DEFAULT_EXPORT = {
   outputHeight: "",
   noAudio: false,
 };
-
-/**
- * The one door every segment write goes through.
- *
- * Three things have to stay true of the list and none of them is expressible in
- * the type: it is sorted, `cursorStart`/`cursorEnd` mirror the outer bounds, and
- * no fade outruns the segment holding it. Recomputing them here rather than in
- * each reducer is what keeps a new mutation from having to remember.
- *
- * The cursor snaps to the nearest boundary when the edit strands it in a gap.
- */
-function commitSegments(
-  segments: Segment[],
-  cursorCurrent: number,
-): Pick<AppState, "segments" | "cursorStart" | "cursorEnd" | "cursorCurrent"> {
-  const committed = segments
-    .map(clampFades)
-    .sort((a, b) => a.sourceStart - b.sourceStart);
-
-  const cursorStart = committed[0].sourceStart;
-
-  return {
-    segments: committed,
-    cursorStart,
-    cursorEnd: committed[committed.length - 1].sourceEnd,
-    cursorCurrent: findSegmentAt(committed, cursorCurrent)
-      ? cursorCurrent
-      : snapToNearestSegmentBoundary(committed, cursorCurrent, cursorStart),
-  };
-}
 
 function buildEditStateUpdates(
   editState: UrlEditState,
@@ -249,11 +212,11 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
         fadeOut: seg.fadeOut,
       };
 
-      const newSegments = [...segments];
-      newSegments.splice(idx, 1, left, right);
-
       return {
-        ...commitSegments(newSegments, cursorCurrent),
+        ...commitSegments(
+          segments.toSpliced(idx, 1, left, right),
+          cursorCurrent,
+        ),
         nextSegmentId: nextSegmentId + 2,
         selectedSegmentId: null,
       };
@@ -264,14 +227,16 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       const intent = fadeIntent(state.segments, state.cursorCurrent, kind);
       if (!intent) return state;
 
-      const segments = [...state.segments];
-      segments[intent.index] = withFade(
-        segments[intent.index],
+      const faded = withFade(
+        state.segments[intent.index],
         kind,
         intent.duration,
       );
 
-      return commitSegments(segments, state.cursorCurrent);
+      return commitSegments(
+        state.segments.with(intent.index, faded),
+        state.cursorCurrent,
+      );
     }),
 
   deleteSegment: (id) =>
@@ -292,31 +257,8 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       const idx = state.segments.findIndex((s) => s.id === id);
       if (idx === -1) return state;
 
-      // Walk left to find all flush neighbors
-      let startIdx = idx;
-      while (startIdx > 0) {
-        const prev = state.segments[startIdx - 1];
-        const curr = state.segments[startIdx];
-        if (Math.abs(prev.sourceEnd - curr.sourceStart) <= FLUSH_TOLERANCE) {
-          startIdx--;
-        } else {
-          break;
-        }
-      }
-
-      // Walk right to find all flush neighbors
-      let endIdx = idx;
-      while (endIdx < state.segments.length - 1) {
-        const curr = state.segments[endIdx];
-        const next = state.segments[endIdx + 1];
-        if (Math.abs(curr.sourceEnd - next.sourceStart) <= FLUSH_TOLERANCE) {
-          endIdx++;
-        } else {
-          break;
-        }
-      }
-
-      // Nothing to join if it's just the one segment
+      const [startIdx, endIdx] = flushRunAt(state.segments, idx);
+      // A run of one has no flush neighbour to join with.
       if (startIdx === endIdx) return state;
 
       // The outer fades survive; the ones on the cuts being closed do not.
@@ -328,14 +270,14 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
         fadeOut: state.segments[endIdx].fadeOut,
       };
 
-      const newSegments = [
-        ...state.segments.slice(0, startIdx),
+      const joined = state.segments.toSpliced(
+        startIdx,
+        endIdx - startIdx + 1,
         merged,
-        ...state.segments.slice(endIdx + 1),
-      ];
+      );
 
       return {
-        ...commitSegments(newSegments, state.cursorCurrent),
+        ...commitSegments(joined, state.cursorCurrent),
         nextSegmentId: state.nextSegmentId + 1,
         selectedSegmentId: merged.id,
       };
@@ -358,10 +300,16 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       if (prev && sourceStart < prev.sourceEnd) sourceStart = prev.sourceEnd;
       if (next && sourceEnd > next.sourceStart) sourceEnd = next.sourceStart;
 
-      const segments = [...state.segments];
-      segments[idx] = { ...segments[idx], sourceStart, sourceEnd };
+      const seg = state.segments[idx];
+      // A drag pinned against a neighbour keeps firing; nothing has moved.
+      if (seg.sourceStart === sourceStart && seg.sourceEnd === sourceEnd) {
+        return state;
+      }
 
-      return commitSegments(segments, state.cursorCurrent);
+      return commitSegments(
+        state.segments.with(idx, { ...seg, sourceStart, sourceEnd }),
+        state.cursorCurrent,
+      );
     }),
 
   setFormat: (format) => set(() => ({ format })),

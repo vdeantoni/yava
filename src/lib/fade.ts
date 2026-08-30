@@ -22,7 +22,7 @@ export interface FadeRange {
 }
 
 /** What a fade click would do: which segment, and the length to set. */
-export interface FadeIntent {
+interface FadeIntent {
   index: number;
   /** Zero removes the fade that is already there. */
   duration: number;

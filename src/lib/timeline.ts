@@ -1,3 +1,4 @@
+import { findSegmentAt, snapToNearestSegmentBoundary } from "./utils";
 import type { SegmentLike } from "./utils";
 
 /** Below this a pointer has not committed to a drag yet. */
@@ -17,6 +18,34 @@ export function timeAtX(
 ): number {
   if (!rect.width) return 0;
   return ((clientX - rect.left) / rect.width) * duration;
+}
+
+/** Where along the track a time sits, in pixels. The inverse of `timeAtX`. */
+export function xAtTime(
+  time: number,
+  duration: number,
+  trackWidth: number,
+): number {
+  if (!duration) return 0;
+  return (time / duration) * trackWidth;
+}
+
+/**
+ * Where the playhead goes for a pointer at `time`: there, or the nearest
+ * boundary when that lands in a gap or outside the edit.
+ *
+ * Both the track and the playhead's own drag resolve a raw pointer time, and
+ * they have to agree, or clicking and dragging to the same pixel park the
+ * playhead in different places.
+ */
+export function playheadTimeAt(
+  segments: SegmentLike[],
+  time: number,
+  fallback = 0,
+): number {
+  return findSegmentAt(segments, time)
+    ? time
+    : snapToNearestSegmentBoundary(segments, time, fallback);
 }
 
 /**

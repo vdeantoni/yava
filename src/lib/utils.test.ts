@@ -1,8 +1,6 @@
 import { describe, test, expect } from "vitest";
 import {
   clamp,
-  MIN_SLICE_DISTANCE,
-  sliceIndexAt,
   secondsToDuration,
   durationToSeconds,
   describeMediaError,
@@ -123,38 +121,5 @@ describe("describeMediaError", () => {
 
   test("says so when loading was interrupted", () => {
     expect(describeMediaError(1)).toMatch(/interrupted/i);
-  });
-});
-
-describe("sliceIndexAt", () => {
-  const seg = (sourceStart: number, sourceEnd: number) => ({
-    sourceStart,
-    sourceEnd,
-  });
-
-  test("finds the segment a slice would split", () => {
-    expect(sliceIndexAt([seg(0, 10)], 5)).toBe(0);
-  });
-
-  test("picks the segment the time falls in", () => {
-    expect(sliceIndexAt([seg(0, 10), seg(10, 20)], 15)).toBe(1);
-  });
-
-  test("refuses a slice that would leave a sliver at either edge", () => {
-    const half = MIN_SLICE_DISTANCE / 2;
-    expect(sliceIndexAt([seg(0, 10)], half)).toBe(-1);
-    expect(sliceIndexAt([seg(0, 10)], 10 - half)).toBe(-1);
-  });
-
-  test("refuses a segment with no room to slice at all", () => {
-    expect(sliceIndexAt([seg(0, MIN_SLICE_DISTANCE)], 0.25)).toBe(-1);
-  });
-
-  test("refuses a time in a gap", () => {
-    expect(sliceIndexAt([seg(0, 5), seg(10, 20)], 7)).toBe(-1);
-  });
-
-  test("refuses a cut, which is an edge of both its segments", () => {
-    expect(sliceIndexAt([seg(0, 10), seg(10, 20)], 10)).toBe(-1);
   });
 });

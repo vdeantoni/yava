@@ -11,19 +11,15 @@ import VideoThumbnails from "@/components/timeline/VideoThumbnails.tsx";
 import Playhead from "@/components/timeline/Playhead.tsx";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 import { useShallow } from "zustand/react/shallow";
-import {
-  cn,
-  isMobile,
-  secondsToDuration,
-  findSegmentAt,
-  snapToNearestSegmentBoundary,
-  FLUSH_TOLERANCE,
-} from "@/lib/utils.ts";
+import { cn, isMobile, secondsToDuration, findSegmentAt } from "@/lib/utils.ts";
+import { flushRunAt } from "@/lib/segments.ts";
 import {
   draggedSegmentBounds,
   DRAG_DEAD_ZONE_PX,
+  playheadTimeAt,
   timeAtX,
   timePerPixel,
+  xAtTime,
 } from "@/lib/timeline.ts";
 import { Merge, Trash2 } from "lucide-react";
 import {
@@ -165,7 +161,7 @@ const VideoTimeline = () => {
     timeAtX(e.clientX, e.currentTarget.getBoundingClientRect(), video.duration);
 
   /** Seconds of source as a width along the track. */
-  const px = (seconds: number) => (seconds / video.duration) * trackWidth;
+  const px = (seconds: number) => xAtTime(seconds, video.duration, trackWidth);
 
   return (
     <div className="border-t border-border bg-card px-4 lg:px-8 py-1">
@@ -177,18 +173,9 @@ const VideoTimeline = () => {
             return;
           }
           video.pause();
-          const time = getTimeFromEvent(e);
-
-          const seg = findSegmentAt(segments, time);
-          if (seg) {
-            setCursorCurrent(
-              Math.max(seg.sourceStart, Math.min(seg.sourceEnd, time)),
-            );
-          } else {
-            setCursorCurrent(
-              snapToNearestSegmentBoundary(segments, time, cursorStart),
-            );
-          }
+          setCursorCurrent(
+            playheadTimeAt(segments, getTimeFromEvent(e), cursorStart),
+          );
         }}
         onMouseMove={(e) => {
           const time = getTimeFromEvent(e);
@@ -273,14 +260,8 @@ const VideoTimeline = () => {
             const isSelected = seg.id === selectedSegmentId;
             const isHovered = seg.id === hoveredSegmentId;
             const segWidthPx = (segEndPct - segStartPct) * trackWidth;
-            const canJoin =
-              hasMultipleSegments &&
-              ((i > 0 &&
-                Math.abs(segments[i - 1].sourceEnd - seg.sourceStart) <=
-                  FLUSH_TOLERANCE) ||
-                (i < segments.length - 1 &&
-                  Math.abs(seg.sourceEnd - segments[i + 1].sourceStart) <=
-                    FLUSH_TOLERANCE));
+            const [runStart, runEnd] = flushRunAt(segments, i);
+            const canJoin = hasMultipleSegments && runStart !== runEnd;
 
             return (
               <Fragment key={seg.id}>
@@ -442,7 +423,6 @@ const VideoTimeline = () => {
             trackRef={trackRef}
             trackWidth={trackWidth}
             duration={video.duration}
-            dragging={handleDrag}
           />
         </div>
       </div>

@@ -1,19 +1,13 @@
 import { RefObject, useRef } from "react";
 import { useAppStore } from "@/store.tsx";
 import { useShallow } from "zustand/react/shallow";
-import {
-  clamp,
-  findSegmentAt,
-  snapToNearestSegmentBoundary,
-} from "@/lib/utils.ts";
-import { timeAtX } from "@/lib/timeline.ts";
+import { clamp } from "@/lib/utils.ts";
+import { playheadTimeAt, timeAtX, xAtTime } from "@/lib/timeline.ts";
 
 type PlayheadProps = {
   trackRef: RefObject<HTMLDivElement | null>;
   trackWidth: number;
   duration: number;
-  /** Shared with the track, which swallows the click that ends a drag. */
-  dragging: RefObject<boolean>;
 };
 
 /**
@@ -21,30 +15,22 @@ type PlayheadProps = {
  * else. The track around it renders every segment, handle and tick mark, none
  * of which the playhead position changes.
  */
-const Playhead = ({
-  trackRef,
-  trackWidth,
-  duration,
-  dragging,
-}: PlayheadProps) => {
-  const { cursorCurrent, cursorStart, cursorEnd, segments, setCursorCurrent } =
-    useAppStore(
-      useShallow((s) => ({
-        cursorCurrent: s.cursorCurrent,
-        cursorStart: s.cursorStart,
-        cursorEnd: s.cursorEnd,
-        segments: s.segments,
-        setCursorCurrent: s.setCursorCurrent,
-      })),
-    );
+const Playhead = ({ trackRef, trackWidth, duration }: PlayheadProps) => {
+  const { cursorCurrent, setCursorCurrent } = useAppStore(
+    useShallow((s) => ({
+      cursorCurrent: s.cursorCurrent,
+      setCursorCurrent: s.setCursorCurrent,
+    })),
+  );
 
+  /** Non-null only mid-drag, so it doubles as the gate on pointer moves. */
   const dragRect = useRef<DOMRect | null>(null);
 
   return (
     <div
       className="absolute z-20"
       style={{
-        left: (cursorCurrent / duration) * trackWidth,
+        left: xAtTime(cursorCurrent, duration, trackWidth),
         top: 0,
       }}
     >
@@ -54,32 +40,26 @@ const Playhead = ({
         onPointerDown={(e) => {
           e.stopPropagation();
           e.preventDefault();
-          dragging.current = true;
           dragRect.current = trackRef.current!.getBoundingClientRect();
           (e.target as HTMLElement).setPointerCapture(e.pointerId);
         }}
         onPointerMove={(e) => {
-          if (!dragging.current || !dragRect.current) return;
-          const rect = dragRect.current;
-          const time = clamp(timeAtX(e.clientX, rect, duration), duration);
-          if (time >= cursorStart && time <= cursorEnd) {
-            const seg = findSegmentAt(segments, time);
-            if (seg) {
-              setCursorCurrent(time);
-            } else {
-              setCursorCurrent(
-                snapToNearestSegmentBoundary(segments, time, cursorStart),
-              );
-            }
-          }
+          if (!dragRect.current) return;
+          // Only read on a move, so a segment edit does not re-render this.
+          const { segments, cursorStart } = useAppStore.getState();
+          const time = clamp(
+            timeAtX(e.clientX, dragRect.current, duration),
+            duration,
+          );
+          setCursorCurrent(playheadTimeAt(segments, time, cursorStart));
         }}
         onPointerUp={() => {
-          dragging.current = false;
           dragRect.current = null;
         }}
         onClick={(e) => {
+          // The track would otherwise take the click that ends a drag and move
+          // the playhead a second time.
           e.stopPropagation();
-          dragging.current = false;
         }}
       />
       {/* Visual cursor line */}

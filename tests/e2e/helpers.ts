@@ -113,15 +113,27 @@ export function segmentHandle(page: Page, index: number) {
   return page.locator("div.h-16.cursor-grab").nth(index);
 }
 
-/** Click the track at `fraction` of the source duration to park the playhead. */
+/** The timeline track, whichever segments are on it. */
+export function trackLocator(page: Page) {
+  return page.locator("div.relative.h-16").first();
+}
+
+/**
+ * Click the track at `fraction` of the source duration to park the playhead,
+ * and hand back the box it measured. Scrolls first, because the timeline sits
+ * below the fold at the default viewport height and a box measured before that
+ * describes a place the pointer cannot reach.
+ */
 export async function movePlayhead(page: Page, fraction: number) {
-  const track = page.locator("div.relative.h-16").first();
+  const track = trackLocator(page);
+  await track.scrollIntoViewIfNeeded();
+
   const box = (await track.boundingBox())!;
-  // Positioned click rather than raw mouse coordinates: the timeline sits below
-  // the fold at the default viewport height, and this scrolls it into view.
   await track.click({
     position: { x: box.width * fraction, y: box.height / 2 },
   });
+
+  return box;
 }
 
 /** The fade-in toggle, named exactly so "Fade out" cannot match it. */
