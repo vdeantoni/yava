@@ -107,6 +107,36 @@ export const DEFAULT_EXPORT = {
   noAudio: false,
 };
 
+/**
+ * The one door every segment write goes through.
+ *
+ * Three things have to stay true of the list and none of them is expressible in
+ * the type: it is sorted, `cursorStart`/`cursorEnd` mirror the outer bounds, and
+ * no fade outruns the segment holding it. Recomputing them here rather than in
+ * each reducer is what keeps a new mutation from having to remember.
+ *
+ * The cursor snaps to the nearest boundary when the edit strands it in a gap.
+ */
+function commitSegments(
+  segments: Segment[],
+  cursorCurrent: number,
+): Pick<AppState, "segments" | "cursorStart" | "cursorEnd" | "cursorCurrent"> {
+  const committed = segments
+    .map(clampFades)
+    .sort((a, b) => a.sourceStart - b.sourceStart);
+
+  const cursorStart = committed[0].sourceStart;
+
+  return {
+    segments: committed,
+    cursorStart,
+    cursorEnd: committed[committed.length - 1].sourceEnd,
+    cursorCurrent: findSegmentAt(committed, cursorCurrent)
+      ? cursorCurrent
+      : snapToNearestSegmentBoundary(committed, cursorCurrent, cursorStart),
+  };
+}
+
 function buildEditStateUpdates(
   editState: UrlEditState,
   duration: number,
@@ -120,24 +150,19 @@ function buildEditStateUpdates(
       const s = clamp(start, duration);
       const e = clamp(end, duration);
       if (e - s >= MIN_SLICE_DISTANCE) {
-        segments.push(
-          clampFades({
-            id: `s${nextId++}`,
-            sourceStart: s,
-            sourceEnd: e,
-            fadeIn,
-            fadeOut,
-          }),
-        );
+        segments.push({
+          id: `s${nextId++}`,
+          sourceStart: s,
+          sourceEnd: e,
+          fadeIn,
+          fadeOut,
+        });
       }
     }
     if (segments.length > 0) {
-      segments.sort((a, b) => a.sourceStart - b.sourceStart);
-      updates.segments = segments;
+      // Zero, so the playhead lands on the start of the restored edit.
+      Object.assign(updates, commitSegments(segments, 0));
       updates.nextSegmentId = nextId;
-      updates.cursorStart = segments[0].sourceStart;
-      updates.cursorEnd = segments[segments.length - 1].sourceEnd;
-      updates.cursorCurrent = segments[0].sourceStart;
       updates.selectedSegmentId = null;
     }
   }
@@ -187,12 +212,10 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
   resetCursors: (duration) =>
     set((state) => {
       const defaults = {
-        cursorStart: 0,
-        cursorEnd: duration,
-        cursorCurrent: 0,
-        segments: [
-          { id: "s0", sourceStart: 0, sourceEnd: duration },
-        ] as Segment[],
+        ...commitSegments(
+          [{ id: "s0", sourceStart: 0, sourceEnd: duration }],
+          0,
+        ),
         selectedSegmentId: null as string | null,
         nextSegmentId: 1,
       };
@@ -214,25 +237,26 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       );
       if (idx === -1) return state;
 
+      // Each half keeps the fade whose edge it still owns.
       const seg = segments[idx];
-      const left: Segment = clampFades({
+      const left: Segment = {
         id: `s${nextSegmentId}`,
         sourceStart: seg.sourceStart,
         sourceEnd: cursorCurrent,
         fadeIn: seg.fadeIn,
-      });
-      const right: Segment = clampFades({
+      };
+      const right: Segment = {
         id: `s${nextSegmentId + 1}`,
         sourceStart: cursorCurrent,
         sourceEnd: seg.sourceEnd,
         fadeOut: seg.fadeOut,
-      });
+      };
 
       const newSegments = [...segments];
       newSegments.splice(idx, 1, left, right);
 
       return {
-        segments: newSegments,
+        ...commitSegments(newSegments, cursorCurrent),
         nextSegmentId: nextSegmentId + 2,
         selectedSegmentId: null,
       };
@@ -250,7 +274,7 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
         intent.duration,
       );
 
-      return { segments };
+      return commitSegments(segments, state.cursorCurrent);
     }),
 
   deleteSegment: (id) =>
@@ -260,24 +284,8 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       const newSegments = state.segments.filter((s) => s.id !== id);
       if (newSegments.length === state.segments.length) return state;
 
-      const newStart = newSegments[0].sourceStart;
-      const newEnd = newSegments[newSegments.length - 1].sourceEnd;
-
-      // Snap cursor if it was inside the deleted segment
-      let { cursorCurrent } = state;
-      if (!findSegmentAt(newSegments, cursorCurrent)) {
-        cursorCurrent = snapToNearestSegmentBoundary(
-          newSegments,
-          cursorCurrent,
-          newStart,
-        );
-      }
-
       return {
-        segments: newSegments,
-        cursorStart: newStart,
-        cursorEnd: newEnd,
-        cursorCurrent,
+        ...commitSegments(newSegments, state.cursorCurrent),
         selectedSegmentId: null,
       };
     }),
@@ -314,13 +322,14 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       // Nothing to join if it's just the one segment
       if (startIdx === endIdx) return state;
 
-      const merged: Segment = clampFades({
+      // The outer fades survive; the ones on the cuts being closed do not.
+      const merged: Segment = {
         id: `s${state.nextSegmentId}`,
         sourceStart: state.segments[startIdx].sourceStart,
         sourceEnd: state.segments[endIdx].sourceEnd,
         fadeIn: state.segments[startIdx].fadeIn,
         fadeOut: state.segments[endIdx].fadeOut,
-      });
+      };
 
       const newSegments = [
         ...state.segments.slice(0, startIdx),
@@ -329,10 +338,8 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       ];
 
       return {
-        segments: newSegments,
+        ...commitSegments(newSegments, state.cursorCurrent),
         nextSegmentId: state.nextSegmentId + 1,
-        cursorStart: newSegments[0].sourceStart,
-        cursorEnd: newSegments[newSegments.length - 1].sourceEnd,
         selectedSegmentId: merged.id,
       };
     }),
@@ -355,21 +362,9 @@ export const useAppStore = create<AppState & AppActions>()((set) => ({
       if (next && sourceEnd > next.sourceStart) sourceEnd = next.sourceStart;
 
       const segments = [...state.segments];
-      segments[idx] = clampFades({ ...segments[idx], sourceStart, sourceEnd });
+      segments[idx] = { ...segments[idx], sourceStart, sourceEnd };
 
-      const cursorStart = segments[0].sourceStart;
-      const cursorEnd = segments[segments.length - 1].sourceEnd;
-
-      let { cursorCurrent } = state;
-      if (!findSegmentAt(segments, cursorCurrent)) {
-        cursorCurrent = snapToNearestSegmentBoundary(
-          segments,
-          cursorCurrent,
-          cursorStart,
-        );
-      }
-
-      return { segments, cursorStart, cursorEnd, cursorCurrent };
+      return commitSegments(segments, state.cursorCurrent);
     }),
 
   setFormat: (format) => set(() => ({ format })),

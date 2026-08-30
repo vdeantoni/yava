@@ -77,16 +77,16 @@ export function withFade<T extends SegmentLike>(
  * Fades cut back to fit the segment they are on.
  *
  * A segment dragged shorter than its own fade would otherwise encode as a clip
- * that never reaches full brightness.
+ * that never reaches full brightness. Returns the segment itself when nothing
+ * needed cutting, so mapping this over a list leaves untouched entries alone.
  */
 export function clampFades<T extends SegmentLike>(segment: T): T {
   const duration = segment.sourceEnd - segment.sourceStart;
+  const fadeIn = fitFade(segment.fadeIn, duration);
+  const fadeOut = fitFade(segment.fadeOut, duration);
 
-  return {
-    ...segment,
-    fadeIn: fitFade(segment.fadeIn, duration),
-    fadeOut: fitFade(segment.fadeOut, duration),
-  };
+  if (fadeIn === segment.fadeIn && fadeOut === segment.fadeOut) return segment;
+  return { ...segment, fadeIn, fadeOut };
 }
 
 function fitFade(fade: number | undefined, duration: number) {

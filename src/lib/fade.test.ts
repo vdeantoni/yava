@@ -133,9 +133,10 @@ describe("withFade", () => {
 });
 
 describe("clampFades", () => {
-  test("leaves a fade that fits alone", () => {
-    const fades = { fadeIn: 3, fadeOut: 2 };
-    expect(clampFades(seg(0, 10, fades))).toMatchObject(fades);
+  test("hands back the same segment when the fades already fit", () => {
+    // commitSegments maps this over the whole list on every write.
+    const original = seg(0, 10, { fadeIn: 3, fadeOut: 2 });
+    expect(clampFades(original)).toBe(original);
   });
 
   test("cuts a fade back to the length of the segment", () => {

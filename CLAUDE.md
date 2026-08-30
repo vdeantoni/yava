@@ -48,13 +48,15 @@ YAVA_E2E_FFMPEG=1 npx playwright test -c playwright-e2e.config.ts tests/e2e/expo
 
 `src/store.tsx` holds a `Segment[]` (each `{id, sourceStart, sourceEnd}`, sorted, non-overlapping). Trimming, slicing, and deleting are all segment operations.
 
-`cursorStart` and `cursorEnd` are cached mirrors of `segments[0].sourceStart` and the last segment's `sourceEnd`. They have no setters. Every segment mutation recomputes them, and the cursor snaps to the nearest boundary if it lands in a gap. To move a trim edge, call `updateSegmentBounds`, never assign the cursors. Single-segment mode in `TrimPanel` is just editing `segments[0]`.
+`cursorStart` and `cursorEnd` are cached mirrors of `segments[0].sourceStart` and the last segment's `sourceEnd`. They have no setters. To move a trim edge, call `updateSegmentBounds`, never assign the cursors. Single-segment mode in `TrimPanel` is just editing `segments[0]`.
+
+Every reducer that writes segments returns `commitSegments(segments, cursorCurrent)` rather than assembling the state itself. It sorts, recomputes the two mirrors, clamps each segment's fades, and snaps the cursor to the nearest boundary when the edit has stranded it in a gap. None of those invariants is expressible in the type, so a new mutation that skips the door gets them wrong silently. Write through it.
 
 Deleting a middle segment leaves a gap in source time. Playback skips gaps and export concatenates around them, so segments do not have to be contiguous.
 
 ### Fades
 
-A segment can also carry `fadeIn` and `fadeOut`, each a length in seconds rather than a timestamp: `fadeIn` runs from `sourceStart`, `fadeOut` ends at `sourceEnd`. Storing lengths means a fade survives the segment being dragged and only needs clamping when it stops fitting, which `clampFades` does on every slice, join and resize. A segment shorter than its own fade would otherwise encode as a clip that never reaches full brightness.
+A segment can also carry `fadeIn` and `fadeOut`, each a length in seconds rather than a timestamp: `fadeIn` runs from `sourceStart`, `fadeOut` ends at `sourceEnd`. Storing lengths means a fade survives the segment being dragged and only needs clamping when it stops fitting, which `commitSegments` handles for every write. A segment shorter than its own fade would otherwise encode as a clip that never reaches full brightness.
 
 `src/lib/fade.ts` holds the whole model. `fadeIntent` answers what a click at a time would do. Each fade is a toggle: a segment that already has one gives back a zero length, meaning remove it, from anywhere inside that segment, and only setting a new fade needs room for it. So the toolbar buttons carry `aria-pressed` and a filled look rather than a separate clear control, and a length is changed by clearing and setting again. Which segment owns a time on a cut differs by kind, which is why `fadeIntent` does not use `findSegmentAt`: a fade-in belongs to the segment ending there, a fade-out to the one starting there, and `findSegmentAt` always answers with the earlier.
 

@@ -287,6 +287,41 @@ describe("useAppStore", () => {
     });
   });
 
+  describe("segment invariants", () => {
+    // Slicing and fading do not move the outer bounds, so these would pass
+    // whether or not those reducers recompute anything. Feeding them drifted
+    // mirrors is what pins them to going through commitSegments.
+    test.each([
+      ["sliceAtCursor", () => useAppStore.getState().sliceAtCursor()],
+      ["fadeAtCursor", () => useAppStore.getState().fadeAtCursor("in")],
+    ])("%s repairs cursor mirrors that drifted", (_name, mutate) => {
+      initSegments(10);
+      useAppStore.setState({
+        cursorCurrent: 5,
+        cursorStart: 99,
+        cursorEnd: 99,
+      });
+
+      mutate();
+
+      const { cursorStart, cursorEnd } = useAppStore.getState();
+      expect(cursorStart).toBe(0);
+      expect(cursorEnd).toBe(10);
+    });
+
+    test("a write cuts back a fade left too long by an earlier one", () => {
+      initSegments(10);
+      useAppStore.setState({
+        segments: [{ id: "s0", sourceStart: 0, sourceEnd: 2, fadeIn: 8 }],
+        cursorCurrent: 1,
+      });
+
+      useAppStore.getState().fadeAtCursor("out");
+
+      expect(useAppStore.getState().segments[0].fadeIn).toBe(2);
+    });
+  });
+
   describe("deleteSegment", () => {
     test("removes the specified segment", () => {
       initSegments(10);
