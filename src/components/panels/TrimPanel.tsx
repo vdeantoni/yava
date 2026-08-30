@@ -1,5 +1,6 @@
 import { useAppStore, type Segment } from "@/store.tsx";
-import { useEffect, useRef, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   durationToSeconds,
   secondsToDuration,
@@ -64,12 +65,14 @@ function stepDurationSection(
 const COMPACT_THRESHOLD = 45 * 60;
 
 const DurationInput = ({
+  id,
   value,
   onChange,
   onCommit,
   readOnly,
   compact,
 }: {
+  id?: string;
   value: string;
   onChange?: (value: string) => void;
   onCommit?: (value: string) => void;
@@ -97,6 +100,7 @@ const DurationInput = ({
   return (
     <Input
       ref={inputRef}
+      id={id}
       type="text"
       className="font-mono text-sm h-8 bg-background"
       value={value}
@@ -109,6 +113,7 @@ const DurationInput = ({
 };
 
 const TrimPanel = () => {
+  const id = useId();
   const {
     video,
     cursorStart,
@@ -118,7 +123,18 @@ const TrimPanel = () => {
     selectSegment,
     updateSegmentBounds,
     resetCursors,
-  } = useAppStore();
+  } = useAppStore(
+    useShallow((s) => ({
+      video: s.video,
+      cursorStart: s.cursorStart,
+      cursorEnd: s.cursorEnd,
+      segments: s.segments,
+      selectedSegmentId: s.selectedSegmentId,
+      selectSegment: s.selectSegment,
+      updateSegmentBounds: s.updateSegmentBounds,
+      resetCursors: s.resetCursors,
+    })),
+  );
 
   const [trimStart, setTrimStart] = useState("");
   const [trimEnd, setTrimEnd] = useState("");
@@ -167,8 +183,14 @@ const TrimPanel = () => {
     return (
       <div className="flex flex-col gap-3 px-4">
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">Start</label>
+          <label
+            htmlFor={`${id}-start`}
+            className="text-xs text-muted-foreground"
+          >
+            Start
+          </label>
           <DurationInput
+            id={`${id}-start`}
             value={trimStart}
             onChange={setTrimStart}
             onCommit={applyTrimStart}
@@ -177,8 +199,14 @@ const TrimPanel = () => {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground">End</label>
+          <label
+            htmlFor={`${id}-end`}
+            className="text-xs text-muted-foreground"
+          >
+            End
+          </label>
           <DurationInput
+            id={`${id}-end`}
             value={trimEnd}
             onChange={setTrimEnd}
             onCommit={applyTrimEnd}
@@ -234,6 +262,7 @@ const MultiSegmentPanel = ({
   ) => void;
   resetCursors: (duration: number) => void;
 }) => {
+  const id = useId();
   const [segStart, setSegStart] = useState("");
   const [segEnd, setSegEnd] = useState("");
 
@@ -270,12 +299,20 @@ const MultiSegmentPanel = ({
   return (
     <div className="flex flex-col gap-3 px-4">
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground">Segment</label>
+        <label
+          htmlFor={`${id}-segment`}
+          className="text-xs text-muted-foreground"
+        >
+          Segment
+        </label>
         <Select
           value={activeSegment?.id ?? ""}
           onValueChange={(id) => selectSegment(id)}
         >
-          <SelectTrigger className="h-8 text-sm bg-background">
+          <SelectTrigger
+            id={`${id}-segment`}
+            className="h-8 text-sm bg-background"
+          >
             <SelectValue placeholder="Select a segment..." />
           </SelectTrigger>
           <SelectContent>
@@ -291,8 +328,14 @@ const MultiSegmentPanel = ({
       {activeSegment && (
         <>
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">Start</label>
+            <label
+              htmlFor={`${id}-seg-start`}
+              className="text-xs text-muted-foreground"
+            >
+              Start
+            </label>
             <DurationInput
+              id={`${id}-seg-start`}
               value={segStart}
               onChange={setSegStart}
               onCommit={applySegStart}
@@ -301,8 +344,14 @@ const MultiSegmentPanel = ({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">End</label>
+            <label
+              htmlFor={`${id}-seg-end`}
+              className="text-xs text-muted-foreground"
+            >
+              End
+            </label>
             <DurationInput
+              id={`${id}-seg-end`}
               value={segEnd}
               onChange={setSegEnd}
               onCommit={applySegEnd}
@@ -311,10 +360,14 @@ const MultiSegmentPanel = ({
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-muted-foreground">
+            <label
+              htmlFor={`${id}-seg-duration`}
+              className="text-xs text-muted-foreground"
+            >
               Segment Duration
             </label>
             <DurationInput
+              id={`${id}-seg-duration`}
               value={secondsToDuration(segDuration, durationOpts)}
               readOnly
             />

@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { CropRectangle } from "./components/player/VideoCanvas";
+import { CropRectangle, EMPTY_CROP } from "./lib/crop";
 import { supportsMultithreading } from "./hooks/useFFmpeg";
 import {
+  clamp,
   findSegmentAt,
   snapToNearestSegmentBoundary,
   MIN_SLICE_DISTANCE,
@@ -92,7 +93,7 @@ interface AppActions {
   reset: () => void;
 }
 
-const DEFAULT_EXPORT = {
+export const DEFAULT_EXPORT = {
   format: "mp4" as Format,
   preset: "ultrafast" as Preset,
   frameRate: 30,
@@ -112,8 +113,8 @@ function buildEditStateUpdates(
     const segments: Segment[] = [];
     let nextId = 0;
     for (const [start, end] of editState.seg) {
-      const s = Math.max(0, Math.min(start, duration));
-      const e = Math.max(0, Math.min(end, duration));
+      const s = clamp(start, duration);
+      const e = clamp(end, duration);
       if (e - s >= MIN_SLICE_DISTANCE) {
         segments.push({ id: `s${nextId++}`, sourceStart: s, sourceEnd: e });
       }
@@ -138,7 +139,7 @@ function buildEditStateUpdates(
   return Object.keys(updates).length > 0 ? updates : null;
 }
 
-export const useAppStore = create<AppState & AppActions>()((set, get) => ({
+export const useAppStore = create<AppState & AppActions>()((set) => ({
   ffmpeg: new FFmpeg(),
   multithreading: supportsMultithreading,
 
@@ -149,14 +150,7 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
   cursorCurrent: 0,
   cursorStart: 0,
   cursorEnd: 0,
-  cropRectangle: {
-    x: 0,
-    y: 0,
-    w: 0,
-    h: 0,
-    vw: 0,
-    vh: 0,
-  },
+  cropRectangle: EMPTY_CROP,
 
   segments: [],
   selectedSegmentId: null,
@@ -354,15 +348,11 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
   setOutputWidth: (outputWidth) => set(() => ({ outputWidth })),
   setOutputHeight: (outputHeight) => set(() => ({ outputHeight })),
   setNoAudio: (noAudio) => set(() => ({ noAudio })),
-  resetExportOptions: () => {
-    const { video } = get();
+  resetExportOptions: () =>
     set(() => ({
       ...DEFAULT_EXPORT,
-      outputWidth: video ? String(video.videoWidth) : "",
-      outputHeight: video ? String(video.videoHeight) : "",
-      cropRectangle: { x: 0, y: 0, w: 0, h: 0, vw: 0, vh: 0 },
-    }));
-  },
+      cropRectangle: EMPTY_CROP,
+    })),
 
   reset: () => {
     window.history.replaceState({}, "", window.location.pathname);
@@ -376,14 +366,7 @@ export const useAppStore = create<AppState & AppActions>()((set, get) => ({
       cursorCurrent: 0,
       cursorStart: 0,
       cursorEnd: 0,
-      cropRectangle: {
-        x: 0,
-        y: 0,
-        w: 0,
-        h: 0,
-        vw: 0,
-        vh: 0,
-      },
+      cropRectangle: EMPTY_CROP,
 
       segments: [],
       selectedSegmentId: null,

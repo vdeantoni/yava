@@ -1,5 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
-import { loadWithSegments, routeFixtureVideo } from "./helpers";
+import { execFileSync } from "node:child_process";
+import {
+  loadWithSegments,
+  routeFixtureVideo,
+  TEN_BIT_FIXTURE,
+} from "./helpers";
 
 /** Open the export dialog and wait for the run to finish either way. */
 async function exportAndWait(page: Page) {
@@ -111,5 +116,43 @@ test.describe("export", () => {
     const duration = await previewDuration(page);
     expect(duration).toBeGreaterThan(1.4);
     expect(duration).toBeLessThan(2);
+  });
+
+  test("downgrades a 10-bit source to 8-bit, which browsers can decode", async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(240_000);
+    // Overrides the tiny.mp4 route registered above.
+    await routeFixtureVideo(context, TEN_BIT_FIXTURE);
+    await loadWithSegments(page, [[0, 2]]);
+
+    const dialog = await exportAndWait(page);
+    await expect(dialog.getByRole("heading").first()).toHaveText(
+      "Export Complete",
+    );
+
+    const download = await Promise.all([
+      page.waitForEvent("download"),
+      dialog.getByRole("button", { name: "Download" }).click(),
+    ]).then(([d]) => d);
+    const path = (await download.path())!;
+
+    const probed = execFileSync("ffprobe", [
+      "-v",
+      "error",
+      "-select_streams",
+      "v:0",
+      "-show_entries",
+      "stream=profile,pix_fmt",
+      "-of",
+      "csv=p=0",
+      path,
+    ])
+      .toString()
+      .trim();
+
+    expect(probed).toContain("yuv420p");
+    expect(probed).not.toContain("10");
   });
 });

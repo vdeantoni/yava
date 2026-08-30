@@ -12,12 +12,19 @@ import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
 import { useShallow } from "zustand/react/shallow";
 import {
   cn,
+  clamp,
   isMobile,
   secondsToDuration,
   findSegmentAt,
   snapToNearestSegmentBoundary,
   FLUSH_TOLERANCE,
 } from "@/lib/utils.ts";
+import {
+  draggedSegmentBounds,
+  DRAG_DEAD_ZONE_PX,
+  timeAtX,
+  timePerPixel,
+} from "@/lib/timeline.ts";
 import { Merge, Trash2 } from "lucide-react";
 import {
   Tooltip,
@@ -159,10 +166,8 @@ const VideoTimeline = () => {
 
   const hasMultipleSegments = segments.length > 1;
 
-  const getTimeFromEvent = (e: React.MouseEvent<HTMLDivElement>): number => {
-    const { width, left } = e.currentTarget.getBoundingClientRect();
-    return ((e.clientX - left) / width) * video.duration;
-  };
+  const getTimeFromEvent = (e: React.MouseEvent<HTMLDivElement>): number =>
+    timeAtX(e.clientX, e.currentTarget.getBoundingClientRect(), video.duration);
 
   return (
     <div className="border-t border-border bg-card px-4 lg:px-8 py-1">
@@ -202,46 +207,28 @@ const VideoTimeline = () => {
         }}
         onPointerMove={(e) => {
           if (!segDrag.current) return;
-          const { startX, startTime, segId, type, edge, endTime } =
+          const { startX, startTime, endTime, segId, type, edge } =
             segDrag.current;
           const dx = e.clientX - startX;
 
           // Dead zone: don't commit to drag until pointer moves past threshold
-          if (!handleDrag.current && Math.abs(dx) < 3) return;
+          if (!handleDrag.current && Math.abs(dx) < DRAG_DEAD_ZONE_PX) return;
           handleDrag.current = true;
 
-          const timeDelta = dx / (trackWidth / video.duration);
+          const timeDelta = dx * timePerPixel(trackWidth, video.duration);
 
           if (type === "move") {
-            let newStart = startTime + timeDelta;
-            let newEnd = endTime! + timeDelta;
-            const duration = endTime! - startTime;
-
-            // Clamp to video bounds as a unit
-            if (newStart < 0) {
-              newStart = 0;
-              newEnd = duration;
-            }
-            if (newEnd > video.duration) {
-              newEnd = video.duration;
-              newStart = video.duration - duration;
-            }
-
-            // Clamp to adjacent segments as a unit
             const idx = segments.findIndex((s) => s.id === segId);
             if (idx === -1) return;
-            const prev = segments[idx - 1];
-            const next = segments[idx + 1];
-            if (prev && newStart < prev.sourceEnd) {
-              newStart = prev.sourceEnd;
-              newEnd = prev.sourceEnd + duration;
-            }
-            if (next && newEnd > next.sourceStart) {
-              newEnd = next.sourceStart;
-              newStart = next.sourceStart - duration;
-            }
 
-            updateSegmentBounds(segId, newStart, newEnd);
+            const { sourceStart, sourceEnd } = draggedSegmentBounds(
+              segments,
+              idx,
+              { sourceStart: startTime, sourceEnd: endTime! },
+              timeDelta,
+              video.duration,
+            );
+            updateSegmentBounds(segId, sourceStart, sourceEnd);
           } else {
             const seg = segments.find((s) => s.id === segId);
             if (!seg) return;
@@ -338,7 +325,9 @@ const VideoTimeline = () => {
                         {canJoin && (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div
+                              <button
+                                type="button"
+                                aria-label={`Join segment ${i + 1} with its neighbour`}
                                 className="cursor-pointer text-primary hover:text-primary/80"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -346,7 +335,7 @@ const VideoTimeline = () => {
                                 }}
                               >
                                 <Merge className="h-3.5 w-3.5" />
-                              </div>
+                              </button>
                             </TooltipTrigger>
                             <TooltipContent>
                               <p className="text-xs">
@@ -357,7 +346,9 @@ const VideoTimeline = () => {
                         )}
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <div
+                            <button
+                              type="button"
+                              aria-label={`Delete segment ${i + 1}`}
                               className="cursor-pointer text-destructive hover:text-destructive/80"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -365,7 +356,7 @@ const VideoTimeline = () => {
                               }}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
-                            </div>
+                            </button>
                           </TooltipTrigger>
                           <TooltipContent>
                             <p className="text-xs">Delete segment</p>
@@ -450,11 +441,10 @@ const VideoTimeline = () => {
               onPointerMove={(e) => {
                 if (!handleDrag.current || !dragRect.current) return;
                 const rect = dragRect.current;
-                const x = Math.max(
-                  0,
-                  Math.min(e.clientX - rect.left, rect.width),
+                const time = clamp(
+                  timeAtX(e.clientX, rect, video.duration),
+                  video.duration,
                 );
-                const time = (x / rect.width) * video.duration;
                 if (time >= cursorStart && time <= cursorEnd) {
                   const seg = findSegmentAt(segments, time);
                   if (seg) {

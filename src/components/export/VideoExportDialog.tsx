@@ -1,8 +1,10 @@
 import { useAppStore } from "@/store.tsx";
+import { useShallow } from "zustand/react/shallow";
 import {
   PropsWithChildren,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -52,7 +54,23 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     outputHeight,
     noAudio,
     multithreading,
-  } = useAppStore();
+  } = useAppStore(
+    useShallow((s) => ({
+      file: s.file,
+      ffmpeg: s.ffmpeg,
+      video: s.video,
+      segments: s.segments,
+      cropRectangle: s.cropRectangle,
+      format: s.format,
+      preset: s.preset,
+      frameRate: s.frameRate,
+      speed: s.speed,
+      outputWidth: s.outputWidth,
+      outputHeight: s.outputHeight,
+      noAudio: s.noAudio,
+      multithreading: s.multithreading,
+    })),
+  );
 
   const outputVideoRef = useRef<HTMLVideoElement>(null);
   const outputImageRef = useRef<HTMLImageElement>(null);
@@ -61,10 +79,14 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
   const [exporting, setExporting] = useState(false);
   const [outputUrl, setOutputUrl] = useState("");
   const [error, setError] = useState("");
+  const [previewError, setPreviewError] = useState("");
 
   const [log, setLog] = useState<string[]>([]);
   const [progress, setProgress] = useState(0);
-  const [, setTime] = useState(0);
+
+  // Radix unmounts the collapsed content, but the JSX child is still built on
+  // every parent render, and a long export renders about once per log line.
+  const fullLog = useMemo(() => log.join("\n"), [log]);
 
   /** Identifies the in-flight run, so a cancelled one cannot report anything. */
   const runIdRef = useRef(0);
@@ -101,9 +123,8 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
       setLog((log) => log.concat(message));
     };
 
-    const progressCb = ({ progress, time }: ProgressEvent) => {
+    const progressCb = ({ progress }: ProgressEvent) => {
       setProgress(progress);
-      setTime(time);
     };
 
     ffmpeg.on("log", logCb);
@@ -177,9 +198,9 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
     previousOutputUrlRef.current = "";
     setOutputUrl("");
     setError("");
+    setPreviewError("");
     setLog([]);
     setProgress(0);
-    setTime(0);
   };
 
   const onOpenChange = (open: boolean) => {
@@ -247,6 +268,9 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                       <img
                         ref={outputImageRef}
                         className="max-h-[35vh] max-w-full rounded shadow"
+                        onError={() =>
+                          setPreviewError("This gif could not be shown.")
+                        }
                       />
                     )}
                     {format !== "gif" && (
@@ -255,9 +279,17 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                         className="max-h-[35vh] max-w-full rounded shadow"
                         controls
                         playsInline
+                        onError={() =>
+                          setPreviewError("This video could not be played.")
+                        }
                       />
                     )}
                   </div>
+                  {previewError && (
+                    <p className="text-xs text-destructive">
+                      {previewError} The download below is still fine.
+                    </p>
+                  )}
                   <Button onClick={downloadHandler}>
                     <Download className="h-4 w-4 mr-1.5" />
                     Download
@@ -278,7 +310,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
                     <CollapsibleContent>
                       <ScrollArea className="h-[200px]">
                         <pre className="text-xs text-muted-foreground whitespace-pre-wrap">
-                          {log.join("\n")}
+                          {fullLog}
                         </pre>
                       </ScrollArea>
                     </CollapsibleContent>

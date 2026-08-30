@@ -1,4 +1,4 @@
-import type { CropRectangle } from "@/components/player/VideoCanvas";
+import { cropToSource, hasArea, type CropRectangle } from "@/lib/crop";
 import type { Format, Preset } from "@/store";
 
 /**
@@ -25,7 +25,7 @@ export interface ExportSettings {
   preset: Preset;
   frameRate: number;
   speed: number;
-  /** Empty string means "keep aspect", which becomes -2. */
+  /** Empty string means "work it out from the source and the crop". */
   outputWidth: string;
   outputHeight: string;
   noAudio: boolean;
@@ -39,40 +39,72 @@ export interface ExportSettings {
 /** x264 rejects odd dimensions, so round down rather than up. */
 const toEven = (n: number) => n - (n % 2);
 
+export type OutputSizeInputs = Pick<
+  ExportSettings,
+  | "cropRectangle"
+  | "videoWidth"
+  | "videoHeight"
+  | "outputWidth"
+  | "outputHeight"
+>;
+
+/**
+ * The size an export will actually be.
+ *
+ * One function answers this for both the panel's inputs and the encoder, so the
+ * number on screen is the number that comes out. Setting one axis and leaving
+ * the other blank keeps the aspect ratio, which is why the blank axis resolves
+ * to a real value here instead of being left for ffmpeg's `-2`.
+ */
+export function effectiveOutputSize({
+  cropRectangle: crop,
+  videoWidth,
+  videoHeight,
+  outputWidth,
+  outputHeight,
+}: OutputSizeInputs): { width: number; height: number } {
+  const cropped = hasArea(crop) && crop.vw > 0 && crop.vh > 0;
+  const inSource = cropToSource(crop, videoWidth, videoHeight);
+  const source = cropped
+    ? { width: inSource.w, height: inSource.h }
+    : { width: videoWidth, height: videoHeight };
+
+  // A source with no measured dimensions would otherwise put NaN in the inputs.
+  const even = (n: number) =>
+    Number.isFinite(n) ? Math.max(2, toEven(Math.round(n))) : 2;
+  const aspect = source.height > 0 ? source.width / source.height : 1;
+
+  const w = Number(outputWidth) || 0;
+  const h = Number(outputHeight) || 0;
+
+  if (w && h) return { width: even(w), height: even(h) };
+  if (w) return { width: even(w), height: even(w / aspect) };
+  if (h) return { width: even(h * aspect), height: even(h) };
+  return { width: even(source.width), height: even(source.height) };
+}
+
 /**
  * Filter order is deliberate. The leading scale normalizes a non-square SAR to
  * intrinsic pixels before crop coordinates are applied, otherwise the crop
  * lands in the wrong place on anamorphic sources.
  */
 export function buildVideoFilters(settings: ExportSettings): string[] {
-  const {
-    cropRectangle: crop,
-    videoWidth,
-    videoHeight,
-    outputWidth,
-    outputHeight,
-    speed,
-  } = settings;
+  const { cropRectangle: crop, videoWidth, videoHeight, speed } = settings;
 
   const filters: string[] = [];
 
-  if (crop.w && crop.h) {
-    const cropW = toEven(Math.round((crop.w / crop.vw) * videoWidth));
-    const cropH = toEven(Math.round((crop.h / crop.vh) * videoHeight));
-    const cropX = Math.round((crop.x / crop.vw) * videoWidth);
-    const cropY = Math.round((crop.y / crop.vh) * videoHeight);
+  if (hasArea(crop)) {
+    const inSource = cropToSource(crop, videoWidth, videoHeight);
 
     filters.push(`scale=${videoWidth}:${videoHeight}`);
-    filters.push(`crop=${cropW}:${cropH}:${cropX}:${cropY}`);
+    filters.push(
+      `crop=${toEven(Math.round(inSource.w))}:${toEven(Math.round(inSource.h))}:${Math.round(inSource.x)}:${Math.round(inSource.y)}`,
+    );
   }
 
-  const scaleW = Number(outputWidth) || -2;
-  const scaleH = Number(outputHeight) || -2;
-  filters.push(
-    `scale=${scaleW > 0 ? toEven(scaleW) : scaleW}:${
-      scaleH > 0 ? toEven(scaleH) : scaleH
-    }`,
-  );
+  // The panel shows this same size, so what is on screen is what comes out.
+  const { width, height } = effectiveOutputSize(settings);
+  filters.push(`scale=${width}:${height}`);
 
   if (speed !== 1) {
     filters.push(`setpts=${(1 / speed).toFixed(4)}*PTS`);
@@ -114,17 +146,26 @@ export function buildCodecArgs(
   audioFilters: string[],
 ): string[] {
   const { format, noAudio } = settings;
+
+  // A gif carries its own palette and has no audio track, so neither the pixel
+  // format nor the stream copy below applies to it.
+  if (format === "gif") return [];
+
   const keepAudioAsIs = !noAudio && audioFilters.length === 0;
 
+  // Without this the encoder inherits the source's pixel format, and a 10-bit
+  // source yields H.264 High 10, which no browser decodes.
+  const args = ["-pix_fmt", "yuv420p"];
+
   if (format === "webm") {
-    const args = ["-c:v", "libvpx", "-crf", "10", "-b:v", "1M"];
+    args.push("-c:v", "libvpx", "-crf", "10", "-b:v", "1M");
     if (keepAudioAsIs) args.push("-c:a", "libvorbis");
     return args;
   }
 
-  if (keepAudioAsIs && format !== "gif") return ["-c:a", "copy"];
+  if (keepAudioAsIs) args.push("-c:a", "copy");
 
-  return [];
+  return args;
 }
 
 /** libvpx scales poorly past two threads; the others cap at four. */
