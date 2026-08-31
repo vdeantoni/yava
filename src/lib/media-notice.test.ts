@@ -1,9 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
+  describeBlankPicture,
   describeMediaError,
   mediaErrorDetail,
   mediaStateDetail,
-} from "./media-failure";
+} from "./media-notice";
 
 describe("describeMediaError", () => {
   test("blames the network for a network error", () => {
@@ -50,5 +51,30 @@ describe("mediaErrorDetail", () => {
 
   test("falls back to the number for a code it does not know", () => {
     expect(mediaErrorDetail(7)).toBe("error 7");
+  });
+});
+
+describe("describeBlankPicture", () => {
+  test("asks for a gesture when the element parked on the metadata", () => {
+    // iOS Safari reads the header, stops, and waits to be asked for playback.
+    const notice = describeBlankPicture(1, 1);
+    expect(notice.message).toMatch(/press play/i);
+    expect(notice.tone).toBe("hint");
+  });
+
+  test("blames the decoder when the element read everything and drew nothing", () => {
+    const notice = describeBlankPicture(4, 1);
+    expect(notice.message).toMatch(/decoded no frames/i);
+    expect(notice.tone).toBe("error");
+  });
+
+  test("does not mistake a still-reading element for a parked one", () => {
+    expect(describeBlankPicture(1, 2).tone).toBe("error");
+  });
+
+  test("carries the state through either way", () => {
+    expect(describeBlankPicture(1, 1).detail).toBe(
+      "ready metadata · network idle",
+    );
   });
 });

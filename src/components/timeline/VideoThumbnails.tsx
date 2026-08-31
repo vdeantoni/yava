@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/store.tsx";
 import { useShallow } from "zustand/react/shallow";
+import { FRAME_NUDGE } from "@/lib/utils.ts";
 
 const THUMBNAIL_HEIGHT = 56;
 const PARALLEL_EXTRACTORS = 4;
@@ -129,14 +130,13 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
       thumbVideo.addEventListener("seeked", onSeeked);
 
       thumbVideo.addEventListener(
-        "loadeddata",
+        "loadedmetadata",
         () => {
           if (cancelled) return;
-          if (slot * step < 0.001) {
-            captureAndAdvance();
-          } else {
-            thumbVideo.currentTime = slot * step;
-          }
+
+          // Seek even for the extractor starting at zero: a decoder that
+          // parked on the metadata holds no frame to capture yet.
+          thumbVideo.currentTime = Math.max(slot * step, FRAME_NUDGE);
         },
         { once: true },
       );

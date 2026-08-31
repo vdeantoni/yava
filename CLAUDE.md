@@ -128,15 +128,21 @@ One segment runs a single `exec`. Multiple segments extract each to `segment_N.<
 
 `ffmpeg.exec` resolves with an exit code instead of rejecting, so `runExport` checks it and throws a message naming the step that broke. The dialog catches that and shows "Export Failed", except when the failure came from the user closing the dialog, which terminates FFmpeg on purpose.
 
-### When a video will not decode
+### When a video will not show a picture
 
-Three different failures, handled separately, and `src/lib/media-failure.ts` holds all three messages plus the state names. If the element raises an error, `describeMediaError` turns the code into a message; Chromium fires that with a null `MediaError` for a codec it cannot use, so a missing code is read as an unsupported codec rather than something generic.
+Four states end up here and `src/lib/media-notice.ts` holds every message, the state names, and the rule that tells the last two apart. If the element raises an error, `describeMediaError` turns the code into a message; Chromium fires that with a null `MediaError` for a codec it cannot use, so a missing code is read as an unsupported codec rather than something generic.
 
-The second case raises nothing at all. A file whose video track the browser cannot decode but whose audio track it can will report metadata and reach readyState 4, so the editor opens on a player that never produces a frame and a timeline with no thumbnails. `VideoPlayer` waits `FRAME_CHECK_MS` after the metadata and checks `getVideoPlaybackQuality().totalVideoFrames`, which a working source fills within ~200ms. Export still works in that state, since FFmpeg brings its own decoders, and the message says so. `requestVideoFrameCallback` is no use here: it never fires for a paused video, working or not.
+The second raises nothing at all. A file whose video track the browser cannot decode but whose audio track it can will report metadata and reach readyState 4, so the editor opens on a player that never produces a frame and a timeline with no thumbnails. `VideoPlayer` waits `FRAME_CHECK_MS` after the metadata and checks `getVideoPlaybackQuality().totalVideoFrames`, which a working source fills within ~200ms. Export still works in that state, since FFmpeg brings its own decoders, and the message says so. `requestVideoFrameCallback` is no use here: it never fires for a paused video, working or not.
 
-The third is silent in both directions: no error and no metadata either, which on mobile Safari is the common one. Nothing downstream of `setVideo` exists to report it, so the player arms its own `METADATA_TIMEOUT_MS` timer at mount and disarms it when the metadata lands. All three write one `failure` state, and an error the element raised wins over either timer, which only fill an empty slot.
+The third is silent in both directions: no error and no metadata either. Nothing downstream of `setVideo` exists to report it, so the player arms its own `METADATA_TIMEOUT_MS` timer at mount and disarms it when the metadata lands.
 
-Each message carries the element's own account of itself underneath: `ready metadata · network loading · 12.3 MB`. The enums are rendered as names rather than the raw integers because the point is that someone can read it off a phone the maintainer cannot reproduce on. `mediaStateDetail` and `mediaErrorDetail` build it and are unit-tested; the timers' thresholds are not, since they are temporal.
+The fourth is not a failure. iOS Safari clamps `preload` to metadata and reads no further until playback is requested by a **user gesture**, so it parks at readyState 1 with the network idle and paints nothing. `preload="auto"` is the exact value it clamps, and no seek or `load()` from script substitutes for the tap: WebKit lifts the restriction in `prepareToPlay()`. `describeBlankPicture` recognises `metadata`/`idle` and asks for the tap instead of blaming the decoder. Everything else works meanwhile, which is why the editor bootstraps on metadata. This is also why a large file fails and a short recording does not: a few megabytes arrive whole inside the metadata read, so the decoder never has to be asked.
+
+That last one is per element, so a tap on the player does not reach the four off-screen extractors in `VideoThumbnails`. They seek from `loadedmetadata` rather than waiting for `loadeddata`, which never arrives on a parked decoder.
+
+All four write one `notice` state. An error the element raised overwrites; the two timers use `current ?? next`, so the first to notice wins. `loadeddata` clears it, since a frame having arrived settles the question and an element that errored never gets there.
+
+Each message carries the element's own account of itself underneath: `ready metadata · network idle · 124.3 MB`. The enums are rendered as names rather than the raw integers because the point is that someone can read it off a phone the maintainer cannot reproduce on. `describeBlankPicture`, `mediaStateDetail` and `mediaErrorDetail` are unit-tested; the timers' thresholds are not, since they are temporal.
 
 ### Pointer maths lives in lib
 

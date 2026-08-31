@@ -1,15 +1,17 @@
 /**
  * Why a `<video>` is not showing a picture, and what to say about it.
  *
- * Three failures reach the player and only one of them is an error, so the
- * messages and the state names live together here rather than being spread
- * across the component that happens to notice each one.
+ * Four states reach the player and only some of them are the browser's fault,
+ * so the messages, the state names and the rule that tells them apart live
+ * together here rather than in the component that happens to notice each one.
  */
 
 /** A user-facing message, and the element's own account of itself beneath it. */
-export interface MediaFailure {
+export interface MediaNotice {
   message: string;
   detail: string;
+  /** An error is the browser's; a hint is something the reader can act on. */
+  tone: "error" | "hint";
 }
 
 export const NO_FRAMES_MESSAGE =
@@ -17,6 +19,9 @@ export const NO_FRAMES_MESSAGE =
 
 export const NO_METADATA_MESSAGE =
   "This browser could not read this video and did not say why. The editor needs the video's details before it can open, so try a shorter or smaller clip.";
+
+export const NOT_LOADED_MESSAGE =
+  "Press play to load this video. This browser stops at the file's header and will not read the rest until you ask it to.";
 
 /** `HTMLMediaElement.readyState`, in order. */
 const READY_STATES = [
@@ -32,6 +37,12 @@ const NETWORK_STATES = ["empty", "idle", "loading", "no-source"];
 
 /** `MediaError.code`, which starts at 1. */
 const ERROR_CODES = ["aborted", "network", "decode", "unsupported"];
+
+/** `HAVE_METADATA`: duration and intrinsic size are known, but no frame is. */
+const HAVE_METADATA = 1;
+
+/** `NETWORK_IDLE`: a resource is selected and the element has stopped reading. */
+const NETWORK_IDLE = 1;
 
 /**
  * Turn an `HTMLMediaElement.error` code into something worth showing. The
@@ -66,4 +77,25 @@ export function mediaStateDetail(
 export function mediaErrorDetail(code: number | undefined): string {
   if (code === undefined) return "error no-code";
   return `error ${ERROR_CODES[code - 1] ?? code}`;
+}
+
+/**
+ * Why an element that reported its metadata is still showing nothing.
+ *
+ * Parked on the metadata with the network idle is not a failure at all: iOS
+ * Safari clamps preload and reads no further until playback is requested by a
+ * gesture, which no amount of asking from script substitutes for. Anything else
+ * that got this far and produced no frame has a decoder that cannot cope.
+ */
+export function describeBlankPicture(
+  readyState: number,
+  networkState: number,
+): MediaNotice {
+  const detail = mediaStateDetail(readyState, networkState);
+
+  if (readyState === HAVE_METADATA && networkState === NETWORK_IDLE) {
+    return { message: NOT_LOADED_MESSAGE, detail, tone: "hint" };
+  }
+
+  return { message: NO_FRAMES_MESSAGE, detail, tone: "error" };
 }
