@@ -131,6 +131,14 @@ export function trackLocator(page: Page) {
 }
 
 /**
+ * The player's picture. `VideoThumbnails` puts its own extractor elements in
+ * the document, so a bare `video` matches several.
+ */
+export function playerVideo(page: Page) {
+  return page.locator("video:not([data-thumbnail-extractor])");
+}
+
+/**
  * Click the track at `fraction` of the source duration to park the playhead,
  * and hand back the box it measured. Scrolls first, because the timeline sits
  * below the fold at the default viewport height and a box measured before that

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import {
   PORTRAIT_FIXTURE,
   gotoVideoUrl,
+  playerVideo,
   routeFixtureVideo,
   settledCanvasBox,
   trackLocator,
@@ -26,7 +27,7 @@ test("a portrait source leaves the timeline on screen", async ({
   expect(track.y + track.height).toBeGreaterThan(fold - 24);
 
   // Scaled down, not squashed.
-  const video = (await page.locator("video").boundingBox())!;
+  const video = (await playerVideo(page).boundingBox())!;
   expect(video.width / video.height).toBeCloseTo(540 / 960, 2);
 });
 
