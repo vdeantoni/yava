@@ -1,6 +1,6 @@
 import { useAppStore } from "@/store.tsx";
 import { useShallow } from "zustand/react/shallow";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import VideoControls from "@/components/player/VideoControls.tsx";
 import { cn, SEEK_TOLERANCE } from "@/lib/utils.ts";
 import {
@@ -63,7 +63,19 @@ const VideoPlayer = () => {
    * Carried on the element rather than a `<source>` child: changing a child's
    * src does not restart the load without an imperative `load()` call.
    */
-  const videoSrc = useMemo(() => URL.createObjectURL(file!), [file]);
+  const [videoSrc, setVideoSrc] = useState<string>();
+
+  /**
+   * Made here rather than in render so there is somewhere to revoke it. The URL
+   * store holds the whole file alive on its own, so one left behind outlives
+   * Start Over and everything after it.
+   */
+  useEffect(() => {
+    const url = URL.createObjectURL(file!);
+    setVideoSrc(url);
+
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   /** Assigning the position the playhead already holds fires another timeupdate. */
   const seekTo = (el: HTMLVideoElement, time: number) => {

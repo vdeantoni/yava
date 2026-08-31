@@ -276,11 +276,9 @@ const NewVideo = () => {
                 >
                   {urlError || (
                     <>
-                      <p>
-                        Drag and drop or paste your video files, record your
-                        camera or capture your screen to begin editing in the
-                        browser.
-                      </p>
+                      Drag and drop or paste your video files, record your
+                      camera or capture your screen to begin editing in the
+                      browser.
                     </>
                   )}
                 </p>
