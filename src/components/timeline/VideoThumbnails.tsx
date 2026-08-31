@@ -1,10 +1,18 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/store.tsx";
 import { useShallow } from "zustand/react/shallow";
-import { FRAME_NUDGE } from "@/lib/utils.ts";
 
 const THUMBNAIL_HEIGHT = 56;
 const PARALLEL_EXTRACTORS = 4;
+
+/**
+ * Where the extractor starting at zero seeks to. Assigning the position it
+ * already holds need not fire `seeked`, and `seeked` is what captures.
+ */
+const FIRST_SLOT_SECONDS = 0.001;
+
+/** HAVE_CURRENT_DATA: below this `drawImage` paints nothing at all. */
+const HAVE_CURRENT_DATA = 2;
 
 type VideoThumbnailsProps = {
   trackWidth: number;
@@ -104,18 +112,22 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
       const captureAndAdvance = async () => {
         if (cancelled) return;
 
-        const timestamp = slot * step;
-        tmpCtx.drawImage(thumbVideo, 0, 0, w, h);
-        try {
-          const bitmap = await createImageBitmap(tmpCanvas);
-          if (cancelled) {
-            bitmap.close();
-            return;
+        // An element that seeked without decoding draws nothing, and caching
+        // the blank canvas would repaint the whole strip to show it.
+        if (thumbVideo.readyState >= HAVE_CURRENT_DATA) {
+          const timestamp = slot * step;
+          tmpCtx.drawImage(thumbVideo, 0, 0, w, h);
+          try {
+            const bitmap = await createImageBitmap(tmpCanvas);
+            if (cancelled) {
+              bitmap.close();
+              return;
+            }
+            cacheRef.current.set(timestamp, bitmap);
+            drawFrames();
+          } catch {
+            // ignore extraction errors for individual frames
           }
-          cacheRef.current.set(timestamp, bitmap);
-          drawFrames();
-        } catch {
-          // ignore extraction errors for individual frames
         }
 
         slot += numExtractors;
@@ -134,9 +146,9 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
         () => {
           if (cancelled) return;
 
-          // Seek even for the extractor starting at zero: a decoder that
-          // parked on the metadata holds no frame to capture yet.
-          thumbVideo.currentTime = Math.max(slot * step, FRAME_NUDGE);
+          // Seek even for the extractor starting at zero: an element that
+          // stopped on the metadata holds no frame to capture yet.
+          thumbVideo.currentTime = slot * step || FIRST_SLOT_SECONDS;
         },
         { once: true },
       );

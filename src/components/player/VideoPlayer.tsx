@@ -2,13 +2,11 @@ import { useAppStore } from "@/store.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import VideoControls from "@/components/player/VideoControls.tsx";
-import { cn, FRAME_NUDGE, SEEK_TOLERANCE } from "@/lib/utils.ts";
+import { cn, SEEK_TOLERANCE } from "@/lib/utils.ts";
 import {
   describeBlankPicture,
   describeMediaError,
-  mediaErrorDetail,
-  mediaStateDetail,
-  NO_METADATA_MESSAGE,
+  describeMissingMetadata,
   type MediaNotice,
 } from "@/lib/media-notice.ts";
 import { formatBytes } from "@/lib/fetch-progress.ts";
@@ -19,9 +17,6 @@ import VideoCanvas from "./VideoCanvas";
 
 /** Grace for the first frame once the metadata has landed. */
 const FRAME_CHECK_MS = 2000;
-
-/** HAVE_CURRENT_DATA: below this the element holds no frame to paint. */
-const HAVE_CURRENT_DATA = 2;
 
 /**
  * How long metadata gets to arrive before the player calls the load stuck. The
@@ -55,8 +50,8 @@ const VideoPlayer = () => {
 
   const [playing, setPlaying] = useState(false);
   /**
-   * The one thing wrong with this source, if anything is. An error the element
-   * raised beats either of the timers below, which only fill an empty slot.
+   * What this source has to say for itself, if anything. An error the element
+   * raised overwrites; the timers below only fill an empty slot.
    */
   const [notice, setNotice] = useState<MediaNotice | null>(null);
 
@@ -81,12 +76,7 @@ const VideoPlayer = () => {
    * the whole editor unbuilt on a source that reports itself and then stalls.
    */
   const videoLoadedMetadataHandler = () => {
-    const el = videoRef.current!;
-    setVideo(el);
-
-    // A decoder that parked on the metadata will not paint until it is asked
-    // for a position, and there is no gesture coming to ask for one.
-    if (el.readyState < HAVE_CURRENT_DATA) el.currentTime = FRAME_NUDGE;
+    setVideo(videoRef.current!);
   };
 
   /**
@@ -124,11 +114,7 @@ const VideoPlayer = () => {
 
       setNotice(
         (current) =>
-          current ?? {
-            message: NO_METADATA_MESSAGE,
-            detail: mediaStateDetail(el.readyState, el.networkState),
-            tone: "error",
-          },
+          current ?? describeMissingMetadata(el.readyState, el.networkState),
       );
     }, METADATA_TIMEOUT_MS);
 
@@ -228,14 +214,9 @@ const VideoPlayer = () => {
             // not missing now. An element that errored never gets here.
             onLoadedData={() => setNotice(null)}
             onTimeUpdate={videoTimeUpdateHandler}
-            onError={(e) => {
-              const code = e.currentTarget.error?.code;
-              setNotice({
-                message: describeMediaError(code),
-                detail: mediaErrorDetail(code),
-                tone: "error",
-              });
-            }}
+            onError={(e) =>
+              setNotice(describeMediaError(e.currentTarget.error?.code))
+            }
             onPlaying={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             playsInline={true}
@@ -264,9 +245,7 @@ const VideoPlayer = () => {
             <p
               className={cn(
                 "max-w-sm text-center text-sm",
-                notice.tone === "error"
-                  ? "text-destructive"
-                  : "text-foreground",
+                notice.tone === "error" && "text-destructive",
               )}
             >
               {notice.message}

@@ -96,13 +96,6 @@ export const SEEK_TOLERANCE = 0.01;
 /** Tolerance for detecting cursor at segment end for play-restart (seconds). */
 export const RESTART_TOLERANCE = 0.1;
 
-/**
- * A seek only a decoder notices. iOS Safari suspends after the metadata and
- * decodes nothing until playback is asked for; seeking is a request it honours,
- * and this is short enough that SEEK_TOLERANCE keeps anything else from acting.
- */
-export const FRAME_NUDGE = 0.001;
-
 export interface SegmentLike {
   sourceStart: number;
   sourceEnd: number;
