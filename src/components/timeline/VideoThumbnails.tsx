@@ -43,6 +43,7 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
   );
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const extractorHostRef = useRef<HTMLDivElement>(null);
   const cacheRef = useRef(new Map<number, ImageBitmap>());
   const frameWidthRef = useRef(0);
   const durationRef = useRef(0);
@@ -75,6 +76,9 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
   useEffect(() => {
     if (!video || !file || !video.videoWidth || !video.videoHeight) return;
 
+    const host = extractorHostRef.current;
+    if (!host) return;
+
     // Clean up old cache
     for (const bitmap of cacheRef.current.values()) bitmap.close();
     cacheRef.current.clear();
@@ -99,8 +103,17 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
       thumbVideo.preload = "auto";
       thumbVideo.muted = true;
       thumbVideo.playsInline = true;
+      thumbVideo.width = 1;
+      thumbVideo.height = 1;
+      // Says which of the page's several video elements this is, to anything
+      // reaching for the player's.
+      thumbVideo.dataset.thumbnailExtractor = "";
       const blobUrl = URL.createObjectURL(file);
       thumbVideo.src = blobUrl;
+      // In the document rather than detached: iOS refuses muted autoplay to an
+      // element with no renderer, and that play call is the only thing that
+      // starts the read. Decoding is full size whatever the element measures.
+      host.append(thumbVideo);
 
       const tmpCanvas = document.createElement("canvas");
       tmpCanvas.width = w;
@@ -146,6 +159,12 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
         () => {
           if (cancelled) return;
 
+          // An element that stopped on the metadata reads no further until
+          // playback is asked for, and only play() asks. Muted and inline, so
+          // it needs no gesture. A rejection is fine: an element that never
+          // stopped reaches the seek below on its own.
+          void thumbVideo.play().catch(() => {});
+
           // Seek even for the extractor starting at zero: an element that
           // stopped on the metadata holds no frame to capture yet.
           thumbVideo.currentTime = slot * step || FIRST_SLOT_SECONDS;
@@ -153,11 +172,17 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
         { once: true },
       );
 
+      // Playing was only ever a way to start the read. One frame is enough.
+      thumbVideo.addEventListener("loadeddata", () => thumbVideo.pause(), {
+        once: true,
+      });
+
       cleanups.push(() => {
         thumbVideo.removeEventListener("seeked", onSeeked);
         URL.revokeObjectURL(blobUrl);
         thumbVideo.src = "";
         thumbVideo.load();
+        thumbVideo.remove();
       });
     }
 
@@ -179,6 +204,14 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
   return (
     <div className="absolute pointer-events-none w-full overflow-hidden">
       <canvas ref={canvasRef} width={trackWidth} height={THUMBNAIL_HEIGHT} />
+
+      {/* Holds the extractors. Transparent rather than hidden, because an
+          element with no renderer is refused the playback that loads it. */}
+      <div
+        ref={extractorHostRef}
+        aria-hidden="true"
+        className="absolute top-0 left-0 h-px w-px overflow-hidden opacity-0"
+      />
     </div>
   );
 };
