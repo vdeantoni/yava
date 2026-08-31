@@ -29,7 +29,7 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
     })),
   );
 
-  const compact = video?.duration < COMPACT_THRESHOLD;
+  const compact = video.duration < COMPACT_THRESHOLD;
   const durationOpts = { ms: true, compact } as const;
 
   return (
@@ -98,10 +98,7 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
       </div>
 
       <span className="font-mono text-xs text-muted-foreground min-w-[100px] text-right">
-        {secondsToDuration(
-          cursorEnd < video?.duration ? cursorEnd : video?.duration || 0,
-          durationOpts,
-        )}
+        {secondsToDuration(Math.min(cursorEnd, video.duration), durationOpts)}
       </span>
     </div>
   );

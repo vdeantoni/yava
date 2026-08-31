@@ -73,21 +73,6 @@ export function durationToSeconds(duration: string): number {
   return parseInt(parts[0] || "0", 10) * 60 + parseInt(parts[1] || "0", 10);
 }
 
-/**
- * Turn an `HTMLMediaElement.error` code into something worth showing. The
- * numbers are the MediaError constants, which jsdom does not define: 1 aborted,
- * 2 network, 3 decode, 4 unsupported source. An unsupported codec often fires
- * with no code at all, so that case gets the codec message rather than a
- * generic one.
- */
-export function describeMediaError(code: number | undefined): string {
-  if (code === 1) return "Loading this video was interrupted.";
-  if (code === 2) {
-    return "This video could not be loaded. Check your connection and try again.";
-  }
-  return "This browser cannot decode this video. 10-bit and HDR footage usually has to be converted to 8-bit first.";
-}
-
 /** Hold a value inside `[0, max]`. */
 export function clamp(value: number, max: number): number {
   return Math.max(0, Math.min(value, max));

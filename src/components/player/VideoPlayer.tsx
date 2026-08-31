@@ -2,14 +2,29 @@ import { useAppStore } from "@/store.tsx";
 import { useShallow } from "zustand/react/shallow";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import VideoControls from "@/components/player/VideoControls.tsx";
-import { cn, describeMediaError, SEEK_TOLERANCE } from "@/lib/utils.ts";
+import { cn, SEEK_TOLERANCE } from "@/lib/utils.ts";
+import {
+  describeMediaError,
+  mediaErrorDetail,
+  mediaStateDetail,
+  NO_FRAMES_MESSAGE,
+  NO_METADATA_MESSAGE,
+  type MediaFailure,
+} from "@/lib/media-failure.ts";
+import { formatBytes } from "@/lib/fetch-progress.ts";
 import { nextPlaybackAction } from "@/lib/playback.ts";
 import { fadeGainAt } from "@/lib/fade.ts";
 import { LoaderCircle } from "lucide-react";
 import VideoCanvas from "./VideoCanvas";
 
-/** Ten times the slowest first-frame report measured on a working source. */
+/** Grace for the first frame once the metadata has landed. */
 const FRAME_CHECK_MS = 2000;
+
+/**
+ * How long metadata gets to arrive before the player calls the load stuck. The
+ * file is already local by this point, so nothing is waiting on the network.
+ */
+const METADATA_TIMEOUT_MS = 15000;
 
 /**
  * Caps the picture at the room --editor-chrome leaves it. The floor keeps a
@@ -17,9 +32,6 @@ const FRAME_CHECK_MS = 2000;
  */
 const pictureHeightClass =
   "max-h-[max(120px,calc(100svh-var(--editor-chrome)))]";
-
-const NO_FRAMES_MESSAGE =
-  "This browser decoded no frames from this video, so there is no preview. Exporting still works, because FFmpeg decodes the file itself.";
 
 const VideoPlayer = () => {
   // Neither the playhead nor the segments are rendered here, so neither is
@@ -39,13 +51,20 @@ const VideoPlayer = () => {
     );
 
   const [playing, setPlaying] = useState(false);
-  const [mediaError, setMediaError] = useState("");
-  const [noFrames, setNoFrames] = useState(false);
+  /**
+   * The one thing wrong with this source, if anything is. An error the element
+   * raised beats either of the timers below, which only fill an empty slot.
+   */
+  const [failure, setFailure] = useState<MediaFailure | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fadeRef = useRef<HTMLDivElement>(null);
   /** Last painted level, so a playhead that moved outside a fade costs nothing. */
   const lastGainRef = useRef(-1);
+  /**
+   * Carried on the element rather than a `<source>` child: changing a child's
+   * src does not restart the load without an imperative `load()` call.
+   */
   const videoSrc = useMemo(() => URL.createObjectURL(file!), [file]);
 
   /** Assigning the position the playhead already holds fires another timeupdate. */
@@ -53,7 +72,12 @@ const VideoPlayer = () => {
     if (Math.abs(el.currentTime - time) > SEEK_TOLERANCE) el.currentTime = time;
   };
 
-  const videoLoadedDataHandler = () => {
+  /**
+   * Everything below the player needs the duration and the intrinsic size, and
+   * both land with the metadata. Holding out for a decoded frame instead leaves
+   * the whole editor unbuilt on a source that reports itself and then stalls.
+   */
+  const videoLoadedMetadataHandler = () => {
     setVideo(videoRef.current!);
   };
 
@@ -61,14 +85,46 @@ const VideoPlayer = () => {
    * A codec the browser cannot decode does not always raise an error. It can
    * report metadata and readyState 4, fire loadeddata, and then produce no
    * frames at all, which looks like a black player and an empty timeline.
-   * A working source counts its first frame within ~200ms of loadeddata.
+   * A working source counts its first frame within ~200ms of the metadata.
    */
   useEffect(() => {
     if (!video?.getVideoPlaybackQuality) return;
 
     const timer = setTimeout(() => {
-      setNoFrames(video.getVideoPlaybackQuality().totalVideoFrames === 0);
+      if (video.getVideoPlaybackQuality().totalVideoFrames > 0) return;
+
+      setFailure(
+        (current) =>
+          current ?? {
+            message: NO_FRAMES_MESSAGE,
+            detail: mediaStateDetail(video.readyState, video.networkState),
+          },
+      );
     }, FRAME_CHECK_MS);
+
+    return () => clearTimeout(timer);
+  }, [video]);
+
+  /**
+   * Metadata that never arrives raises nothing either, and the editor is not
+   * built without it, so there is nothing on the page left to report the
+   * failure. Disarms as soon as the metadata lands.
+   */
+  useEffect(() => {
+    if (video) return;
+
+    const timer = setTimeout(() => {
+      const el = videoRef.current;
+      if (!el) return;
+
+      setFailure(
+        (current) =>
+          current ?? {
+            message: NO_METADATA_MESSAGE,
+            detail: mediaStateDetail(el.readyState, el.networkState),
+          },
+      );
+    }, METADATA_TIMEOUT_MS);
 
     return () => clearTimeout(timer);
   }, [video]);
@@ -149,8 +205,6 @@ const VideoPlayer = () => {
     return () => cancelAnimationFrame(raf);
   }, [playing, hasFades, paintFade]);
 
-  const warning = mediaError || (noFrames ? NO_FRAMES_MESSAGE : "");
-
   return (
     <div className="flex flex-col bg-background">
       <div className="relative overflow-hidden">
@@ -162,18 +216,21 @@ const VideoPlayer = () => {
               pictureHeightClass,
               processing && "invisible",
             )}
-            onLoadedData={videoLoadedDataHandler}
+            src={videoSrc}
+            onLoadedMetadata={videoLoadedMetadataHandler}
             onTimeUpdate={videoTimeUpdateHandler}
-            onError={(e) =>
-              setMediaError(describeMediaError(e.currentTarget.error?.code))
-            }
+            onError={(e) => {
+              const code = e.currentTarget.error?.code;
+              setFailure({
+                message: describeMediaError(code),
+                detail: mediaErrorDetail(code),
+              });
+            }}
             onPlaying={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             playsInline={true}
             muted={processing}
-          >
-            <source src={videoSrc} />
-          </video>
+          />
 
           <div
             ref={fadeRef}
@@ -192,18 +249,23 @@ const VideoPlayer = () => {
           </div>
         )}
 
-        {warning && !processing && (
-          <div className="absolute inset-0 flex items-center justify-center p-6 pointer-events-none">
+        {failure && !processing && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 pointer-events-none">
             <p className="max-w-sm text-center text-sm text-destructive">
-              {warning}
+              {failure.message}
+            </p>
+            <p className="font-mono text-[10px] text-muted-foreground">
+              {failure.detail} · {formatBytes(file!.size)}
             </p>
           </div>
         )}
       </div>
 
-      <div className="shrink-0 border-t border-border bg-card">
-        <VideoControls playing={playing} />
-      </div>
+      {video && (
+        <div className="shrink-0 border-t border-border bg-card">
+          <VideoControls playing={playing} />
+        </div>
+      )}
     </div>
   );
 };

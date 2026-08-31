@@ -70,11 +70,13 @@ Nothing in the editor exists until video metadata is available, and the chain ma
 
 1. `NewVideo` calls `setFile(blob, sourceUrl?)`
 2. `App` swaps to the editor, which mounts `VideoPlayer`
-3. `onLoadedData` fires and `setVideo(el)` stores the element
+3. `onLoadedMetadata` fires and `setVideo(el)` stores the element
 4. `App` now renders the timeline; `VideoTimeline`'s effect calls `resetCursors(video.duration)`
 5. `resetCursors` builds the default full-duration segment and, if `pendingEditState` is set, overlays the URL-restored state
 
 So restored share links land in `resetCursors`, not at file load. That is also why `resetCursors` doubles as the panels' "Reset" action.
+
+The trigger is `loadedmetadata`, not `loadeddata`, because the duration and the intrinsic size are all the chain consumes and both land with the metadata. Waiting for a decoded frame leaves the whole editor unbuilt on a source that reports itself and then stalls. `VideoControls` is gated on `video` like every other part of the editor, so nothing below `App` reads the store's `video` before it exists.
 
 ### URL state sync
 
@@ -128,9 +130,13 @@ One segment runs a single `exec`. Multiple segments extract each to `segment_N.<
 
 ### When a video will not decode
 
-Two different failures, handled separately. If the element raises an error, `describeMediaError` turns the code into a message; Chromium fires that with a null `MediaError` for a codec it cannot use, so a missing code is read as an unsupported codec rather than something generic.
+Three different failures, handled separately, and `src/lib/media-failure.ts` holds all three messages plus the state names. If the element raises an error, `describeMediaError` turns the code into a message; Chromium fires that with a null `MediaError` for a codec it cannot use, so a missing code is read as an unsupported codec rather than something generic.
 
-The harder case raises nothing at all. A file whose video track the browser cannot decode but whose audio track it can will report metadata, reach readyState 4 and fire `loadeddata`, so the editor opens on a player that never produces a frame and a timeline with no thumbnails. `VideoPlayer` waits `FRAME_CHECK_MS` after `loadeddata` and checks `getVideoPlaybackQuality().totalVideoFrames`, which a working source fills within ~200ms. Export still works in that state, since FFmpeg brings its own decoders, and the message says so. `requestVideoFrameCallback` is no use here: it never fires for a paused video, working or not.
+The second case raises nothing at all. A file whose video track the browser cannot decode but whose audio track it can will report metadata and reach readyState 4, so the editor opens on a player that never produces a frame and a timeline with no thumbnails. `VideoPlayer` waits `FRAME_CHECK_MS` after the metadata and checks `getVideoPlaybackQuality().totalVideoFrames`, which a working source fills within ~200ms. Export still works in that state, since FFmpeg brings its own decoders, and the message says so. `requestVideoFrameCallback` is no use here: it never fires for a paused video, working or not.
+
+The third is silent in both directions: no error and no metadata either, which on mobile Safari is the common one. Nothing downstream of `setVideo` exists to report it, so the player arms its own `METADATA_TIMEOUT_MS` timer at mount and disarms it when the metadata lands. All three write one `failure` state, and an error the element raised wins over either timer, which only fill an empty slot.
+
+Each message carries the element's own account of itself underneath: `ready metadata · network loading · 12.3 MB`. The enums are rendered as names rather than the raw integers because the point is that someone can read it off a phone the maintainer cannot reproduce on. `mediaStateDetail` and `mediaErrorDetail` build it and are unit-tested; the timers' thresholds are not, since they are temporal.
 
 ### Pointer maths lives in lib
 
