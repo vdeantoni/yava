@@ -4,13 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import VideoControls from "@/components/player/VideoControls.tsx";
 import { cn, SEEK_TOLERANCE } from "@/lib/utils.ts";
 import {
+  describeBlankPicture,
   describeMediaError,
-  mediaErrorDetail,
-  mediaStateDetail,
-  NO_FRAMES_MESSAGE,
-  NO_METADATA_MESSAGE,
-  type MediaFailure,
-} from "@/lib/media-failure.ts";
+  describeMissingMetadata,
+  type MediaNotice,
+} from "@/lib/media-notice.ts";
 import { formatBytes } from "@/lib/fetch-progress.ts";
 import { nextPlaybackAction } from "@/lib/playback.ts";
 import { fadeGainAt } from "@/lib/fade.ts";
@@ -52,10 +50,10 @@ const VideoPlayer = () => {
 
   const [playing, setPlaying] = useState(false);
   /**
-   * The one thing wrong with this source, if anything is. An error the element
-   * raised beats either of the timers below, which only fill an empty slot.
+   * What this source has to say for itself, if anything. An error the element
+   * raised overwrites; the timers below only fill an empty slot.
    */
-  const [failure, setFailure] = useState<MediaFailure | null>(null);
+  const [notice, setNotice] = useState<MediaNotice | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const fadeRef = useRef<HTMLDivElement>(null);
@@ -93,12 +91,9 @@ const VideoPlayer = () => {
     const timer = setTimeout(() => {
       if (video.getVideoPlaybackQuality().totalVideoFrames > 0) return;
 
-      setFailure(
+      setNotice(
         (current) =>
-          current ?? {
-            message: NO_FRAMES_MESSAGE,
-            detail: mediaStateDetail(video.readyState, video.networkState),
-          },
+          current ?? describeBlankPicture(video.readyState, video.networkState),
       );
     }, FRAME_CHECK_MS);
 
@@ -117,12 +112,9 @@ const VideoPlayer = () => {
       const el = videoRef.current;
       if (!el) return;
 
-      setFailure(
+      setNotice(
         (current) =>
-          current ?? {
-            message: NO_METADATA_MESSAGE,
-            detail: mediaStateDetail(el.readyState, el.networkState),
-          },
+          current ?? describeMissingMetadata(el.readyState, el.networkState),
       );
     }, METADATA_TIMEOUT_MS);
 
@@ -218,14 +210,13 @@ const VideoPlayer = () => {
             )}
             src={videoSrc}
             onLoadedMetadata={videoLoadedMetadataHandler}
+            // A frame has arrived, so whatever the picture was missing it is
+            // not missing now. An element that errored never gets here.
+            onLoadedData={() => setNotice(null)}
             onTimeUpdate={videoTimeUpdateHandler}
-            onError={(e) => {
-              const code = e.currentTarget.error?.code;
-              setFailure({
-                message: describeMediaError(code),
-                detail: mediaErrorDetail(code),
-              });
-            }}
+            onError={(e) =>
+              setNotice(describeMediaError(e.currentTarget.error?.code))
+            }
             onPlaying={() => setPlaying(true)}
             onPause={() => setPlaying(false)}
             playsInline={true}
@@ -249,13 +240,18 @@ const VideoPlayer = () => {
           </div>
         )}
 
-        {failure && !processing && (
+        {notice && !processing && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 pointer-events-none">
-            <p className="max-w-sm text-center text-sm text-destructive">
-              {failure.message}
+            <p
+              className={cn(
+                "max-w-sm text-center text-sm",
+                notice.tone === "error" && "text-destructive",
+              )}
+            >
+              {notice.message}
             </p>
             <p className="font-mono text-[10px] text-muted-foreground">
-              {failure.detail} · {formatBytes(file!.size)}
+              {notice.detail} · {formatBytes(file!.size)}
             </p>
           </div>
         )}
