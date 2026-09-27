@@ -210,8 +210,8 @@ const VideoPlayer = () => {
   }, [playing, hasFades, paintFade]);
 
   return (
-    <div className="flex flex-col bg-background">
-      <div className="relative overflow-hidden">
+    <div className="flex flex-1 flex-col bg-background">
+      <div className="relative flex flex-1 flex-col justify-center overflow-hidden">
         <div className="relative max-w-full mx-auto w-fit">
           <video
             ref={videoRef}

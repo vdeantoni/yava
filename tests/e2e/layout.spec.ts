@@ -44,3 +44,35 @@ test("a source that already fits keeps its own size", async ({
     height: 120,
   });
 });
+
+test("a short source sits centred above controls that meet the toolbar", async ({
+  page,
+  context,
+}) => {
+  await routeFixtureVideo(context);
+  await gotoVideoUrl(page);
+  await waitForEditor(page);
+
+  const controls = (await page
+    .getByRole("button", { name: "Skip to start" })
+    .locator("../../..")
+    .boundingBox())!;
+  const toolbar = (await page
+    .getByRole("button", { name: "Slice" })
+    .locator("..")
+    .boundingBox())!;
+  expect(controls.y + controls.height).toBeCloseTo(toolbar.y, 0);
+
+  // The sidebar sets the height, not the window: the timeline stays under it.
+  const sidebar = (await page.locator("aside:visible").last().boundingBox())!;
+  expect(toolbar.y).toBeCloseTo(sidebar.y + sidebar.height, 0);
+  expect(toolbar.y).toBeLessThan(page.viewportSize()!.height - 200);
+
+  const header = (await page.locator("header").boundingBox())!;
+  const video = (await playerVideo(page).boundingBox())!;
+  const room = { top: header.y + header.height, bottom: controls.y };
+  expect(video.y + video.height / 2).toBeCloseTo(
+    (room.top + room.bottom) / 2,
+    0,
+  );
+});
