@@ -31,12 +31,14 @@ test("a video that decodes no frames says so, even with no error raised", async 
   // This one gets far enough to open the editor: metadata, duration and
   // readyState 4 all arrive, and the element never raises an error.
   await waitForEditor(page);
-  expect(
-    await page.evaluate(() => {
-      const video = document.querySelector("video")!;
-      return { error: video.error, readyState: video.readyState };
-    }),
-  ).toEqual({ error: null, readyState: 4 });
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const video = document.querySelector("video")!;
+        return { error: video.error, readyState: video.readyState };
+      }),
+    )
+    .toEqual({ error: null, readyState: 4 });
 
   await expect(page.getByText("decoded no frames")).toBeVisible({
     timeout: 10_000,
