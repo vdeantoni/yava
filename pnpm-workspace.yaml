@@ -1,0 +1,3 @@
+allowBuilds:
+  # The binary arrives as a platform optionalDependency; the script only re-downloads it.
+  "@sentry/cli": false
