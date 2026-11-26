@@ -153,6 +153,17 @@ export async function movePlayhead(page: Page, fraction: number) {
     position: { x: box.width * fraction, y: box.height / 2 },
   });
 
+  // The track measures its own width a moment after it mounts and draws the
+  // playhead at its left edge until then, out of reach of a pointer aimed here.
+  const handle = page.locator("div.w-4.cursor-grab");
+  await expect
+    .poll(async () => {
+      const drawn = (await handle.boundingBox())!;
+      const aim = box.x + box.width * fraction;
+      return Math.abs(drawn.x + drawn.width / 2 - aim);
+    })
+    .toBeLessThan(1);
+
   return box;
 }
 
