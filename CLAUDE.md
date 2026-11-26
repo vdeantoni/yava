@@ -12,7 +12,7 @@ Users import a video (file, URL, camera, screen capture), then trim, slice into 
 
 - `npm run dev` — Vite dev server on https://localhost:3000 (self-signed cert via `@vitejs/plugin-basic-ssl`)
 - `npm run build` — `tsc -b` then Vite production build
-- `npm run check` — typecheck + Prettier check + ESLint. Run this before calling work done.
+- `npm run check` — typecheck + Prettier check + oxlint. Run this before calling work done.
 - `npm run format` — Prettier write over the whole repo
 - `npm run test` — all three suites in sequence
 
@@ -198,6 +198,6 @@ E2E tests wait on the "Start Over" button as the editor-ready signal, and poll `
 - `cursorCurrent` changes at pointer rate while scrubbing, so what each consumer does with it follows one question: does it render the value? `Playhead` and the timecode in `VideoControls` do, so they subscribe narrowly and repaint on every move, which is the work. `TimelineToolbar` renders a coarse projection, so it derives each button's enabled and pressed state inside its selector and the equality check absorbs the churn. `VideoPlayer` never renders it, so it does not subscribe at all: its seek and its fade overlay run off a `useAppStore.subscribe`, and its handlers read `segments` with `useAppStore.getState()`. Measured over a 20-move drag, a scrub re-renders `Playhead` and the timecode and nothing else, and a segment drag does not re-render the player.
 - `VideoTimeline` holds its tick and mark row in a `useMemo`. A segment drag re-renders the track on every pointer move, and those ~150 nodes move only with the scale, so handing React the same element lets it skip the subtree. The ruler itself comes from `timelineMarks` in `src/lib/timeline.ts`, where its fallbacks are tested: a duration past the largest interval drops to one-second marks, and only the tick cap keeps four hours from being fourteen thousand nodes.
 - `playheadTimeAt` in `src/lib/timeline.ts` decides where a pointer time parks the playhead, for both the track's click and the playhead's own drag. They have to agree, or clicking and dragging to the same pixel land in different places.
-- ESLint flat config turns off three React Compiler rules (`preserve-manual-memoization`, `set-state-in-effect`, `immutability`) that the codebase does not satisfy yet. Do not re-enable them for a local fix.
+- `.oxlintrc.json` turns off three React Compiler rules (`react/preserve-manual-memoization`, `react/set-state-in-effect`, `react/immutability`) that the codebase does not satisfy yet. Do not re-enable them for a local fix.
 - Icons come from `lucide-react`. Vite env access uses `import.meta.env.DEV`.
 - Prettier defaults, enforced by `npm run check`.

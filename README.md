@@ -32,7 +32,7 @@ FFmpeg's multithreaded build needs `SharedArrayBuffer`, which needs the `Cross-O
 | Command          | What it does                          |
 | ---------------- | ------------------------------------- |
 | `pnpm build`     | Type-check, then build for production |
-| `pnpm check`     | Type-check, Prettier and ESLint       |
+| `pnpm check`     | Type-check, Prettier and oxlint       |
 | `pnpm format`    | Format everything with Prettier       |
 | `pnpm test`      | Unit, component and end-to-end tests  |
 | `pnpm test:unit` | Vitest only                           |
