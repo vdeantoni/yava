@@ -63,6 +63,7 @@
     "@vitest/coverage-v8": "^5.1.2",
     "jsdom": "^31.0.1",
     "oxlint": "^1.95.0",
+    "oxlint-tsgolint": "^7.0.2008",
     "postcss": "^8.5.33",
     "prettier": "^3.10.1",
     "tailwindcss": "^4.3.5",

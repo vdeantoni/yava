@@ -34,13 +34,16 @@ const useVideoResizeObserver = (ref: RefObject<HTMLVideoElement | null>) => {
     height: 0,
   });
 
-  const onResize = useDebounceCallback(({ width, height }) => {
-    if (!width || !height) {
-      return;
-    }
+  const onResize = useDebounceCallback(
+    ({ width, height }: { width?: number; height?: number }) => {
+      if (!width || !height) {
+        return;
+      }
 
-    setSize({ width: Math.ceil(width), height: Math.ceil(height) });
-  }, VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME);
+      setSize({ width: Math.ceil(width), height: Math.ceil(height) });
+    },
+    VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME,
+  );
 
   useResizeObserver({
     ref: ref as RefObject<HTMLVideoElement>,

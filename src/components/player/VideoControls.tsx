@@ -71,7 +71,9 @@ const VideoControls = ({ playing }: VideoControlsProps) => {
               ) {
                 setCursorCurrent(segments[0].sourceStart);
               }
-              video.play();
+              // Rejects when a pause interrupts it; onPlaying and onPause keep the
+              // button in step with what the element actually did.
+              void video.play().catch(() => {});
             }
           }}
         >

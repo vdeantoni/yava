@@ -1,5 +1,6 @@
 import { expect, type BrowserContext, type Page } from "@playwright/test";
 import { join } from "node:path";
+import type { UrlEditState } from "@/store.tsx";
 
 /**
  * Deliberately unroutable host. Every request to it is fulfilled from the local
@@ -173,11 +174,11 @@ export function fadeInButton(page: Page) {
 }
 
 /** The edit state carried by the current hash, decoded. */
-export function editStateFromHash(page: Page) {
+export function editStateFromHash(page: Page): UrlEditState | null {
   const hash = new URL(page.url()).hash.slice(1);
   if (!hash) return null;
   const b64 = hash.replace(/-/g, "+").replace(/_/g, "/");
-  return JSON.parse(Buffer.from(b64, "base64").toString());
+  return JSON.parse(Buffer.from(b64, "base64").toString()) as UrlEditState;
 }
 
 /**

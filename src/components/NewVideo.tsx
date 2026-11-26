@@ -157,7 +157,7 @@ const NewVideo = () => {
   useEffect(() => {
     const controller = new AbortController();
 
-    const handlePaste = async (e: ClipboardEvent) => {
+    const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData;
       if (!items) return;
 
@@ -182,7 +182,7 @@ const NewVideo = () => {
       }
 
       e.preventDefault();
-      fetchVideoFromUrl(text, controller.signal);
+      void fetchVideoFromUrl(text, controller.signal);
     };
 
     document.addEventListener("paste", handlePaste);
@@ -304,7 +304,7 @@ const NewVideo = () => {
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && urlInput.trim()) {
                     setMode("file");
-                    fetchVideoFromUrl(urlInput.trim());
+                    void fetchVideoFromUrl(urlInput.trim());
                   }
                   if (e.key === "Escape") {
                     setMode("file");
@@ -319,7 +319,7 @@ const NewVideo = () => {
                 disabled={!urlInput.trim()}
                 onClick={() => {
                   setMode("file");
-                  fetchVideoFromUrl(urlInput.trim());
+                  void fetchVideoFromUrl(urlInput.trim());
                 }}
               >
                 <ArrowRight className="h-4 w-4" />

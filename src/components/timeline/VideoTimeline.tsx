@@ -35,7 +35,7 @@ const TRACK_RESIZE_OBSERVER_DEBOUNCE_TIME = 200;
 const useTrackResizeObserver = (ref: RefObject<HTMLDivElement | null>) => {
   const [width, setWidth] = useState(0);
 
-  const onResize = useDebounceCallback(({ width }) => {
+  const onResize = useDebounceCallback(({ width }: { width?: number }) => {
     if (!width) {
       return;
     }
