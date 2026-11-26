@@ -2,6 +2,8 @@ import { useAppStore } from "@/store.tsx";
 import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
+import { fromEvent } from "file-selector";
+import { COMMON_MIME_TYPES } from "file-selector/mime";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
@@ -134,6 +136,10 @@ const NewVideo = () => {
     accept: {
       "video/*": [],
     },
+    // A file the browser left typeless matches "video/*" only once its
+    // extension has been looked up, and the default table knows mp4 and webm.
+    getFilesFromEvent: (event) =>
+      fromEvent(event, { mimeTypes: COMMON_MIME_TYPES }),
     multiple: false,
     noClick: true,
     noKeyboard: true,
