@@ -20,17 +20,17 @@ Users import a video (file, URL, camera, screen capture), then trim, slice into 
 
 Three separate runners, three separate configs:
 
-| Suite                     | Command             | Config                     | Location                      |
-| ------------------------- | ------------------- | -------------------------- | ----------------------------- |
-| Unit (jsdom)              | `npm run test:unit` | `vitest.config.ts`         | `src/**/*.test.ts`            |
-| Component (Playwright CT) | `npm run test:ct`   | `playwright-ct.config.ts`  | `tests/components/*.spec.tsx` |
-| End-to-end                | `npm run test:e2e`  | `playwright-e2e.config.ts` | `tests/e2e/*.spec.ts`         |
+| Suite                  | Command             | Config                     | Location                     |
+| ---------------------- | ------------------- | -------------------------- | ---------------------------- |
+| Unit (jsdom)           | `npm run test:unit` | `vitest.config.ts`         | `src/**/*.test.ts`           |
+| Component (Playwright) | `npm run test:ct`   | `playwright-ct.config.ts`  | `tests/components/*.spec.ts` |
+| End-to-end             | `npm run test:e2e`  | `playwright-e2e.config.ts` | `tests/e2e/*.spec.ts`        |
 
 Single test:
 
 ```bash
 npx vitest run src/store.test.ts -t "sliceAtCursor"
-npx playwright test -c playwright-ct.config.ts tests/components/VideoTimeline.spec.tsx
+npx playwright test -c playwright-ct.config.ts tests/components/VideoTimeline.spec.ts
 npx playwright test -c playwright-e2e.config.ts -g "hash URL round-trip"
 ```
 
@@ -182,15 +182,17 @@ The fade preview is a black overlay over the player. `fadeGainAt` returns what t
 
 ## Test setup
 
-Both Vitest and Playwright CT alias `@ffmpeg/ffmpeg` to `src/__mocks__/@ffmpeg/ffmpeg.ts` (an empty `FFmpeg` class). Without it the store constructor drags in WASM.
+Vitest aliases `@ffmpeg/ffmpeg` to `src/__mocks__/@ffmpeg/ffmpeg.ts` (an empty `FFmpeg` class). Without it the store constructor drags in WASM.
 
-Component tests seed the store rather than driving the UI from an empty state. `playwright/index.tsx` registers a `beforeMount` hook that applies `hooksConfig.storeState` via `useAppStore.setState`, and `tests/helpers.ts` exports `withStore(overrides)` to build that config against a 60-second fake video. A `Blob` cannot be serialized from Node to the browser, so pass `file: true` and the hook constructs a real Blob.
+Component tests are plain Playwright tests against a story gallery. `playwright/gallery/` is a page the dev server serves at `/playwright/gallery/index.html`, which renders the story a test names into `#root`; the `mount(storyId, props)` fixture built into `@playwright/test` drives it. Stories sit next to their component in `*.story.tsx`, and an id is the path under `src/` plus the export name, e.g. `components/panels/TrimPanel/Default`. Ids are strings, so renaming a story breaks its spec only at runtime; `mount<typeof Default>(id, props)` at least checks the props.
 
-E2E tests wait on the "Start Over" button as the editor-ready signal, and poll `page.url()` for hash changes because of the 500ms sync debounce.
+Stories seed the store rather than driving the UI from an empty state. `useEditor` in `src/stories/editor.ts` opens the editor on a 60-second fake video and writes the segments through `commitSegments`, so the cursor mirrors hold. Props cross from Node as JSON, so a test passes plain data (`segments`, `cursorCurrent`, `pendingEditState`) and the story builds the video and the `Blob` in the browser.
+
+E2E tests wait on the "Start Over" button as the signal that a file is loaded, and poll `page.url()` for hash changes because of the 500ms sync debounce. "Start Over" appears before the metadata, and the track measures its width through a debounced observer, so a test that aims the pointer at the timeline waits for it to be laid out first, as `movePlayhead` does.
 
 ## Conventions
 
-- Path alias `@` maps to `./src`, declared in `tsconfig.app.json`, `vite.config.ts`, `vitest.config.ts`, and `playwright-ct.config.ts`. Keep them in sync.
+- Path alias `@` maps to `./src`, declared in `tsconfig.app.json`, `vite.config.ts`, and `vitest.config.ts`. Keep them in sync.
 - Tailwind 4 config lives in `src/index.css` under `@theme inline`. There is no `tailwind.config.js`. Colors are HSL custom properties, dark theme only, no light mode.
 - `src/components/ui/` is shadcn/ui output managed by the CLI (`components.json`: default style, slate base). Do not hand-edit.
 - Every control needs an accessible name, and `tests/e2e/accessible-names.spec.ts` fails if one does not have it. Icon-only buttons carry `aria-label`; inputs get an id from `useId` and a label pointing at it, which also keeps the ids unique, since both the desktop and mobile layouts mount every panel. The two `Slider` thumbs are the one exception: Radix renders them inside the primitive and `src/components/ui` is not hand-edited. Playwright matches accessible names by substring, so `{ exact: true }` matters when one name contains another.

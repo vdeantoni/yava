@@ -7,7 +7,7 @@
   "env": {
     "builtin": true
   },
-  "ignorePatterns": ["dist", "coverage", "playwright/.cache"],
+  "ignorePatterns": ["dist", "coverage"],
   "overrides": [
     {
       "files": ["**/*.{ts,tsx}"],

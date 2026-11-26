@@ -52,8 +52,7 @@
   },
   "devDependencies": {
     "@ffmpeg/types": "^0.12.4",
-    "@playwright/experimental-ct-react": "1.62.1",
-    "@playwright/test": "1.62.1",
+    "@playwright/test": "^1.65.1",
     "@sentry/vite-plugin": "^11.18.0",
     "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^26.6.10",

@@ -1,28 +1,17 @@
-import { test, expect } from "@playwright/experimental-ct-react";
-import TrimPanel from "@/components/panels/TrimPanel";
-import { withStore } from "../helpers";
+import { test, expect } from "@playwright/test";
+import type { Default } from "@/components/panels/TrimPanel.story.tsx";
 
-function withTrimStore(overrides: Record<string, unknown> = {}) {
-  const cursorStart = (overrides.cursorStart as number | undefined) ?? 0;
-  const cursorEnd = (overrides.cursorEnd as number | undefined) ?? 60;
-  return withStore({
-    ...overrides,
-    segments: [{ id: "s0", sourceStart: cursorStart, sourceEnd: cursorEnd }],
-  });
-}
+const TRIM = "components/panels/TrimPanel/Default";
 
 test("renders start and end fields", async ({ mount }) => {
-  const component = await mount(<TrimPanel />, withTrimStore());
+  const component = await mount(TRIM);
 
   await expect(component.getByText("Start")).toBeVisible();
   await expect(component.getByText("End")).toBeVisible();
 });
 
 test("displays formatted cursor times", async ({ mount }) => {
-  const component = await mount(
-    <TrimPanel />,
-    withTrimStore({ cursorStart: 5, cursorEnd: 30 }),
-  );
+  const component = await mount<typeof Default>(TRIM, { trim: [5, 30] });
 
   const inputs = component.locator("input");
   await expect(inputs.first()).toHaveValue("00:05:000");
@@ -30,7 +19,7 @@ test("displays formatted cursor times", async ({ mount }) => {
 });
 
 test("does not show Reset button when no trim applied", async ({ mount }) => {
-  const component = await mount(<TrimPanel />, withTrimStore());
+  const component = await mount(TRIM);
 
   await expect(
     component.getByRole("button", { name: "Reset" }),
@@ -38,19 +27,13 @@ test("does not show Reset button when no trim applied", async ({ mount }) => {
 });
 
 test("shows Reset button when trim is applied", async ({ mount }) => {
-  const component = await mount(
-    <TrimPanel />,
-    withTrimStore({ cursorStart: 5, cursorEnd: 30 }),
-  );
+  const component = await mount<typeof Default>(TRIM, { trim: [5, 30] });
 
   await expect(component.getByRole("button", { name: "Reset" })).toBeVisible();
 });
 
 test("Reset button restores inputs to full duration", async ({ mount }) => {
-  const component = await mount(
-    <TrimPanel />,
-    withTrimStore({ cursorStart: 5, cursorEnd: 30 }),
-  );
+  const component = await mount<typeof Default>(TRIM, { trim: [5, 30] });
 
   await component.getByRole("button", { name: "Reset" }).click();
 
@@ -60,7 +43,7 @@ test("Reset button restores inputs to full duration", async ({ mount }) => {
 });
 
 test("updates start input on blur", async ({ mount }) => {
-  const component = await mount(<TrimPanel />, withTrimStore());
+  const component = await mount(TRIM);
 
   const startInput = component.locator("input").first();
   await startInput.fill("00:10:000");
@@ -72,10 +55,7 @@ test("updates start input on blur", async ({ mount }) => {
 test("clamps start input to not exceed end - MIN_SLICE_DISTANCE", async ({
   mount,
 }) => {
-  const component = await mount(
-    <TrimPanel />,
-    withTrimStore({ cursorEnd: 20 }),
-  );
+  const component = await mount<typeof Default>(TRIM, { trim: [0, 20] });
 
   const startInput = component.locator("input").first();
   await startInput.fill("00:25:000");

@@ -1,15 +1,16 @@
-import { test, expect } from "@playwright/experimental-ct-react";
-import NewVideo from "@/components/NewVideo";
+import { test, expect } from "@playwright/test";
+
+const NEW_VIDEO = "components/NewVideo/Default";
 
 test("renders heading and description text", async ({ mount }) => {
-  const component = await mount(<NewVideo />);
+  const component = await mount(NEW_VIDEO);
 
   await expect(component.getByText("Ready?")).toBeVisible();
   await expect(component.getByText("no files leave your device")).toBeVisible();
 });
 
 test("shows action buttons", async ({ mount }) => {
-  const component = await mount(<NewVideo />);
+  const component = await mount(NEW_VIDEO);
 
   await expect(component.getByText("Browse Files")).toBeVisible();
   await expect(component.getByRole("button", { name: "URL" })).toBeVisible();
@@ -18,7 +19,7 @@ test("shows action buttons", async ({ mount }) => {
 });
 
 test("clicking URL button shows the URL input field", async ({ mount }) => {
-  const component = await mount(<NewVideo />);
+  const component = await mount(NEW_VIDEO);
 
   // No URL input initially
   await expect(component.locator('input[type="url"]')).not.toBeVisible();
@@ -33,7 +34,7 @@ test("clicking URL button shows the URL input field", async ({ mount }) => {
 test("pressing Escape in URL input returns to default view", async ({
   mount,
 }) => {
-  const component = await mount(<NewVideo />);
+  const component = await mount(NEW_VIDEO);
 
   await component.getByText("URL").click();
   const urlInput = component.locator('input[type="url"]');
@@ -45,13 +46,13 @@ test("pressing Escape in URL input returns to default view", async ({
 });
 
 test("shows 'Try a demo video' link", async ({ mount }) => {
-  const component = await mount(<NewVideo />);
+  const component = await mount(NEW_VIDEO);
 
   await expect(component.getByText("Try a demo video")).toBeVisible();
 });
 
 test("shows feature badges", async ({ mount }) => {
-  const component = await mount(<NewVideo />);
+  const component = await mount(NEW_VIDEO);
 
   await expect(component.getByText("FFmpeg")).toBeVisible();
   await expect(component.getByText("No uploads")).toBeVisible();
@@ -59,7 +60,7 @@ test("shows feature badges", async ({ mount }) => {
 });
 
 test("shows supported format labels", async ({ mount }) => {
-  const component = await mount(<NewVideo />);
+  const component = await mount(NEW_VIDEO);
 
   for (const fmt of ["MP4", "MOV", "WEBM", "GIF"]) {
     await expect(component.getByText(fmt)).toBeVisible();

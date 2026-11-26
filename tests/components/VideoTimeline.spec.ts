@@ -1,12 +1,13 @@
-import { test, expect } from "@playwright/experimental-ct-react";
-import VideoTimeline from "@/components/timeline/VideoTimeline";
-import { withStore } from "../helpers";
+import { test, expect } from "@playwright/test";
+import type { Default } from "@/components/timeline/VideoTimeline.story.tsx";
+
+const TIMELINE = "components/timeline/VideoTimeline/Default";
 
 // Segment highlights have z-10 + cursor-grab; the cursor handle has cursor-grab but no z-10
 const segmentSelector = ".z-10.cursor-grab";
 
 test("renders a segment highlight for a single segment", async ({ mount }) => {
-  const component = await mount(<VideoTimeline />, withStore());
+  const component = await mount(TIMELINE);
 
   await component.page().waitForTimeout(300);
 
@@ -17,18 +18,15 @@ test("renders a segment highlight for a single segment", async ({ mount }) => {
 test("renders multiple segment highlights for 2 segments", async ({
   mount,
 }) => {
-  const component = await mount(
-    <VideoTimeline />,
-    withStore({
-      // Use pendingEditState so resetCursors creates multiple segments
-      pendingEditState: {
-        seg: [
-          [0, 25],
-          [35, 60],
-        ],
-      },
-    }),
-  );
+  const component = await mount<typeof Default>(TIMELINE, {
+    // resetCursors builds the segments from this, as it does for a share link.
+    pendingEditState: {
+      seg: [
+        [0, 25],
+        [35, 60],
+      ],
+    },
+  });
 
   await component.page().waitForTimeout(300);
 
@@ -37,17 +35,14 @@ test("renders multiple segment highlights for 2 segments", async ({
 });
 
 test("renders gap overlay between non-adjacent segments", async ({ mount }) => {
-  const component = await mount(
-    <VideoTimeline />,
-    withStore({
-      pendingEditState: {
-        seg: [
-          [0, 25],
-          [35, 60],
-        ],
-      },
-    }),
-  );
+  const component = await mount<typeof Default>(TIMELINE, {
+    pendingEditState: {
+      seg: [
+        [0, 25],
+        [35, 60],
+      ],
+    },
+  });
 
   await component.page().waitForTimeout(300);
 
@@ -57,7 +52,7 @@ test("renders gap overlay between non-adjacent segments", async ({ mount }) => {
 });
 
 test("shows resize handles when segment is hovered", async ({ mount }) => {
-  const component = await mount(<VideoTimeline />, withStore());
+  const component = await mount(TIMELINE);
 
   await component.page().waitForTimeout(300);
 
@@ -76,17 +71,14 @@ test("shows resize handles when segment is hovered", async ({ mount }) => {
 test("shows delete action button when multiple segments and hovered", async ({
   mount,
 }) => {
-  const component = await mount(
-    <VideoTimeline />,
-    withStore({
-      pendingEditState: {
-        seg: [
-          [0, 25],
-          [35, 60],
-        ],
-      },
-    }),
-  );
+  const component = await mount<typeof Default>(TIMELINE, {
+    pendingEditState: {
+      seg: [
+        [0, 25],
+        [35, 60],
+      ],
+    },
+  });
 
   await component.page().waitForTimeout(300);
 
