@@ -1,5 +1,5 @@
 import { clamp, cn } from "@/lib/utils.ts";
-import { RefObject, useEffect, useRef, useState } from "react";
+import { RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "../../store";
 import { useShallow } from "zustand/react/shallow";
 import { useDebounceCallback, useResizeObserver } from "usehooks-ts";
@@ -16,6 +16,9 @@ import {
 } from "@/lib/crop.ts";
 
 const VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME = 200;
+// The first size lands at once, so the canvas is never 0x0 under the player;
+// only the resizes after it wait out the debounce.
+const VIDEO_RESIZE_DEBOUNCE = { leading: true, trailing: true };
 const HANDLE_SIZE = 10;
 
 /** Drawing and resizing are the same drag: anchor held, pointer free. */
@@ -34,13 +37,17 @@ const useVideoResizeObserver = (ref: RefObject<HTMLVideoElement | null>) => {
     height: 0,
   });
 
-  const onResize = useDebounceCallback(({ width, height }) => {
-    if (!width || !height) {
-      return;
-    }
-
-    setSize({ width: Math.ceil(width), height: Math.ceil(height) });
-  }, VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME);
+  // Stable, because useDebounceCallback builds a new debouncer whenever its
+  // callback changes, and each new one would fire its leading edge again.
+  const measure = useCallback((size: { width?: number; height?: number }) => {
+    if (!size.width || !size.height) return;
+    setSize({ width: Math.ceil(size.width), height: Math.ceil(size.height) });
+  }, []);
+  const onResize = useDebounceCallback(
+    measure,
+    VIDEO_RESIZE_OBSERVER_DEBOUNCE_TIME,
+    VIDEO_RESIZE_DEBOUNCE,
+  );
 
   useResizeObserver({
     ref: ref as RefObject<HTMLVideoElement>,

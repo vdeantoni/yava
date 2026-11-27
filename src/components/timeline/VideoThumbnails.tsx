@@ -150,7 +150,7 @@ const VideoThumbnails = ({ trackWidth }: VideoThumbnailsProps) => {
       };
 
       const onSeeked = () => {
-        if (!cancelled) captureAndAdvance();
+        if (!cancelled) void captureAndAdvance();
       };
       thumbVideo.addEventListener("seeked", onSeeked);
 

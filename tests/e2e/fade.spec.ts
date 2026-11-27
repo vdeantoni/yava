@@ -36,7 +36,7 @@ test.describe("fades", () => {
     await fadeInButton(page).click();
 
     await pollSegments(page).toHaveLength(1);
-    const [segment] = editStateFromHash(page).seg;
+    const [segment] = editStateFromHash(page)!.seg!;
     expect(segment).toHaveLength(4);
     expect(segment[2]).toBeGreaterThan(0.5);
     expect(segment[2]).toBeLessThan(1.5);

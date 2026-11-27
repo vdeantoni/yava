@@ -1,28 +1,20 @@
-import { defineConfig, devices } from "@playwright/experimental-ct-react";
-import react from "@vitejs/plugin-react";
-import { resolve } from "path";
+import { defineConfig, devices } from "@playwright/test";
+
+const GALLERY = "https://localhost:3000/playwright/gallery/index.html";
 
 export default defineConfig({
-  testDir: "./tests",
-  testMatch: "**/*.spec.tsx",
+  testDir: "./tests/components",
+  testMatch: "**/*.spec.ts",
   timeout: 10_000,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   use: {
+    baseURL: GALLERY,
+    ignoreHTTPSErrors: true,
+    serviceWorkers: "block",
+    reuseContext: true,
     trace: "on-first-retry",
-    ctViteConfig: {
-      plugins: [react()],
-      resolve: {
-        alias: {
-          "@": resolve(import.meta.dirname, "src"),
-          "@ffmpeg/ffmpeg": resolve(
-            import.meta.dirname,
-            "src/__mocks__/@ffmpeg/ffmpeg.ts",
-          ),
-        },
-      },
-    },
   },
   projects: [
     {
@@ -30,4 +22,10 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
+  webServer: {
+    command: "npm run dev",
+    url: GALLERY,
+    reuseExistingServer: true,
+    ignoreHTTPSErrors: true,
+  },
 });

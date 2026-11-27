@@ -1,7 +1,5 @@
 export type CoreFile =
-  | "ffmpeg-core.js"
-  | "ffmpeg-core.wasm"
-  | "ffmpeg-core.worker.js";
+  "ffmpeg-core.js" | "ffmpeg-core.wasm" | "ffmpeg-core.worker.js";
 
 // unpkg gzips these and sends no Content-Length, so @ffmpeg/util reports
 // total: -1 and can't work out progress on its own. The sizes below are the

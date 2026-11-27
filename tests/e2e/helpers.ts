@@ -1,5 +1,6 @@
 import { expect, type BrowserContext, type Page } from "@playwright/test";
 import { join } from "node:path";
+import type { UrlEditState } from "@/store.tsx";
 
 /**
  * Deliberately unroutable host. Every request to it is fulfilled from the local
@@ -153,6 +154,17 @@ export async function movePlayhead(page: Page, fraction: number) {
     position: { x: box.width * fraction, y: box.height / 2 },
   });
 
+  // The track measures its own width a moment after it mounts and draws the
+  // playhead at its left edge until then, out of reach of a pointer aimed here.
+  const handle = page.locator("div.w-4.cursor-grab");
+  await expect
+    .poll(async () => {
+      const drawn = (await handle.boundingBox())!;
+      const aim = box.x + box.width * fraction;
+      return Math.abs(drawn.x + drawn.width / 2 - aim);
+    })
+    .toBeLessThan(1);
+
   return box;
 }
 
@@ -162,18 +174,17 @@ export function fadeInButton(page: Page) {
 }
 
 /** The edit state carried by the current hash, decoded. */
-export function editStateFromHash(page: Page) {
+export function editStateFromHash(page: Page): UrlEditState | null {
   const hash = new URL(page.url()).hash.slice(1);
   if (!hash) return null;
   const b64 = hash.replace(/-/g, "+").replace(/_/g, "/");
-  return JSON.parse(Buffer.from(b64, "base64").toString());
+  return JSON.parse(Buffer.from(b64, "base64").toString()) as UrlEditState;
 }
 
 /**
- * The canvas box, once its debounced resize observer has caught up with the
- * player. A `<video>` is 300x150 until its metadata arrives, so a box measured
- * before then is both the wrong size and in the wrong place, and every pointer
- * fraction computed from it lands somewhere else on the real canvas.
+ * The canvas box, once the canvas has measured the player. It mounts with the
+ * metadata and takes its size a frame later, so a box read before then is 0x0
+ * and every pointer fraction computed from it lands in its corner.
  */
 export async function settledCanvasBox(page: Page) {
   await expect

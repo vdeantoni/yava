@@ -1,6 +1,7 @@
-import { test, expect } from "@playwright/experimental-ct-react";
-import TimelineToolbar from "@/components/timeline/TimelineToolbar";
-import { withStore } from "../helpers";
+import { test, expect } from "@playwright/test";
+import type { Default } from "@/components/timeline/TimelineToolbar.story.tsx";
+
+const TOOLBAR = "components/timeline/TimelineToolbar/Default";
 
 const SLICE = "Slice at the playhead";
 const FADE_IN = "Fade in";
@@ -9,10 +10,7 @@ const FADE_OUT = "Fade out";
 test("slice button is disabled when cursor is at segment start", async ({
   mount,
 }) => {
-  const component = await mount(
-    <TimelineToolbar />,
-    withStore({ cursorCurrent: 0 }),
-  );
+  const component = await mount<typeof Default>(TOOLBAR, { cursorCurrent: 0 });
 
   await expect(component.getByRole("button", { name: SLICE })).toBeDisabled();
 });
@@ -21,10 +19,9 @@ test("slice button is disabled when cursor is near segment boundary", async ({
   mount,
 }) => {
   // MIN_SLICE_DISTANCE is 0.5s — cursor at 0.3 is within that threshold
-  const component = await mount(
-    <TimelineToolbar />,
-    withStore({ cursorCurrent: 0.3 }),
-  );
+  const component = await mount<typeof Default>(TOOLBAR, {
+    cursorCurrent: 0.3,
+  });
 
   await expect(component.getByRole("button", { name: SLICE })).toBeDisabled();
 });
@@ -32,10 +29,7 @@ test("slice button is disabled when cursor is near segment boundary", async ({
 test("slice button is enabled when cursor is within a segment", async ({
   mount,
 }) => {
-  const component = await mount(
-    <TimelineToolbar />,
-    withStore({ cursorCurrent: 30 }),
-  );
+  const component = await mount<typeof Default>(TOOLBAR, { cursorCurrent: 30 });
 
   await expect(component.getByRole("button", { name: SLICE })).toBeEnabled();
 });
@@ -43,10 +37,7 @@ test("slice button is enabled when cursor is within a segment", async ({
 test("clicking slice increases segment count from 1 to 2", async ({
   mount,
 }) => {
-  const component = await mount(
-    <TimelineToolbar />,
-    withStore({ cursorCurrent: 30 }),
-  );
+  const component = await mount<typeof Default>(TOOLBAR, { cursorCurrent: 30 });
 
   const button = component.getByRole("button", { name: SLICE });
   await button.click();
@@ -57,10 +48,7 @@ test("clicking slice increases segment count from 1 to 2", async ({
 });
 
 test("fade buttons are enabled inside a segment", async ({ mount }) => {
-  const component = await mount(
-    <TimelineToolbar />,
-    withStore({ cursorCurrent: 30 }),
-  );
+  const component = await mount<typeof Default>(TOOLBAR, { cursorCurrent: 30 });
 
   await expect(component.getByRole("button", { name: FADE_IN })).toBeEnabled();
   await expect(component.getByRole("button", { name: FADE_OUT })).toBeEnabled();
@@ -69,10 +57,7 @@ test("fade buttons are enabled inside a segment", async ({ mount }) => {
 test("fade in is disabled at the start of a segment, fade out is not", async ({
   mount,
 }) => {
-  const component = await mount(
-    <TimelineToolbar />,
-    withStore({ cursorCurrent: 0 }),
-  );
+  const component = await mount<typeof Default>(TOOLBAR, { cursorCurrent: 0 });
 
   await expect(component.getByRole("button", { name: FADE_IN })).toBeDisabled();
   await expect(component.getByRole("button", { name: FADE_OUT })).toBeEnabled();
@@ -81,10 +66,7 @@ test("fade in is disabled at the start of a segment, fade out is not", async ({
 test("fade out is disabled at the end of a segment, fade in is not", async ({
   mount,
 }) => {
-  const component = await mount(
-    <TimelineToolbar />,
-    withStore({ cursorCurrent: 60 }),
-  );
+  const component = await mount<typeof Default>(TOOLBAR, { cursorCurrent: 60 });
 
   await expect(
     component.getByRole("button", { name: FADE_OUT }),
@@ -95,10 +77,7 @@ test("fade out is disabled at the end of a segment, fade in is not", async ({
 test("setting a fade presses its button, and a second click releases it", async ({
   mount,
 }) => {
-  const component = await mount(
-    <TimelineToolbar />,
-    withStore({ cursorCurrent: 30 }),
-  );
+  const component = await mount<typeof Default>(TOOLBAR, { cursorCurrent: 30 });
 
   const fadeIn = component.getByRole("button", { name: FADE_IN });
   await expect(fadeIn).toHaveAttribute("aria-pressed", "false");
@@ -117,13 +96,10 @@ test("setting a fade presses its button, and a second click releases it", async 
 test("a set fade can be removed from the start of the segment", async ({
   mount,
 }) => {
-  const component = await mount(
-    <TimelineToolbar />,
-    withStore({
-      cursorCurrent: 0,
-      segments: [{ id: "s0", sourceStart: 0, sourceEnd: 60, fadeIn: 5 }],
-    }),
-  );
+  const component = await mount<typeof Default>(TOOLBAR, {
+    cursorCurrent: 0,
+    segments: [{ id: "s0", sourceStart: 0, sourceEnd: 60, fadeIn: 5 }],
+  });
 
   // Nothing to set at the very start, but the fade already there can still go.
   const fadeIn = component.getByRole("button", { name: FADE_IN });

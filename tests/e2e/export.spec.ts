@@ -65,7 +65,7 @@ async function saveExport(page: Page) {
     page.getByRole("button", { name: "Download" }).click(),
   ]).then(([d]) => d);
 
-  return (await download.path())!;
+  return download.path();
 }
 
 /** Decode from `at` seconds to stdout, however `args` asks for it. */

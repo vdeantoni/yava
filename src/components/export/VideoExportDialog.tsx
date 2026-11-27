@@ -10,8 +10,7 @@ import {
 } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { Progress } from "@/components/ui/progress.tsx";
-// @ts-expect-error no type declarations available
-import { LogEvent, ProgressEvent } from "@ffmpeg/ffmpeg/dist/esm/types";
+import type { LogEvent, ProgressEvent } from "@ffmpeg/ffmpeg";
 import {
   Dialog,
   DialogContent,
@@ -213,7 +212,7 @@ const VideoExportDialog = ({ children }: PropsWithChildren) => {
       }
     } else {
       video?.pause();
-      exportHandler();
+      void exportHandler();
     }
     setOpen(open);
   };

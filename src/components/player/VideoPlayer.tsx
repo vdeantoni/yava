@@ -243,7 +243,9 @@ const VideoPlayer = () => {
             )}
           />
 
-          <VideoCanvas videoRef={videoRef} />
+          {/* Mounted with the metadata, so its first measurement is the picture's
+              real size rather than the empty element's 300x150 default. */}
+          {video && <VideoCanvas videoRef={videoRef} />}
         </div>
 
         {processing && (

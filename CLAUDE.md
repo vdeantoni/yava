@@ -12,31 +12,31 @@ Users import a video (file, URL, camera, screen capture), then trim, slice into 
 
 - `npm run dev` — Vite dev server on https://localhost:3000 (self-signed cert via `@vitejs/plugin-basic-ssl`)
 - `npm run build` — `tsc -b` then Vite production build
-- `npm run check` — typecheck + Prettier check + ESLint. Run this before calling work done.
-- `npm run format` — Prettier write over `src/**`
+- `npm run check` — typecheck + Prettier check + oxlint. Run this before calling work done.
+- `npm run format` — Prettier write over the whole repo
 - `npm run test` — all three suites in sequence
 
 ### Tests
 
 Three separate runners, three separate configs:
 
-| Suite                     | Command             | Config                     | Location                      |
-| ------------------------- | ------------------- | -------------------------- | ----------------------------- |
-| Unit (jsdom)              | `npm run test:unit` | `vitest.config.ts`         | `src/**/*.test.ts`            |
-| Component (Playwright CT) | `npm run test:ct`   | `playwright-ct.config.ts`  | `tests/components/*.spec.tsx` |
-| End-to-end                | `npm run test:e2e`  | `playwright-e2e.config.ts` | `tests/e2e/*.spec.ts`         |
+| Suite                  | Command             | Config                     | Location                     |
+| ---------------------- | ------------------- | -------------------------- | ---------------------------- |
+| Unit (jsdom)           | `npm run test:unit` | `vitest.config.ts`         | `src/**/*.test.ts`           |
+| Component (Playwright) | `npm run test:ct`   | `playwright-ct.config.ts`  | `tests/components/*.spec.ts` |
+| End-to-end             | `npm run test:e2e`  | `playwright-e2e.config.ts` | `tests/e2e/*.spec.ts`        |
 
 Single test:
 
 ```bash
 npx vitest run src/store.test.ts -t "sliceAtCursor"
-npx playwright test -c playwright-ct.config.ts tests/components/VideoTimeline.spec.tsx
+npx playwright test -c playwright-ct.config.ts tests/components/VideoTimeline.spec.ts
 npx playwright test -c playwright-e2e.config.ts -g "hash URL round-trip"
 ```
 
 The e2e suite starts the dev server itself (`reuseExistingServer: true`) and serves `tests/fixtures/tiny.mp4` from a routed, unroutable host, so it never touches the network.
 
-`tests/e2e/export.spec.ts` is the exception. Its two real-FFmpeg tests pull the ~32MB WASM core from unpkg and are skipped unless `YAVA_E2E_FFMPEG=1` is set:
+`tests/e2e/export.spec.ts` is the exception. The tests in its `export` block run real FFmpeg: they pull the ~32MB WASM core from unpkg and are skipped unless `YAVA_E2E_FFMPEG=1` is set:
 
 ```bash
 YAVA_E2E_FFMPEG=1 npx playwright test -c playwright-e2e.config.ts tests/e2e/export.spec.ts
@@ -92,7 +92,7 @@ A `seg` entry is `[start, end]`, or `[start, end, fadeIn, fadeOut]` once either 
 
 ### FFmpeg
 
-One `FFmpeg` instance lives in the store, unloaded until first export. `useFFmpeg` fetches the core from unpkg (`@ffmpeg/core@0.12.10`, or `core-mt` when multithreading is available) and reports per-file download progress against hardcoded byte sizes in `FILE_SIZES`. They are hardcoded because unpkg serves these chunked with no `Content-Length`, so `@ffmpeg/util` reports `total: -1` and cannot compute progress itself. The two builds differ in size, so re-measure both sets when bumping the version.
+One `FFmpeg` instance lives in the store, unloaded until first export. `useFFmpeg` loads the core from unpkg through `loadCore` (`@ffmpeg/core@0.12.10`, or `core-mt` when multithreading is available) and reports per-file download progress against the hardcoded byte sizes in `CORE` in `src/lib/load-core.ts`. They are hardcoded because unpkg serves these chunked with no `Content-Length`, so `@ffmpeg/util` reports `total: -1` and cannot compute progress itself. The two builds differ in size, so re-measure both sets when bumping the version.
 
 `loadCore` in `src/lib/load-core.ts` does the fetching and keeps one load per
 FFmpeg instance in a `WeakMap`, so concurrent callers share it rather than each
@@ -130,7 +130,7 @@ One segment runs a single `exec`. Multiple segments extract each to `segment_N.<
 
 ### When a video will not show a picture
 
-Four states end up here and `src/lib/media-notice.ts` holds every message, the state names, and the rules that tell them apart. Each state has a constructor there returning a whole `MediaNotice`, so no component ever pairs a message with a detail line or picks a tone. If the element raises an error, `describeMediaError` turns the code into one; Chromium fires that with a null `MediaError` for a codec it cannot use, so a missing code is read as an unsupported codec rather than something generic.
+Four states end up here and `src/lib/media-notice.ts` holds every message, the state names, and the rules that tell them apart. Its three constructors each return a whole `MediaNotice`, so no component ever pairs a message with a detail line or picks a tone: `describeMediaError`, `describeMissingMetadata`, and `describeBlankPicture`, which covers both the second state and the fourth. If the element raises an error, `describeMediaError` turns the code into one; Chromium fires that with a null `MediaError` for a codec it cannot use, so a missing code is read as an unsupported codec rather than something generic.
 
 The second raises nothing at all. A file whose video track the browser cannot decode but whose audio track it can will report metadata and reach readyState 4, so the editor opens on a player that never produces a frame and a timeline with no thumbnails. `VideoPlayer` waits `FRAME_CHECK_MS` after the metadata and checks `getVideoPlaybackQuality().totalVideoFrames`, which a working source fills within ~200ms. Export still works in that state, since FFmpeg brings its own decoders, and the message says so. `requestVideoFrameCallback` is no use here: it never fires for a paused video, working or not.
 
@@ -148,8 +148,8 @@ Each message carries the element's own account of itself underneath: `ready meta
 
 ### Pointer maths lives in lib
 
-`src/lib/crop.ts` and `src/lib/timeline.ts` hold the geometry the canvas and the
-timeline used to compute inline: corner hit-testing, drag anchors, clamping a
+`src/lib/crop.ts` and `src/lib/timeline.ts` hold the geometry behind the canvas and
+the timeline: corner hit-testing, drag anchors, clamping a
 moved rectangle or segment against its bounds and neighbours, the ruler's mark
 intervals, and reproportioning a crop when the player is resized. The components keep the refs, the drawing and
 the event wiring. Both modules take plain numbers so the edges are unit-testable,
@@ -182,22 +182,24 @@ The fade preview is a black overlay over the player. `fadeGainAt` returns what t
 
 ## Test setup
 
-Both Vitest and Playwright CT alias `@ffmpeg/ffmpeg` to `src/__mocks__/@ffmpeg/ffmpeg.ts` (an empty `FFmpeg` class). Without it the store constructor drags in WASM.
+Vitest aliases `@ffmpeg/ffmpeg` to `src/__mocks__/@ffmpeg/ffmpeg.ts` (an empty `FFmpeg` class). Without it the store constructor drags in WASM.
 
-Component tests seed the store rather than driving the UI from an empty state. `playwright/index.tsx` registers a `beforeMount` hook that applies `hooksConfig.storeState` via `useAppStore.setState`, and `tests/helpers.ts` exports `withStore(overrides)` to build that config against a 60-second fake video. A `Blob` cannot be serialized from Node to the browser, so pass `file: true` and the hook constructs a real Blob.
+Component tests are plain Playwright tests against a story gallery. `playwright/gallery/` is a page the dev server serves at `/playwright/gallery/index.html`, which renders the story a test names into `#root`; the `mount(storyId, props)` fixture built into `@playwright/test` drives it. Stories sit next to their component in `*.story.tsx`, and an id is the path under `src/` plus the export name, e.g. `components/panels/TrimPanel/Default`. Ids are strings, so renaming a story breaks its spec only at runtime; `mount<typeof Default>(id, props)` at least checks the props.
 
-E2E tests wait on the "Start Over" button as the editor-ready signal, and poll `page.url()` for hash changes because of the 500ms sync debounce.
+Stories seed the store rather than driving the UI from an empty state. `useEditor` in `src/stories/editor.ts` opens the editor on a 60-second fake video and writes the segments through `commitSegments`, so the cursor mirrors hold. Props cross from Node as JSON, so a test passes plain data (`segments`, `cursorCurrent`, `pendingEditState`) and the story builds the video and the `Blob` in the browser.
+
+E2E tests wait on the "Start Over" button as the signal that a file is loaded, and poll `page.url()` for hash changes because of the 500ms sync debounce. "Start Over" appears before the metadata, and the track measures its own width a frame after it mounts, so a test that aims the pointer at the timeline waits for it to be laid out first, as `movePlayhead` does.
 
 ## Conventions
 
-- Path alias `@` maps to `./src`, declared in `tsconfig.app.json`, `vite.config.ts`, `vitest.config.ts`, and `playwright-ct.config.ts`. Keep them in sync.
+- Path alias `@` maps to `./src`, declared in `tsconfig.app.json`, `vite.config.ts`, and `vitest.config.ts`. Keep them in sync.
 - Tailwind 4 config lives in `src/index.css` under `@theme inline`. There is no `tailwind.config.js`. Colors are HSL custom properties, dark theme only, no light mode.
 - `src/components/ui/` is shadcn/ui output managed by the CLI (`components.json`: default style, slate base). Do not hand-edit.
 - Every control needs an accessible name, and `tests/e2e/accessible-names.spec.ts` fails if one does not have it. Icon-only buttons carry `aria-label`; inputs get an id from `useId` and a label pointing at it, which also keeps the ids unique, since both the desktop and mobile layouts mount every panel. The two `Slider` thumbs are the one exception: Radix renders them inside the primitive and `src/components/ui` is not hand-edited. Playwright matches accessible names by substring, so `{ exact: true }` matters when one name contains another.
 - Never subscribe with a bare `useAppStore()`. Zustand rebuilds state on every `set`, so a selectorless component re-renders on every store write. Select with `useShallow` for several keys, or `useAppStore((s) => s.thing)` for one. This matters most in `App`: it renders the whole editor, and nothing below it can opt out of a re-render while it re-renders, so a selectorless `App` defeats every child's selector. Read one-shot values inside a handler with `useAppStore.getState()` instead of subscribing.
-- `cursorCurrent` changes at pointer rate while scrubbing, so what each consumer does with it follows one question: does it render the value? `Playhead` and the timecode in `VideoControls` do, so they subscribe narrowly and repaint on every move, which is the work. `TimelineToolbar` renders a coarse projection, so it derives each button's enabled and pressed state inside its selector and the equality check absorbs the churn. `VideoPlayer` never renders it, so it does not subscribe at all: its seek and its fade overlay run off a `useAppStore.subscribe`, and its handlers read `segments` with `useAppStore.getState()`. Measured over a 20-move drag, a scrub re-renders `Playhead` and the timecode and nothing else, and a segment drag no longer touches the player.
+- `cursorCurrent` changes at pointer rate while scrubbing, so what each consumer does with it follows one question: does it render the value? `Playhead` and the timecode in `VideoControls` do, so they subscribe narrowly and repaint on every move, which is the work. `TimelineToolbar` renders a coarse projection, so it derives each button's enabled and pressed state inside its selector and the equality check absorbs the churn. `VideoPlayer` never renders it, so it does not subscribe at all: its seek and its fade overlay run off a `useAppStore.subscribe`, and its handlers read `segments` with `useAppStore.getState()`. Measured over a 20-move drag, a scrub re-renders `Playhead` and the timecode and nothing else, and a segment drag does not re-render the player.
 - `VideoTimeline` holds its tick and mark row in a `useMemo`. A segment drag re-renders the track on every pointer move, and those ~150 nodes move only with the scale, so handing React the same element lets it skip the subtree. The ruler itself comes from `timelineMarks` in `src/lib/timeline.ts`, where its fallbacks are tested: a duration past the largest interval drops to one-second marks, and only the tick cap keeps four hours from being fourteen thousand nodes.
 - `playheadTimeAt` in `src/lib/timeline.ts` decides where a pointer time parks the playhead, for both the track's click and the playhead's own drag. They have to agree, or clicking and dragging to the same pixel land in different places.
-- ESLint flat config turns off three React Compiler rules (`preserve-manual-memoization`, `set-state-in-effect`, `immutability`) that the codebase does not satisfy yet. Do not re-enable them for a local fix.
+- `.oxlintrc.json` turns off two React Compiler rules (`react/set-state-in-effect`, `react/immutability`) that the codebase does not satisfy yet. Do not re-enable them for a local fix.
 - Icons come from `lucide-react`. Vite env access uses `import.meta.env.DEV`.
 - Prettier defaults, enforced by `npm run check`.

@@ -43,13 +43,13 @@ const CameraRecorder = ({ onDone, onCancel }: CameraRecorderProps) => {
   // Check permission on mount
   useEffect(() => {
     let status: PermissionStatus | null = null;
-    const onChange = () => setPermission(status!.state as Permission);
-    (async () => {
+    const onChange = () => setPermission(status!.state);
+    void (async () => {
       try {
         status = await navigator.permissions.query({
-          name: "camera" as PermissionName,
+          name: "camera",
         });
-        setPermission(status.state as Permission);
+        setPermission(status.state);
         status.addEventListener("change", onChange);
       } catch {
         // Safari doesn't support permissions.query for camera
@@ -72,7 +72,7 @@ const CameraRecorder = ({ onDone, onCancel }: CameraRecorderProps) => {
 
   useEffect(() => {
     if (permission === "granted") {
-      enumerateDevices();
+      enumerateDevices().catch(() => setVideoDevices([]));
     }
   }, [permission, enumerateDevices]);
 
@@ -82,7 +82,7 @@ const CameraRecorder = ({ onDone, onCancel }: CameraRecorderProps) => {
 
     let cancelled = false;
 
-    (async () => {
+    void (async () => {
       // Stop previous preview
       previewStreamRef.current?.getTracks().forEach((t) => t.stop());
       setPreviewing(false);
@@ -165,7 +165,9 @@ const CameraRecorder = ({ onDone, onCancel }: CameraRecorderProps) => {
             ask for permission.
           </p>
         </div>
-        <Button onClick={requestPermission}>Allow Camera Access</Button>
+        <Button onClick={() => void requestPermission()}>
+          Allow Camera Access
+        </Button>
         <Button variant="ghost" size="sm" onClick={cancel}>
           Cancel
         </Button>

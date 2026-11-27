@@ -70,8 +70,9 @@ export function encodeEditState(state: {
 export function decodeEditState(hash: string): UrlEditState | null {
   try {
     const json = fromBase64Url(hash);
-    const obj = JSON.parse(json);
-    if (typeof obj !== "object" || obj === null) return null;
+    const parsed: unknown = JSON.parse(json);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const obj = parsed as Record<string, unknown>;
 
     const state: UrlEditState = {};
 
@@ -79,7 +80,7 @@ export function decodeEditState(hash: string): UrlEditState | null {
 
     if (Array.isArray(obj.seg)) {
       const segs: UrlSegment[] = [];
-      for (const s of obj.seg) {
+      for (const s of obj.seg as unknown[]) {
         if (
           Array.isArray(s) &&
           (s.length === 2 || s.length === 4) &&

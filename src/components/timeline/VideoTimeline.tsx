@@ -2,6 +2,7 @@ import { useAppStore } from "@/store.tsx";
 import {
   Fragment,
   RefObject,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -31,17 +32,23 @@ import {
 } from "@/components/ui/tooltip.tsx";
 
 const TRACK_RESIZE_OBSERVER_DEBOUNCE_TIME = 200;
+// The first size lands at once, so the track is never drawn at zero width;
+// only the resizes after it wait out the debounce.
+const TRACK_RESIZE_DEBOUNCE = { leading: true, trailing: true };
 
 const useTrackResizeObserver = (ref: RefObject<HTMLDivElement | null>) => {
   const [width, setWidth] = useState(0);
 
-  const onResize = useDebounceCallback(({ width }) => {
-    if (!width) {
-      return;
-    }
-
-    setWidth(width);
-  }, TRACK_RESIZE_OBSERVER_DEBOUNCE_TIME);
+  // Stable, because useDebounceCallback builds a new debouncer whenever its
+  // callback changes, and each new one would fire its leading edge again.
+  const measure = useCallback((size: { width?: number }) => {
+    if (size.width) setWidth(size.width);
+  }, []);
+  const onResize = useDebounceCallback(
+    measure,
+    TRACK_RESIZE_OBSERVER_DEBOUNCE_TIME,
+    TRACK_RESIZE_DEBOUNCE,
+  );
 
   useResizeObserver({
     ref: ref as RefObject<HTMLDivElement>,

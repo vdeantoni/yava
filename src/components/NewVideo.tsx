@@ -2,6 +2,8 @@ import { useAppStore } from "@/store.tsx";
 import { useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { useDropzone } from "react-dropzone";
+import { fromEvent } from "file-selector";
+import { COMMON_MIME_TYPES } from "file-selector/mime";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
@@ -134,6 +136,10 @@ const NewVideo = () => {
     accept: {
       "video/*": [],
     },
+    // A file the browser left typeless matches "video/*" only once its
+    // extension has been looked up, and the default table knows mp4 and webm.
+    getFilesFromEvent: (event) =>
+      fromEvent(event, { mimeTypes: COMMON_MIME_TYPES }),
     multiple: false,
     noClick: true,
     noKeyboard: true,
@@ -151,7 +157,7 @@ const NewVideo = () => {
   useEffect(() => {
     const controller = new AbortController();
 
-    const handlePaste = async (e: ClipboardEvent) => {
+    const handlePaste = (e: ClipboardEvent) => {
       const items = e.clipboardData;
       if (!items) return;
 
@@ -176,7 +182,7 @@ const NewVideo = () => {
       }
 
       e.preventDefault();
-      fetchVideoFromUrl(text, controller.signal);
+      void fetchVideoFromUrl(text, controller.signal);
     };
 
     document.addEventListener("paste", handlePaste);
@@ -298,7 +304,7 @@ const NewVideo = () => {
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && urlInput.trim()) {
                     setMode("file");
-                    fetchVideoFromUrl(urlInput.trim());
+                    void fetchVideoFromUrl(urlInput.trim());
                   }
                   if (e.key === "Escape") {
                     setMode("file");
@@ -313,7 +319,7 @@ const NewVideo = () => {
                 disabled={!urlInput.trim()}
                 onClick={() => {
                   setMode("file");
-                  fetchVideoFromUrl(urlInput.trim());
+                  void fetchVideoFromUrl(urlInput.trim());
                 }}
               >
                 <ArrowRight className="h-4 w-4" />

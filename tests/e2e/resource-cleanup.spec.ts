@@ -11,8 +11,8 @@ test("Start Over lets go of the file", async ({ page, context }) => {
   await gotoVideoUrl(page);
   await waitForEditor(page);
 
-  const url = await page.evaluate(
-    () => document.querySelector("video")!.getAttribute("src")!,
+  const url = await page.evaluate(() =>
+    document.querySelector("video")!.getAttribute("src")!,
   );
   expect(url).toMatch(/^blob:/);
 
