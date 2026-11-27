@@ -188,7 +188,7 @@ Component tests are plain Playwright tests against a story gallery. `playwright/
 
 Stories seed the store rather than driving the UI from an empty state. `useEditor` in `src/stories/editor.ts` opens the editor on a 60-second fake video and writes the segments through `commitSegments`, so the cursor mirrors hold. Props cross from Node as JSON, so a test passes plain data (`segments`, `cursorCurrent`, `pendingEditState`) and the story builds the video and the `Blob` in the browser.
 
-E2E tests wait on the "Start Over" button as the signal that a file is loaded, and poll `page.url()` for hash changes because of the 500ms sync debounce. "Start Over" appears before the metadata, and the track measures its width through a debounced observer, so a test that aims the pointer at the timeline waits for it to be laid out first, as `movePlayhead` does.
+E2E tests wait on the "Start Over" button as the signal that a file is loaded, and poll `page.url()` for hash changes because of the 500ms sync debounce. "Start Over" appears before the metadata, and the track measures its own width a frame after it mounts, so a test that aims the pointer at the timeline waits for it to be laid out first, as `movePlayhead` does.
 
 ## Conventions
 

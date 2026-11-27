@@ -9,8 +9,6 @@ const segmentSelector = ".z-10.cursor-grab";
 test("renders a segment highlight for a single segment", async ({ mount }) => {
   const component = await mount(TIMELINE);
 
-  await component.page().waitForTimeout(300);
-
   const highlights = component.locator(segmentSelector);
   await expect(highlights).toHaveCount(1);
 });
@@ -28,8 +26,6 @@ test("renders multiple segment highlights for 2 segments", async ({
     },
   });
 
-  await component.page().waitForTimeout(300);
-
   const highlights = component.locator(segmentSelector);
   await expect(highlights).toHaveCount(2);
 });
@@ -44,8 +40,6 @@ test("renders gap overlay between non-adjacent segments", async ({ mount }) => {
     },
   });
 
-  await component.page().waitForTimeout(300);
-
   // Gap overlay has bg-background/60 class
   const gaps = component.locator("[class*='bg-background']");
   await expect(gaps).toHaveCount(1);
@@ -53,8 +47,6 @@ test("renders gap overlay between non-adjacent segments", async ({ mount }) => {
 
 test("shows resize handles when segment is hovered", async ({ mount }) => {
   const component = await mount(TIMELINE);
-
-  await component.page().waitForTimeout(300);
 
   // Before hover — no resize handles
   const handles = component.locator(".cursor-col-resize");
@@ -79,8 +71,6 @@ test("shows delete action button when multiple segments and hovered", async ({
       ],
     },
   });
-
-  await component.page().waitForTimeout(300);
 
   // Hover over first segment to trigger actions
   const highlight = component.locator(segmentSelector).first();
