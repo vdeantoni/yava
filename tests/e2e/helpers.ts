@@ -182,10 +182,9 @@ export function editStateFromHash(page: Page): UrlEditState | null {
 }
 
 /**
- * The canvas box, once its debounced resize observer has caught up with the
- * player. A `<video>` is 300x150 until its metadata arrives, so a box measured
- * before then is both the wrong size and in the wrong place, and every pointer
- * fraction computed from it lands somewhere else on the real canvas.
+ * The canvas box, once the canvas has measured the player. It mounts with the
+ * metadata and takes its size a frame later, so a box read before then is 0x0
+ * and every pointer fraction computed from it lands in its corner.
  */
 export async function settledCanvasBox(page: Page) {
   await expect
